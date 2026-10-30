@@ -1,0 +1,219 @@
+@import "tailwindcss";
+
+/* ════════════════════════════════════════════════════════════════
+   Design system E-Invitly — source unique des couleurs, polices,
+   espacements et composants de base. Modifier ici = modifier partout.
+   ════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* Couleurs de marque */
+  --color-ivory: #faf8f4;
+  --color-paper: #f4f0e9;
+  --color-sand: #ddd2c3;
+  --color-sage: #a6b5a2;
+  --color-sage-soft: #e3e8df;
+  --color-forest: #586c60;
+  --color-forest-deep: #3f5046;
+  --color-charcoal: #323330;
+  --color-stone: #66695f;
+  --color-line: #e6dfd3;
+
+  /* États */
+  --color-success: #4f6b52;
+  --color-warning: #9a6b2f;
+  --color-danger: #a1453a;
+  --color-danger-soft: #f6e7e4;
+
+  /* Typographie */
+  --font-display: "Aboreto", "Cormorant Garamond", Georgia, serif;
+  --font-script: "Dancing Script", cursive;
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Jost Variable", "Jost", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-arabic: "Amiri", "Noto Naskh Arabic", serif;
+
+  /* Rayons, ombres */
+  --radius-card: 2px;
+  --shadow-paper: 0 1px 2px rgb(50 51 48 / 0.04), 0 12px 32px -12px rgb(50 51 48 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(50 51 48 / 0.05), 0 24px 48px -16px rgb(50 51 48 / 0.18);
+
+  /* Animations */
+  --animate-rise: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-fade: fade 1.2s ease both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--color-ivory);
+    color: var(--color-charcoal);
+    font-family: var(--font-sans);
+    font-weight: 380;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--color-sage-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-forest);
+    outline-offset: 3px;
+  }
+  [dir="rtl"] body,
+  :lang(ar) {
+    font-family: var(--font-arabic);
+  }
+}
+
+@layer components {
+  /* Grain de papier très léger, en SVG inline (aucune requête réseau) */
+  .paper-texture {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.2 0 0 0 0 0.2 0 0 0 0 0.18 0 0 0 0.035 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /* Bordures des invitations (variables de thème) */
+  .inv-border-soft { border-color: var(--inv-soft); }
+  .inv-border-accent { border-color: var(--inv-accent); }
+
+  .eyebrow {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--color-forest);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.875rem;
+    padding: 0 1.5rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--color-forest);
+    color: var(--color-ivory);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-forest-deep);
+  }
+  .btn-secondary {
+    border-color: var(--color-forest);
+    color: var(--color-forest);
+    background: transparent;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--color-sage-soft);
+  }
+  .btn-ghost {
+    color: var(--color-charcoal);
+    padding: 0 0.75rem;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    color: var(--color-forest);
+  }
+  .btn-danger {
+    background: var(--color-danger);
+    color: white;
+  }
+  .btn-sm {
+    min-height: 2.25rem;
+    padding: 0 1rem;
+    font-size: 0.7rem;
+  }
+
+  .field-label {
+    display: block;
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    color: var(--color-stone);
+    margin-bottom: 0.4rem;
+  }
+  .field {
+    width: 100%;
+    min-height: 2.875rem;
+    padding: 0.65rem 0.9rem;
+    background: white;
+    border: 1px solid var(--color-sand);
+    border-radius: 2px;
+    font-size: 1rem; /* ≥16px : évite le zoom automatique sur iOS */
+    color: var(--color-charcoal);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--color-forest);
+    box-shadow: 0 0 0 3px rgb(88 108 96 / 0.15);
+  }
+  .field[aria-invalid="true"] {
+    border-color: var(--color-danger);
+  }
+  textarea.field {
+    min-height: 6rem;
+    resize: vertical;
+  }
+  .field-error {
+    margin-top: 0.35rem;
+    font-size: 0.82rem;
+    color: var(--color-danger);
+  }
+  .field-hint {
+    margin-top: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--color-stone);
+  }
+
+  .card {
+    background: white;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+  }
+
+  .prose-legal h2 { font-family: var(--font-serif); font-size: 1.5rem; margin: 2rem 0 0.75rem; }
+  .prose-legal p { margin: 0 0 1rem; line-height: 1.75; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

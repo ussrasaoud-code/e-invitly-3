@@ -1,0 +1,9 @@
+# Netlify détecte Next.js automatiquement (adaptateur OpenNext, mis à jour
+# à chaque build). Ce fichier fixe seulement la commande et la version de Node.
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
