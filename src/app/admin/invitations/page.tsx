@@ -90,7 +90,13 @@ export default async function InvitationsPage({ searchParams }: { searchParams: 
                     <td className="px-4 py-3">{formatShortDate(i.event_at)}</td>
                     <td className="px-4 py-3">{tpl?.name ?? "—"}</td>
                     <td className="px-4 py-3"><StatusBadge {...INVITATION_STATUS[i.status as InvitationStatus]} /></td>
-                    <td className="px-4 py-3 text-xs text-stone">{host}/<span className="text-charcoal">{i.slug}</span></td>
+                    <td className="px-4 py-3 text-xs text-stone">
+                      {i.status === "published" ? (
+                        <a href={`/${i.slug}`} target="_blank" rel="noopener" className="text-forest underline-offset-4 hover:underline">{host}/{i.slug} ↗</a>
+                      ) : (
+                        <>{host}/<span className="text-charcoal">{i.slug}</span></>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{formatShortDate(i.published_at)}</td>
                     <td className="px-4 py-3 text-xs text-stone">{relativeFromNow(i.draft_updated_at)}</td>
                     <td className="px-4 py-3 text-right tabular-nums">

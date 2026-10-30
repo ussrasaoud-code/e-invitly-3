@@ -12,6 +12,8 @@ export const RESERVED_SLUGS = new Set([
   "invitation",
   "personnalisation",
   "demo",
+  "apercu",
+  "preview",
   "connexion",
   "deconnexion",
   "login",

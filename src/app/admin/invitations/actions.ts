@@ -12,6 +12,8 @@ import { isSlugTaken, suggestSlug } from "@/lib/slug-db";
 import { INVITATION_STATUS, MANUAL_INVITATION_STATUSES } from "@/lib/status";
 import { createClient } from "@/lib/supabase/server";
 import { zonedToUtc } from "@/lib/time";
+import { env } from "@/lib/env";
+import { hashAccessCode, newPreviewToken, normalizeAccessCode } from "@/lib/publication";
 
 const uuid = z.string().uuid();
 
@@ -79,13 +81,177 @@ export async function updateSlug(form: FormData) {
   const supabase = (await createClient())!;
   const { data: inv } = await supabase.from("invitations").select("slug, published_version_id").eq("id", invitationId).single();
   if (!inv) throw new Error("Invitation introuvable.");
-  if (inv.published_version_id) {
-    throw new Error("Cette invitation a déjà été publiée : le changement d'adresse avec redirection arrive avec la publication (phase 4).");
-  }
+  if (inv.slug === slug) return;
   if (await isSlugTaken(supabase, slug, invitationId)) throw new Error("Cette adresse est déjà utilisée.");
+
+  // Reprise d'une ancienne adresse de cette même invitation : on retire la redirection.
+  await supabase.from("slug_redirects").delete().eq("old_slug", slug).eq("invitation_id", invitationId);
   const { error } = await supabase.from("invitations").update({ slug }).eq("id", invitationId);
   if (error) throw new Error(error.code === "23505" ? "Cette adresse vient d'être prise." : error.message);
-  await logActivity({ actorId: user.id, action: "invitation.slug", resourceType: "invitation", resourceId: invitationId, summary: `Adresse changée : ${inv.slug} → ${slug}` });
+
+  // Déjà publiée : l'ancien lien redirige vers le nouveau, sauf refus explicite (confidentialité).
+  const keepRedirect = Boolean(inv.published_version_id) && form.get("redirect") === "on";
+  if (keepRedirect) {
+    const { error: rErr } = await supabase
+      .from("slug_redirects")
+      .upsert({ old_slug: inv.slug, invitation_id: invitationId }, { onConflict: "old_slug" });
+    if (rErr) console.error("[slug] redirection", rErr.message);
+  }
+  await logActivity({
+    actorId: user.id,
+    action: "invitation.slug",
+    resourceType: "invitation",
+    resourceId: invitationId,
+    summary: `Adresse changée : ${inv.slug} → ${slug}${keepRedirect ? " (ancien lien redirigé)" : ""}`,
+  });
+  revalidatePath(`/admin/invitations/${invitationId}`);
+  revalidatePath("/admin/invitations");
+}
+
+/* ── Publication ─────────────────────────────────────────────────────── */
+
+/** Publie le brouillon : il devient une nouvelle version, visible à l'adresse publique. */
+export async function publishInvitation(form: FormData) {
+  const user = await requireStaff();
+  const invitationId = uuid.parse(form.get("id"));
+  const note = z.string().trim().max(200).parse(form.get("note") ?? "");
+  const supabase = (await createClient())!;
+  const { data: inv } = await supabase.from("invitations").select("slug, title, status, draft_content").eq("id", invitationId).single();
+  if (!inv) throw new Error("Invitation introuvable.");
+  if (inv.status === "archived") throw new Error("Restaurez l'invitation avant de la publier.");
+  const parsed = invitationContentSchema.safeParse(inv.draft_content);
+  if (!parsed.success) throw new Error("Le brouillon contient des valeurs invalides : corrigez-les dans l'éditeur avant de publier.");
+  const content = parsed.data;
+  if (!content.couple.partnerOne || !content.couple.partnerTwo) throw new Error("Les deux prénoms sont nécessaires avant de publier.");
+  if (!content.eventAt) throw new Error("La date de l'événement est nécessaire avant de publier.");
+
+  let versionId: string | null = null;
+  let versionNumber = 0;
+  for (let attempt = 0; attempt < 3 && !versionId; attempt++) {
+    const { data: last } = await supabase
+      .from("invitation_versions")
+      .select("version")
+      .eq("invitation_id", invitationId)
+      .order("version", { ascending: false })
+      .limit(1);
+    versionNumber = (last?.[0]?.version ?? 0) + 1;
+    const { data: v, error } = await supabase
+      .from("invitation_versions")
+      .insert({ invitation_id: invitationId, version: versionNumber, content, note: note || null, published_by: user.id })
+      .select("id")
+      .single();
+    if (v) versionId = v.id;
+    else if (error?.code !== "23505") throw new Error(`Publication impossible : ${error?.message}`);
+  }
+  if (!versionId) throw new Error("Publication impossible, réessayez.");
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("invitations")
+    .update({ status: "published", published_version_id: versionId, published_at: now, archived_at: null })
+    .eq("id", invitationId);
+  if (error) throw new Error(`Publication impossible : ${error.message}`);
+
+  await logActivity({
+    actorId: user.id,
+    action: "invitation.published",
+    resourceType: "invitation",
+    resourceId: invitationId,
+    summary: `${inv.title} publiée (version ${versionNumber})`,
+  });
+  revalidatePath(`/${inv.slug}`);
+  revalidatePath(`/admin/invitations/${invitationId}`);
+  revalidatePath("/admin/invitations");
+  redirect(`/admin/invitations/${invitationId}?onglet=publication&publiee=${versionNumber}`);
+}
+
+/** Retire l'invitation du site : l'adresse n'affiche plus rien, tout reste dans l'administration. */
+export async function unpublishInvitation(form: FormData) {
+  const user = await requireStaff();
+  const invitationId = uuid.parse(form.get("id"));
+  const supabase = (await createClient())!;
+  const { data, error } = await supabase
+    .from("invitations")
+    .update({ status: "unpublished" })
+    .eq("id", invitationId)
+    .eq("status", "published")
+    .select("title, slug")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return;
+  await logActivity({ actorId: user.id, action: "invitation.unpublished", resourceType: "invitation", resourceId: invitationId, summary: `${data.title} dépubliée` });
+  revalidatePath(`/${data.slug}`);
+  revalidatePath(`/admin/invitations/${invitationId}`);
+  revalidatePath("/admin/invitations");
+}
+
+/** Crée un lien d'aperçu privé du brouillon, valable 7 jours. */
+export async function createPreviewLink(invitationId: string): Promise<{ ok: true; url: string; expiresAt: string } | { ok: false; message: string }> {
+  const user = await requireStaff();
+  if (!uuid.safeParse(invitationId).success) return { ok: false, message: "Invitation inconnue." };
+  const supabase = (await createClient())!;
+  const { token, hash } = newPreviewToken();
+  const expiresAt = new Date(Date.now() + 7 * 86_400_000).toISOString();
+  await supabase.from("preview_tokens").delete().eq("invitation_id", invitationId).lt("expires_at", new Date().toISOString());
+  const { error } = await supabase.from("preview_tokens").insert({ token_hash: hash, invitation_id: invitationId, expires_at: expiresAt, created_by: user.id });
+  if (error) return { ok: false, message: `Création du lien impossible : ${error.message}` };
+  await logActivity({ actorId: user.id, action: "invitation.preview", resourceType: "invitation", resourceId: invitationId, summary: "Lien d'aperçu privé créé (7 jours)" });
+  return { ok: true, url: `${env.siteUrl}/apercu/${token}`, expiresAt };
+}
+
+/** Désactive tous les liens d'aperçu de l'invitation. */
+export async function revokePreviewLinks(form: FormData) {
+  await requireStaff();
+  const invitationId = uuid.parse(form.get("id"));
+  const supabase = (await createClient())!;
+  await supabase.from("preview_tokens").delete().eq("invitation_id", invitationId);
+  revalidatePath(`/admin/invitations/${invitationId}`);
+}
+
+/** Recopie une version publiée dans le brouillon (pour revenir en arrière). */
+export async function restoreVersionToDraft(form: FormData) {
+  const user = await requireStaff();
+  const invitationId = uuid.parse(form.get("id"));
+  const version = z.coerce.number().int().positive().parse(form.get("version"));
+  const supabase = (await createClient())!;
+  const { data: v } = await supabase.from("invitation_versions").select("content").eq("invitation_id", invitationId).eq("version", version).single();
+  if (!v) throw new Error("Version introuvable.");
+  const { error } = await supabase
+    .from("invitations")
+    .update({ draft_content: v.content, draft_updated_at: new Date().toISOString() })
+    .eq("id", invitationId);
+  if (error) throw new Error(error.message);
+  await logActivity({ actorId: user.id, action: "invitation.restored_version", resourceType: "invitation", resourceId: invitationId, summary: `Version ${version} recopiée dans le brouillon` });
+  revalidatePath(`/admin/invitations/${invitationId}`);
+}
+
+export async function setNoindex(form: FormData) {
+  await requireStaff();
+  const invitationId = uuid.parse(form.get("id"));
+  const supabase = (await createClient())!;
+  const { error } = await supabase.from("invitations").update({ noindex: form.get("noindex") === "on" }).eq("id", invitationId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/invitations/${invitationId}`);
+}
+
+/** Définit ou retire le code d'accès (stocké uniquement sous forme hachée). */
+export async function setAccessCode(form: FormData) {
+  const user = await requireStaff();
+  const invitationId = uuid.parse(form.get("id"));
+  const remove = form.get("remove") === "1";
+  const code = String(form.get("code") ?? "");
+  if (!remove && normalizeAccessCode(code).length < 4) throw new Error("Le code doit contenir au moins 4 caractères.");
+  if (!remove && normalizeAccessCode(code).length > 40) throw new Error("Le code doit contenir au plus 40 caractères.");
+  const supabase = (await createClient())!;
+  const { data, error } = await supabase
+    .from("invitations")
+    .update({ access_code_hash: remove ? null : hashAccessCode(invitationId, code) })
+    .eq("id", invitationId)
+    .select("slug, title")
+    .single();
+  if (error) throw new Error(error.message);
+  await logActivity({ actorId: user.id, action: remove ? "invitation.code_removed" : "invitation.code_set", resourceType: "invitation", resourceId: invitationId, summary: `${data.title} : code d'accès ${remove ? "retiré" : "défini"}` });
+  revalidatePath(`/${data.slug}`);
   revalidatePath(`/admin/invitations/${invitationId}`);
 }
 

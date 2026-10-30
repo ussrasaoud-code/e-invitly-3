@@ -375,7 +375,11 @@ export function RsvpSection({ content, renderer, labels, title, mode }: SectionP
           {content.rsvp.intro || `${labels.rsvpBefore} ${deadline}.`}
         </p>
       ) : null}
-      {sent ? (
+      {mode === "live" ? (
+        <p className="mx-auto max-w-[300px] text-center leading-relaxed" style={{ color: "var(--inv-ink)" }}>
+          {labels.rsvpSoon}
+        </p>
+      ) : sent ? (
         <p role="status" className="mx-auto max-w-[300px] text-center leading-relaxed" style={{ color: "var(--inv-ink)" }}>
           {labels.demoThanks}
         </p>
@@ -384,7 +388,7 @@ export function RsvpSection({ content, renderer, labels, title, mode }: SectionP
           className="mx-auto max-w-[320px] space-y-4"
           onSubmit={(ev) => {
             ev.preventDefault();
-            if (mode !== "live") setSent(true);
+            setSent(true);
           }}
         >
           <div className="grid grid-cols-2 gap-3">
@@ -448,11 +452,9 @@ export function RsvpSection({ content, renderer, labels, title, mode }: SectionP
           >
             {labels.send}
           </button>
-          {mode !== "live" ? (
-            <p className="text-center text-xs italic" style={{ color: "var(--inv-muted)" }}>
-              {labels.demoNotice}
-            </p>
-          ) : null}
+          <p className="text-center text-xs italic" style={{ color: "var(--inv-muted)" }}>
+            {labels.demoNotice}
+          </p>
         </form>
       )}
     </Shell>

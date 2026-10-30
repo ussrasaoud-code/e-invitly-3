@@ -246,6 +246,28 @@ await test("un ancien slug redirige vers le nouveau", async () => {
   assert.equal(r.redirect_to, "naomi-et-kate");
 });
 
+await test("code d'accès : sans le bon code, aucun contenu n'est renvoyé", async () => {
+  await db.query(`update public.invitations set access_code_hash = 'hash-secret-123' where id = $1`, [markAlice]);
+  const [locked] = await as("anon", null, () => rows(`select * from public.get_published_invitation('mark-alice')`));
+  assert.equal(locked.requires_code, true);
+  assert.equal(locked.unlocked, false);
+  assert.equal(locked.content, null);
+  assert.equal(locked.noindex, true);
+  const [wrong] = await as("anon", null, () => rows(`select content from public.get_published_invitation('mark-alice', 'mauvais')`));
+  assert.equal(wrong.content, null);
+  const [ok] = await as("anon", null, () => rows(`select content, unlocked from public.get_published_invitation('mark-alice', 'hash-secret-123')`));
+  assert.equal(ok.unlocked, true);
+  assert.equal(ok.content.time, "16:00");
+  await db.query(`update public.invitations set access_code_hash = null where id = $1`, [markAlice]);
+});
+
+await test("un visiteur ne peut pas lire directement les versions ni le brouillon", async () => {
+  const v = await as("anon", null, () => rows(`select * from public.invitation_versions`));
+  assert.equal(v.length, 0);
+  const i = await as("anon", null, () => rows(`select * from public.invitations`));
+  assert.equal(i.length, 0);
+});
+
 await test("deux invitations ne peuvent pas partager un slug (insensible à la casse)", async () => {
   await assert.rejects(
     db.query(
