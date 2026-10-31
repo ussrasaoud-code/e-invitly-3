@@ -1,5 +1,6 @@
 "use client";
 
+import { MediaUrlField } from "@/components/media/MediaUrlField";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { InvitationView } from "@/components/invitation/InvitationView";
 import { PhoneFrame } from "@/components/site/PhoneFrame";
@@ -265,9 +266,10 @@ export function InvitationEditor({
               <L label="Second prénom"><input className={inputCls} value={c.couple.partnerTwo} onChange={(e) => setIn("couple", { partnerTwo: e.target.value })} /></L>
               <L label="Accroche (au-dessus des prénoms)" className="sm:col-span-2"><input className={inputCls} value={c.kicker} onChange={(e) => set("kicker", e.target.value)} /></L>
               <L label="Texte d'invitation" className="sm:col-span-2"><textarea className={`${inputCls} min-h-20`} value={c.intro} onChange={(e) => set("intro", e.target.value)} /></L>
-              <L label="Photo du couple (lien https)" hint="La bibliothèque de médias arrive en phase 3b ; en attendant, collez un lien d'image." className="sm:col-span-2">
-                <input className={inputCls} value={c.couple.photoUrl} onChange={(e) => setIn("couple", { photoUrl: e.target.value })} placeholder="https://…" />
-              </L>
+              <div className="sm:col-span-2">
+                <span className="field-label !mb-1 !text-xs">Photo du couple</span>
+                <MediaUrlField kinds={["image"]} className={inputCls} label="Photo du couple" value={c.couple.photoUrl} onChange={(v) => setIn("couple", { photoUrl: v })} />
+              </div>
             </div>
           </Panel>
 
@@ -447,8 +449,15 @@ export function InvitationEditor({
               <L label="Initiales du cachet"><input className={inputCls} maxLength={6} value={c.envelope.sealText} onChange={(e) => setIn("envelope", { sealText: e.target.value })} /></L>
               {c.envelope.mode === "video" ? (
                 <>
-                  <L label="Vidéo d'ouverture (lien https, MP4)" hint="À la fin de la vidéo, l'invitation s'ouvre seule."><input className={inputCls} value={c.envelope.videoUrl} onChange={(e) => setIn("envelope", { videoUrl: e.target.value })} /></L>
-                  <L label="Image d'attente (facultatif)"><input className={inputCls} value={c.envelope.posterUrl} onChange={(e) => setIn("envelope", { posterUrl: e.target.value })} /></L>
+                  <div>
+                    <span className="field-label !mb-1 !text-xs">Vidéo d&apos;ouverture (MP4)</span>
+                    <MediaUrlField kinds={["video"]} className={inputCls} label="Vidéo d'ouverture" value={c.envelope.videoUrl} onChange={(v) => setIn("envelope", { videoUrl: v })} />
+                    <span className="field-hint block !text-xs">À la fin de la vidéo, l&apos;invitation s&apos;ouvre seule.</span>
+                  </div>
+                  <div>
+                    <span className="field-label !mb-1 !text-xs">Image d&apos;attente (facultatif)</span>
+                    <MediaUrlField kinds={["image"]} className={inputCls} label="Image d'attente" value={c.envelope.posterUrl} onChange={(v) => setIn("envelope", { posterUrl: v })} />
+                  </div>
                 </>
               ) : null}
               {c.envelope.mode === "animation" ? (
@@ -462,7 +471,11 @@ export function InvitationEditor({
                 Musique d&apos;ambiance
               </label>
               {c.music.enabled ? (
-                <L label="Fichier audio (lien https, MP3)" hint="Démarre à l'ouverture de l'enveloppe ; un bouton permet de la couper."><input className={inputCls} value={c.music.url} onChange={(e) => setIn("music", { url: e.target.value })} /></L>
+                <div>
+                  <span className="field-label !mb-1 !text-xs">Fichier audio (MP3)</span>
+                  <MediaUrlField kinds={["audio"]} className={inputCls} label="Fichier audio" value={c.music.url} onChange={(v) => setIn("music", { url: v })} />
+                  <span className="field-hint block !text-xs">Démarre à l&apos;ouverture de l&apos;enveloppe ; un bouton permet de la couper.</span>
+                </div>
               ) : null}
             </div>
           </Panel>

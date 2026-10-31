@@ -16,7 +16,7 @@ au DNS ou au déploiement.
 | 1 — Fondations | Projet, design system, base de données + sécurité RLS, connexion par lien magique, rôles | ✅ fait et testé |
 | 2 — Site vitrine | Accueil, catalogue filtrable, fiches modèles, démos, formulaire en 6 étapes, pages légales | ✅ fait et testé |
 | 3 — Administration | Vue d'ensemble, demandes, conversion en invitation, éditeur par sections avec aperçu, modèles et versions, paramètres, recherche | ✅ fait et testé |
-| 3b — Médias | Import et bibliothèque de fichiers | ⏳ prochaine livraison (stockage déjà créé) |
+| 3b — Médias | Import multiple (glisser-déposer), collections, filtres, recherche, fiche et mots-clés, choix depuis l'éditeur et les modèles, SVG contrôlés, suppression bloquée si le fichier est utilisé | ✅ fait et testé |
 | 4 — Publication | Page publique `/[adresse]`, aperçu privé (7 jours), publier / dépublier, historique, redirections, code d'accès, noindex | ✅ fait et testé |
 | 5 — RSVP | Formulaire réel dans l'invitation, réglages par invitation, questions personnalisées, invités nominatifs avec codes, statistiques par moment, corrections tracées, exports Excel/CSV, espace couple, notifications | ✅ fait et testé |
 | 6 — Éditeur visuel libre | Calques déplaçables façon Canva | ⏳ |
@@ -25,10 +25,10 @@ au DNS ou au déploiement.
 Les fonctions pas encore disponibles sont signalées comme telles dans l'administration : aucun bouton
 factice.
 
-**Tests réalisés** : 23 tests de sécurité de la base, 25 tests unitaires (adresses, fuseaux horaires,
-conversion demande → invitation, règles RSVP), 38 vérifications de bout en bout dans un vrai
+**Tests réalisés** : 25 tests de sécurité de la base, 30 tests unitaires (adresses, fuseaux horaires,
+conversion demande → invitation, règles RSVP, médias), 43 vérifications de bout en bout dans un vrai
 navigateur (demande, connexion, conversion, éditeur, aperçu, publication, code d'accès, réponses RSVP,
-codes invités, corrections, exports, espace couple, accès refusés).
+codes invités, corrections, exports, espace couple, médias, accès refusés).
 
 ---
 
@@ -46,7 +46,7 @@ Comptez environ une heure. Vous aurez besoin de quatre comptes gratuits : **GitH
 2. Ouvrez **SQL Editor** → *New query*. Copiez-collez tout le contenu du fichier
    `supabase/migrations/20261026000001_init.sql`, puis cliquez sur **Run**. Faites de même, dans
    l'ordre, avec chaque fichier suivant du dossier `supabase/migrations`
-   (`20261031000001_publication.sql`…). Chaque fichier ne s'exécute qu'une seule fois.
+   (`20261031000001_publication.sql`, `20261101000001_rsvp.sql`, `20261102000001_media.sql`…). Chaque fichier ne s'exécute qu'une seule fois.
 3. Nouvelle requête : copiez-collez `supabase/seed.sql`, puis **Run**. Les modèles *The Garden* et
    *Province* sont créés.
 4. **Authentication → Sign In / Providers** : laissez *Email* activé et **désactivez « Allow new

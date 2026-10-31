@@ -1,3 +1,4 @@
+import { MediaListField, MediaUrlField } from "@/components/media/MediaUrlField";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InvitationEditor } from "@/components/admin/InvitationEditor";
@@ -112,15 +113,14 @@ export default async function TemplatePage({ params, searchParams }: Props) {
             <textarea name="features" defaultValue={t.features.join("\n")} rows={6} className="field text-sm" />
           </label>
           <div className="space-y-4">
-            <label className="block">
-              <span className="field-label">Image principale (lien)</span>
-              <input name="cover_image" defaultValue={t.cover_image ?? ""} className="field text-sm" />
-            </label>
-            <label className="block">
+            <div>
+              <span className="field-label">Image principale</span>
+              <MediaUrlField kinds={["image", "svg"]} name="cover_image" defaultValue={t.cover_image ?? ""} className="field text-sm" label="Image principale" />
+            </div>
+            <div>
               <span className="field-label">Galerie (un lien par ligne)</span>
-              <textarea name="gallery" defaultValue={(t.gallery as string[]).join("\n")} rows={3} className="field text-sm" />
-            </label>
-            <p className="text-xs text-stone">L&apos;import de fichiers depuis la bibliothèque de médias arrive en phase 3b.</p>
+              <MediaListField name="gallery" defaultValue={(t.gallery as string[]).join("\n")} />
+            </div>
           </div>
           <div className="md:col-span-2">
             <SubmitButton className="btn btn-primary" pendingLabel="Enregistrement…">Enregistrer la fiche</SubmitButton>

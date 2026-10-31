@@ -17,7 +17,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { citext } from "@electric-sql/pglite/contrib/citext";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 
@@ -479,6 +479,87 @@ async function handleAuth(req, res, url, body) {
   throw new ApiError(404, "not_found", `Route auth non prise en charge : ${route}`);
 }
 
+// ── Stockage (sous-ensemble de l'API Storage) ─────────────────────────
+// Fichiers rangés dans DATA_DIR/storage/<bucket>/<chemin>. Couvre :
+// autorisation d'envoi signée, envoi, info, lecture publique, suppression.
+const STORAGE_DIR = path.join(DATA_DIR, "storage");
+const uploadTokens = new Map(); // token → { bucket, path, exp }
+const storageMeta = new Map(); // bucket/path → content-type
+function storagePath(bucket, p) {
+  const clean = decodeURIComponent(p);
+  if (!/^[a-z0-9_-]+$/i.test(bucket) || clean.includes("..") || clean.startsWith("/")) throw Object.assign(new Error("chemin invalide"), { status: 400 });
+  return { key: `${bucket}/${clean}`, file: path.join(STORAGE_DIR, bucket, clean) };
+}
+function storageClaims(req) {
+  const auth = String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
+  return verifyJwt(auth) ?? verifyJwt(req.headers.apikey);
+}
+async function handleStorage(req, res, url, buf) {
+  const route = url.pathname.replace(/^\/storage\/v1/, "");
+  let m;
+  if ((m = route.match(/^\/object\/upload\/sign\/([^/]+)\/(.+)$/))) {
+    const [, bucket, p] = m;
+    const { key, file } = storagePath(bucket, p);
+    if (req.method === "POST") {
+      const claims = storageClaims(req);
+      if (claims?.role !== "service_role") throw Object.assign(new Error("service_role requis"), { status: 403 });
+      const token = randomBytes(18).toString("base64url");
+      uploadTokens.set(token, { key, exp: Date.now() + 2 * 3600_000 });
+      return send(res, 200, { url: `/object/upload/sign/${bucket}/${p}?token=${token}` });
+    }
+    if (req.method === "PUT") {
+      const t = uploadTokens.get(url.searchParams.get("token") ?? "");
+      if (!t || t.key !== key || t.exp < Date.now()) throw Object.assign(new Error("Invalid signature"), { status: 400 });
+      if (existsSync(file) && req.headers["x-upsert"] !== "true") throw Object.assign(new Error("The resource already exists"), { status: 409 });
+      let bytes = buf;
+      let type = String(req.headers["content-type"] ?? "application/octet-stream");
+      if (type.startsWith("multipart/form-data")) {
+        const form = await new Request("http://x", { method: "POST", body: buf, headers: { "content-type": type } }).formData();
+        const blob = [...form.values()].find((v) => typeof v !== "string");
+        if (!blob) throw Object.assign(new Error("fichier manquant"), { status: 400 });
+        bytes = Buffer.from(await blob.arrayBuffer());
+        type = blob.type || "application/octet-stream";
+      }
+      if (bytes.length > 15 * 1024 * 1024) throw Object.assign(new Error("Payload too large"), { status: 413 });
+      uploadTokens.delete(url.searchParams.get("token"));
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, bytes);
+      storageMeta.set(key, type);
+      return send(res, 200, { Key: key, Id: randomUUID() });
+    }
+  }
+  if ((m = route.match(/^\/object\/info\/([^/]+)\/(.+)$/)) && req.method === "GET") {
+    const { key, file } = storagePath(m[1], m[2]);
+    if (!existsSync(file)) throw Object.assign(new Error("Object not found"), { status: 404 });
+    const st = statSync(file);
+    return send(res, 200, { id: key, name: m[2], size: st.size, content_type: storageMeta.get(key) ?? "application/octet-stream", created_at: st.birthtime, last_modified: st.mtime });
+  }
+  if ((m = route.match(/^\/object\/public\/([^/]+)\/(.+)$/)) && (req.method === "GET" || req.method === "HEAD")) {
+    const { key, file } = storagePath(m[1], m[2]);
+    if (!existsSync(file)) throw Object.assign(new Error("Object not found"), { status: 404 });
+    const ext = file.split(".").pop();
+    const types = { png: "image/png", jpg: "image/jpeg", webp: "image/webp", svg: "image/svg+xml", mp4: "video/mp4", webm: "video/webm", mp3: "audio/mpeg", m4a: "audio/mp4", ogg: "audio/ogg" };
+    res.writeHead(200, { "content-type": storageMeta.get(key) ?? types[ext] ?? "application/octet-stream", "access-control-allow-origin": "*", "cache-control": "no-cache" });
+    return res.end(req.method === "HEAD" ? undefined : readFileSync(file));
+  }
+  if ((m = route.match(/^\/object\/([^/]+)$/)) && req.method === "DELETE") {
+    const claims = storageClaims(req);
+    if (claims?.role !== "service_role") throw Object.assign(new Error("service_role requis"), { status: 403 });
+    const { prefixes = [] } = JSON.parse(buf.toString("utf8") || "{}");
+    const removed = [];
+    for (const p of prefixes) {
+      const { key, file } = storagePath(m[1], p);
+      if (existsSync(file)) {
+        rmSync(file);
+        storageMeta.delete(key);
+        removed.push({ name: p, bucket_id: m[1] });
+      }
+    }
+    return send(res, 200, removed);
+  }
+  throw Object.assign(new Error(`route de stockage non prise en charge : ${req.method} ${route}`), { status: 404 });
+}
+
 // ── Serveur HTTP ──────────────────────────────────────────────────────
 function send(res, status, data, headers = {}) {
   const payload = data === null || status === 204 ? "" : JSON.stringify(data);
@@ -492,8 +573,17 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
   const url = new URL(req.url, `http://${req.headers.host}`);
-  let raw = "";
-  for await (const chunk of req) raw += chunk;
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const buf = Buffer.concat(chunks);
+  if (url.pathname.startsWith("/storage/v1")) {
+    try {
+      return await handleStorage(req, res, url, buf);
+    } catch (e) {
+      return send(res, e.status ?? 400, { statusCode: String(e.status ?? 400), error: "Error", message: e.message });
+    }
+  }
+  const raw = buf.toString("utf8");
   let body = {};
   try {
     body = raw ? JSON.parse(raw) : {};

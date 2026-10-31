@@ -287,6 +287,27 @@ await test("un visiteur ne peut pas lire directement les versions ni le brouillo
   assert.equal(i.length, 0);
 });
 
+await test("médias : l'utilisation d'un fichier est retrouvée ; fonction réservée à l'équipe", async () => {
+  const url = "https://x.supabase.co/storage/v1/object/public/media/fleurs/2026/abc-pivoine.png";
+  await db.query(`update public.invitations set draft_content = jsonb_set(draft_content, '{deco}', to_jsonb($2::text)) where id = $1`, [markAlice, url]);
+  await db.query(`update public.templates set cover_image = $1 where slug = 'province'`, [url]);
+  const used = await as("authenticated", admin.id, () => rows(`select kind, title from public.media_usage($1) order by kind`, [url]));
+  assert.deepEqual(used.map((u) => u.kind), ["invitation", "modele"]);
+  const none = await as("authenticated", admin.id, () => rows(`select * from public.media_usage($1)`, ["https://autre/fichier.png"]));
+  assert.equal(none.length, 0);
+  await assert.rejects(as("authenticated", mark.id, () => rows(`select * from public.media_usage($1)`, [url])));
+  await assert.rejects(as("anon", null, () => rows(`select * from public.media_usage($1)`, [url])));
+  await db.query(`update public.templates set cover_image = '/templates/province.svg' where slug = 'province'`);
+});
+
+await test("médias : visibles et modifiables uniquement par l'équipe", async () => {
+  await db.query(`insert into public.media_assets (name, kind, path, mime_type, size_bytes) values ('Pivoine', 'image', 'fleurs/p.png', 'image/png', 1200)`);
+  assert.equal((await as("anon", null, () => rows(`select * from public.media_assets`))).length, 0);
+  assert.equal((await as("authenticated", mark.id, () => rows(`select * from public.media_assets`))).length, 0);
+  assert.equal((await as("authenticated", admin.id, () => rows(`select * from public.media_assets`))).length, 1);
+  await assert.rejects(as("authenticated", mark.id, () => rows(`insert into public.media_assets (name, kind, path, mime_type, size_bytes) values ('x', 'image', 'x.png', 'image/png', 1)`)));
+});
+
 await test("deux invitations ne peuvent pas partager un slug (insensible à la casse)", async () => {
   await assert.rejects(
     db.query(

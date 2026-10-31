@@ -3,7 +3,7 @@ Parcours de bout en bout (scénarios 1, 2, 5, 7 du cahier des charges).
 Prérequis : banc d'essai local (scripts/local-stack/server.mjs) + `next dev`.
 Usage : PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers python3 scripts/e2e/run.py
 """
-import json, os, re, sys, time, urllib.request
+import json, os, re, sys, time, urllib.request, urllib.error
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
@@ -53,7 +53,7 @@ def magic_login(page, email, suite="/mon-espace"):
     raise AssertionError("aucun lien magique reçu")
 
 # Remise à zéro des données de test (le seed des modèles est conservé)
-for table in ["rsvp_responses", "invitation_access", "rsvp_forms", "invitations", "client_requests", "audit_logs", "slug_redirects"]:
+for table in ["media_assets", "rsvp_responses", "invitation_access", "rsvp_forms", "invitations", "client_requests", "audit_logs", "slug_redirects"]:
     api("DELETE", f"/rest/v1/{table}?{'id' if table != 'slug_redirects' else 'old_slug'}=not.is.null", prefer="return=minimal")
 api("DELETE", "/rest/v1/rate_limits?bucket=not.is.null", prefer="return=minimal")
 api("PATCH", "/rest/v1/templates?slug=in.(the-garden,province)", {"status": "published"}, prefer="return=minimal")
@@ -471,6 +471,82 @@ with sync_playwright() as p:
     page.goto(BASE)
     expect(page.get_by_text("bonjour@e-invitly.com")).to_be_visible()
     ok("paramètres : modifiables et visibles immédiatement sur le site")
+
+    # ── Bibliothèque de médias ───────────────────────────────────────
+    import struct, zlib, tempfile
+    tmp = Path(tempfile.mkdtemp())
+    def png(w, h):
+        raw = b"".join(b"\x00" + bytes([200, 120, 140, 255]) * w for _ in range(h))
+        chunk = lambda t, d: struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+        return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
+    (tmp / "pivoine rose.png").write_bytes(png(40, 30))
+    (tmp / "branche.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="#7a8b6f"/></svg>')
+    (tmp / "piege.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>')
+    (tmp / "notes.txt").write_text("pas une image")
+    a.goto(f"{BASE}/admin/medias")
+    expect(a.get_by_text("La bibliothèque est vide")).to_be_visible()
+    a.get_by_label("Collection de destination").select_option("Fleurs")
+    a.locator("input[type=file]").set_input_files([str(tmp / n) for n in ["pivoine rose.png", "branche.svg", "piege.svg", "notes.txt"]])
+    expect(a.get_by_text("Ajouté ✓")).to_have_count(2, timeout=20000)
+    expect(a.get_by_text("il a été refusé par sécurité")).to_be_visible()
+    expect(a.get_by_text("Format non accepté")).to_be_visible()
+    rows = api("GET", "/rest/v1/media_assets?select=name,kind,width,height,collection,path,mime_type&order=name")
+    assert [(r["name"], r["kind"], r["collection"]) for r in rows] == [("branche", "svg", "Fleurs"), ("pivoine rose", "image", "Fleurs")], rows
+    assert rows[1]["width"] == 40 and rows[1]["height"] == 30, rows[1]
+    assert not any("piege" in r["path"] for r in rows)
+    png_url = f"{STACK}/storage/v1/object/public/media/{rows[1]['path']}"
+    assert urllib.request.urlopen(png_url).status == 200
+    a.reload()
+    expect(a.get_by_role("link", name=re.compile("pivoine rose"))).to_be_visible()
+    a.screenshot(path=SHOTS / "26-admin-medias.png", full_page=True)
+    ok("médias : import multiple, dimensions lues, SVG dangereux et format inconnu refusés")
+
+    a.get_by_role("link", name="Musique").first.click()
+    expect(a.get_by_text("Aucun fichier ne correspond")).to_be_visible()
+    a.goto(f"{BASE}/admin/medias?q=pivoine")
+    expect(a.get_by_role("link", name=re.compile("pivoine rose"))).to_be_visible()
+    expect(a.get_by_role("link", name=re.compile("branche"))).to_have_count(0)
+    ok("médias : filtres par type et recherche")
+
+    # Utilisation dans une invitation → suppression bloquée
+    a.goto(f"{BASE}/admin/invitations/{inv_id}")
+    photo = a.locator("span.flex").filter(has=a.get_by_label("Photo du couple"))
+    photo.get_by_role("button", name="Bibliothèque").click()
+    dlg = a.get_by_role("dialog", name="Choisir dans la bibliothèque")
+    expect(dlg.get_by_text("pivoine rose")).to_be_visible(timeout=10000)
+    expect(dlg.get_by_text("branche")).to_have_count(0)  # SVG non proposé pour une photo
+    a.screenshot(path=SHOTS / "27-selecteur-medias.png")
+    dlg.get_by_role("button", name=re.compile("pivoine rose")).click()
+    expect(a.get_by_role("status").filter(has_text="Brouillon enregistré")).to_be_visible(timeout=10000)
+    a.wait_for_timeout(600)
+    inv = api("GET", f"/rest/v1/invitations?id=eq.{inv_id}&select=draft_content")[0]
+    assert inv["draft_content"]["couple"]["photoUrl"] == png_url, inv["draft_content"]["couple"]["photoUrl"]
+    ok("éditeur : photo choisie dans la bibliothèque et enregistrée")
+
+    png_id = api("GET", "/rest/v1/media_assets?name=eq.pivoine%20rose&select=id")[0]["id"]
+    a.goto(f"{BASE}/admin/medias/{png_id}")
+    expect(a.get_by_role("link", name=re.compile("Invitation · Mark & Alice"))).to_be_visible()
+    expect(a.get_by_text("Suppression impossible tant que le fichier est utilisé")).to_be_visible()
+    expect(a.get_by_role("button", name="Supprimer le fichier")).to_have_count(0)
+    a.locator("input[name=tags]").fill("Pivoine, Rose poudré")
+    a.get_by_role("button", name="Enregistrer").click()
+    expect(a.get_by_text("Modifications enregistrées")).to_be_visible(timeout=10000)
+    assert api("GET", f"/rest/v1/media_assets?id=eq.{png_id}&select=tags")[0]["tags"] == ["pivoine", "rose poudré"]
+    a.screenshot(path=SHOTS / "28-media-fiche.png", full_page=True)
+    ok("médias : fiche, mots-clés, utilisation affichée, suppression bloquée si utilisé")
+
+    svg_id = api("GET", "/rest/v1/media_assets?name=eq.branche&select=id,path")[0]
+    a.goto(f"{BASE}/admin/medias/{svg_id['id']}")
+    a.get_by_role("button", name="Supprimer le fichier").click()
+    a.wait_for_url(re.compile(r"/admin/medias\?supprime=1"), timeout=15000)
+    expect(a.get_by_text("Le fichier a été supprimé")).to_be_visible()
+    assert api("GET", f"/rest/v1/media_assets?id=eq.{svg_id['id']}&select=id") == []
+    try:
+        urllib.request.urlopen(f"{STACK}/storage/v1/object/public/media/{svg_id['path']}")
+        raise AssertionError("le fichier supprimé est encore servi")
+    except urllib.error.HTTPError as e:
+        assert e.code == 404
+    ok("médias : suppression d'un fichier inutilisé (base + stockage)")
 
     # ── Scénario 7 : un couple ne voit que son invitation ────────────
     client = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True)

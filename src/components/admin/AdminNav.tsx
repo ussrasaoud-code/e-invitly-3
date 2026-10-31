@@ -12,7 +12,7 @@ const ITEMS = [
   { href: "/admin/modeles", label: "Modèles" },
   { href: "/admin/editeur", label: "Éditeur", soon: "Phase 6" },
   { href: "/admin/rsvp", label: "RSVP" },
-  { href: "/admin/medias", label: "Médias", soon: "Phase 3b" },
+  { href: "/admin/medias", label: "Médias" },
   { href: "/admin/parametres", label: "Paramètres" },
 ];
 

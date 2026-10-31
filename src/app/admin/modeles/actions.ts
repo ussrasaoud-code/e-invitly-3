@@ -1,5 +1,6 @@
 "use server";
 
+import { isAllowedAssetUrl } from "@/lib/url";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -74,7 +75,7 @@ const metaSchema = z.object({
   styles: z.array(z.enum(STYLES.map((s) => s.value) as [string, ...string[]])),
   features: z.string().max(2000),
   price_label: z.string().trim().max(80),
-  cover_image: z.string().trim().max(1000).refine((v) => v === "" || v.startsWith("/") || v.startsWith("https://"), "Lien d'image invalide"),
+  cover_image: z.string().trim().max(1000).refine(isAllowedAssetUrl, "Lien d'image invalide"),
   gallery: z.string().max(5000),
 });
 
@@ -98,7 +99,7 @@ export async function updateTemplateMeta(form: FormData) {
   const slug = slugify(d.slug || d.name);
   if (!slug) throw new Error("Identifiant invalide.");
   const lines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
-  const gallery = lines(d.gallery).filter((u) => u.startsWith("/") || u.startsWith("https://"));
+  const gallery = lines(d.gallery).filter((u) => u !== "" && isAllowedAssetUrl(u));
   const supabase = (await createClient())!;
   const { error } = await supabase
     .from("templates")

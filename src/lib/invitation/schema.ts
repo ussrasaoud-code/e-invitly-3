@@ -1,3 +1,4 @@
+import { isAllowedAssetUrl } from "@/lib/url";
 import { z } from "zod";
 
 /**
@@ -21,7 +22,7 @@ const safeUrl = z
   .string()
   .trim()
   .max(1000)
-  .refine((v) => v === "" || /^https:\/\//.test(v) || v.startsWith("/"), "Lien https:// attendu")
+  .refine(isAllowedAssetUrl, "Lien https:// attendu")
   .optional()
   .default("");
 
