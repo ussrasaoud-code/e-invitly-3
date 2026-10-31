@@ -1,21 +1,36 @@
 "use client";
 
-import { useContext, type CSSProperties, type ElementType, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { createContext, useContext, type CSSProperties, type ElementType, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { FONTS } from "@/lib/fonts";
 import type { ElementStyle } from "@/lib/invitation/schema";
 import { LayerEditorContext, SectionContext, type LayerEditor } from "./editor-context";
+export { elKey } from "@/lib/invitation/elements";
+
+/** Élément parent le plus proche (pour les groupes : prénoms, listes…) */
+const ParentElContext = createContext<{ id: string; ungrouped: boolean } | null>(null);
+/** Réglages de l'élément courant (pour <ElText>) */
+const ElStyleContext = createContext<ElementStyle | undefined>(undefined);
 
 /**
  * Élément intégré au modèle (titre, prénoms, ornement…). En ligne : applique
- * les réglages enregistrés (masqué, décalé, recoloré…). Dans l'éditeur visuel :
- * se sélectionne d'un clic et se déplace à la souris.
+ * les réglages enregistrés (masqué, décalé, recoloré, police…). Dans l'éditeur
+ * visuel : se sélectionne d'un clic et se déplace à la souris.
+ *
+ * Les éléments peuvent être imbriqués (groupe → parties). Tant que le groupe
+ * n'est pas dégroupé, un clic sur une partie sélectionne le groupe entier ;
+ * une fois dégroupé, chaque partie se sélectionne seule.
  */
 export function El({ id, children, className = "", style, as: Tag = "div" }: { id: string; children: ReactNode; className?: string; style?: CSSProperties; as?: ElementType }) {
   const section = useContext(SectionContext);
   const editor = useContext(LayerEditorContext);
+  const parent = useContext(ParentElContext);
   const st = section?.elements?.[id];
   // Élément retiré : absent de l'invitation comme de l'éditeur (il se remet depuis la liste de gauche)
   if (st?.hidden) return null;
-  const selected = !!editor && editor.selected?.sectionId === section?.id && editor.selected?.elementId === id;
+
+  // Interactif si ce n'est pas un groupe dégroupé et si son parent (éventuel) est dégroupé
+  const interactive = !!editor && !!section && !st?.ungrouped && (!parent || parent.ungrouped);
+  const selected = interactive && editor!.selected?.sectionId === section?.id && editor!.selected?.elementId === id;
 
   const css: CSSProperties = { ...style };
   if (st) {
@@ -25,22 +40,34 @@ export function El({ id, children, className = "", style, as: Tag = "div" }: { i
     if (st.scale !== 1) t.push(`scale(${st.scale})`);
     if (t.length) css.transform = [style?.transform, ...t].filter(Boolean).join(" ");
     if (st.opacity !== 1) css.opacity = st.opacity;
-    if (st.color) {
-      Object.assign(css, { "--inv-ink": st.color, "--inv-accent": st.color, "--inv-muted": st.color, "--inv-soft": st.color });
+    if (st.color) Object.assign(css, { "--inv-ink": st.color, "--inv-accent": st.color, "--inv-muted": st.color, "--inv-soft": st.color });
+    if (st.font) {
+      const stack = FONTS[st.font].stack;
+      Object.assign(css, { "--inv-display": stack, "--inv-script": stack, "--inv-body": stack, fontFamily: stack });
     }
   }
 
   return (
     <Tag
       data-el={id}
-      className={`inv-el ${className} ${selected ? "inv-el-selected" : ""} ${st?.hidden ? "inv-el-hidden" : ""}`}
+      className={`inv-el ${interactive ? "inv-el-active" : ""} ${className} ${selected ? "inv-el-selected" : ""} ${editor && st?.ungrouped ? "inv-el-ungrouped" : ""}`}
       style={css}
-      onPointerDown={editor && section ? (e: ReactPointerEvent<HTMLElement>) => startElementMove(e, section.id, id, st, editor) : undefined}
+      onPointerDown={interactive ? (e: ReactPointerEvent<HTMLElement>) => startElementMove(e, section!.id, id, st, editor!) : undefined}
     >
-      {children}
+      <ParentElContext.Provider value={{ id, ungrouped: !!st?.ungrouped }}>
+        <ElStyleContext.Provider value={st}>{children}</ElStyleContext.Provider>
+      </ParentElContext.Provider>
     </Tag>
   );
 }
+
+/** Libellé fixe remplaçable depuis l'éditeur (ex. « & ») */
+export function ElText({ fallback }: { fallback: string }) {
+  const st = useContext(ElStyleContext);
+  return <>{st?.text || fallback}</>;
+}
+
+
 
 function startElementMove(e: ReactPointerEvent<HTMLElement>, sectionId: string, id: string, st: ElementStyle | undefined, editor: LayerEditor) {
   e.stopPropagation();

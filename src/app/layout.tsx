@@ -5,6 +5,14 @@ import "@fontsource-variable/jost/index.css";
 import "@fontsource/cormorant-garamond/latin-400.css";
 import "@fontsource/cormorant-garamond/latin-400-italic.css";
 import "@fontsource/cormorant-garamond/latin-500.css";
+import "@fontsource/playfair-display/latin-400.css";
+import "@fontsource/playfair-display/latin-400-italic.css";
+import "@fontsource/italiana/latin-400.css";
+import "@fontsource/lora/latin-400.css";
+import "@fontsource/montserrat/latin-400.css";
+import "@fontsource/great-vibes/latin-400.css";
+import "@fontsource/pinyon-script/latin-400.css";
+import "@fontsource/parisienne/latin-400.css";
 import "./globals.css";
 import { env } from "@/lib/env";
 

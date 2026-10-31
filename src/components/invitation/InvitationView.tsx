@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState, type CSSProperties } from "react";
 import type { FontKey, InvitationContent, RendererKey, SectionType } from "@/lib/invitation/schema";
 import type { PublicRsvpConfig } from "@/lib/rsvp";
+import { FONTS } from "@/lib/fonts";
 import { Envelope } from "./Envelope";
 import { labelsFor } from "./i18n";
 import { SectionFrame } from "./Layers";
@@ -21,13 +22,7 @@ import {
   type SectionProps,
 } from "./Sections";
 
-const FONT_STACKS: Record<FontKey, string> = {
-  aboreto: '"Aboreto", "Cormorant Garamond", serif',
-  dancing: '"Dancing Script", cursive',
-  jost: '"Jost Variable", "Jost", system-ui, sans-serif',
-  cormorant: '"Cormorant Garamond", Georgia, serif',
-  amiri: '"Amiri", serif',
-};
+const FONT_STACKS = Object.fromEntries(Object.entries(FONTS).map(([k, f]) => [k, f.stack])) as Record<FontKey, string>;
 
 const SECTION_COMPONENTS: Record<Exclude<SectionType, "rsvp" | "text" | "decor">, (p: SectionProps) => React.ReactNode> = {
   hero: HeroSection,

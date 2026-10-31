@@ -34,8 +34,8 @@ describe("modèle vierge et éléments du modèle", () => {
     const def = templateDefinitionSchema.parse({ renderer: "blank", sample: PRESETS.blank });
     expect(def.sample.sections.map((s) => s.type)).toEqual(["hero"]);
     expect(def.sample.envelope.mode).toBe("none");
-    expect(elementsFor("hero", "blank").some((e) => e.kind === "ornament")).toBe(false);
-    expect(elementsFor("hero", "the-garden").map((e) => e.id)).toContain("corner-left");
+    expect(elementsFor("hero", "blank", invitationContentSchema.parse(PRESETS.blank)).some((e) => e.kind === "ornament")).toBe(false);
+    expect(elementsFor("hero", "the-garden", invitationContentSchema.parse(PRESETS["the-garden"])).map((e) => e.id)).toContain("corner-left");
   });
 
   it("les réglages d'éléments sont bornés et les clés contrôlées", () => {
@@ -43,5 +43,17 @@ describe("modèle vierge et éléments du modèle", () => {
     expect(sectionSchema.safeParse({ ...base, elements: { names: { dx: 10, color: "#112233" } } }).success).toBe(true);
     expect(sectionSchema.safeParse({ ...base, elements: { names: { scale: 10 } } }).success).toBe(false);
     expect(sectionSchema.safeParse({ ...base, elements: { "<script>": { hidden: true } } }).success).toBe(false);
+  });
+});
+
+describe("groupes et parties", () => {
+  it("les listes exposent une partie par moment, les prénoms trois parties", () => {
+    const c = invitationContentSchema.parse(PRESETS["the-garden"]);
+    const hero = elementsFor("hero", "the-garden", c);
+    expect(hero.find((d) => d.id === "names")?.children?.map((d) => d.id)).toEqual(["names.one", "names.and", "names.two"]);
+    const program = elementsFor("program", "the-garden", c).find((d) => d.id === "list");
+    expect(program?.children?.[0].id).toBe("list.e-ceremonie");
+    expect(program?.children?.[0].children?.map((d) => d.id)).toContain("list.e-ceremonie.time");
+    expect(sectionSchema.safeParse({ ...newSection("program"), elements: { "list.e-ceremonie.time": { font: "greatvibes" } } }).success).toBe(true);
   });
 });

@@ -32,6 +32,8 @@ export function isCssSafeUrl(v: string): boolean {
 
 const text = (max = 400) => z.string().trim().max(max);
 const optionalText = (max = 400) => text(max).optional().default("");
+export const FONT_KEYS = ["aboreto", "dancing", "jost", "cormorant", "amiri", "playfair", "italiana", "lora", "montserrat", "greatvibes", "pinyon", "parisienne"] as const;
+export type FontKey = (typeof FONT_KEYS)[number];
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur hexadécimale attendue (#RRGGBB)");
 const safeUrl = z
   .string()
@@ -142,7 +144,8 @@ export const layerSchema = z.object({
   src: cssUrl,
   /** Texte libre (jamais du HTML) */
   text: optionalText(240),
-  font: z.enum(["display", "script", "body"]).default("script"),
+  /** display / script / body = polices du thème ; sinon une police précise */
+  font: z.enum(["display", "script", "body", ...FONT_KEYS]).default("script"),
   /** Taille du texte en % de la largeur de l'invitation */
   fontSize: num(2, 30, 9),
   /** Texte : couleur (vide = couleur d'accent du thème). Image : teinte de la silhouette (vide = couleurs d'origine). */
@@ -166,6 +169,8 @@ export const layerSchema = z.object({
     })
     .default({ type: "fade", delay: 0, duration: 1400 }),
   loop: z.enum(LOOP_ANIMATIONS).default("none"),
+  /** Calques groupés : même identifiant de groupe, déplacés ensemble */
+  group: z.string().max(40).default(""),
 });
 export type InvitationLayer = z.infer<typeof layerSchema>;
 
@@ -180,6 +185,12 @@ export const elementStyleSchema = z.object({
   opacity: num(0, 1, 1),
   /** Couleur imposée à tout l'élément (vide = couleurs du thème) */
   color: hexColor.or(z.literal("")).default(""),
+  /** Police imposée (vide = polices du thème) */
+  font: z.enum(["", ...FONT_KEYS]).default(""),
+  /** Texte remplaçant un libellé fixe (ex. « & » → « et ») */
+  text: optionalText(80),
+  /** Groupe dégroupé : ses parties se sélectionnent une à une */
+  ungrouped: z.boolean().default(false),
 });
 export type ElementStyle = z.infer<typeof elementStyleSchema>;
 
@@ -201,6 +212,9 @@ export const sectionSchema = z.object({
   title: optionalText(80),
   /** Section « texte libre » */
   body: optionalText(2000),
+  /** Espace ajouté (ou retiré) en haut et en bas, en % de la largeur */
+  spaceTop: num(-30, 300, 0),
+  spaceBottom: num(-30, 300, 0),
   /** Section « bande décorative » : hauteur en % de la largeur */
   height: num(10, 250, 60),
   /** Animation d'apparition du contenu ("inherit" = réglage du thème) */
@@ -209,14 +223,14 @@ export const sectionSchema = z.object({
   /** Fond propre à la section (vide = fond du thème) */
   background: sectionBackgroundSchema,
   /** Éléments intégrés du modèle : masqués, déplacés, recolorés… (clé = identifiant de l'élément) */
-  elements: z.record(z.string().regex(/^[a-z][a-z-]{0,29}$/), elementStyleSchema).default({}),
+  elements: z.record(z.string().regex(/^[a-z][a-z0-9.-]{0,79}$/), elementStyleSchema).default({}),
 });
 export type InvitationSection = z.infer<typeof sectionSchema>;
 
 const shortId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
 export function newSection(type: SectionType): InvitationSection {
-  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND } };
+  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0 };
 }
 
 export function newLayer(kind: InvitationLayer["kind"], patch: Partial<InvitationLayer> = {}): InvitationLayer {
@@ -240,6 +254,7 @@ export function newLayer(kind: InvitationLayer["kind"], patch: Partial<Invitatio
     hidden: false,
     enter: { type: "fade", delay: 0, duration: 1400 },
     loop: "none",
+    group: "",
     ...patch,
   };
 }
@@ -249,8 +264,6 @@ export function cloneSection(s: InvitationSection): InvitationSection {
   return { ...structuredClone(s), id: shortId(`s-${s.type}`), layers: s.layers.map((l) => ({ ...structuredClone(l), id: shortId("l") })) };
 }
 
-export const FONT_KEYS = ["aboreto", "dancing", "jost", "cormorant", "amiri"] as const;
-export type FontKey = (typeof FONT_KEYS)[number];
 
 export const themeSchema = z.object({
   colors: z.object({

@@ -1,6 +1,7 @@
 "use client";
 
 import { MediaUrlField } from "@/components/media/MediaUrlField";
+import { FONTS } from "@/lib/fonts";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { InvitationView } from "@/components/invitation/InvitationView";
 import { PhoneFrame } from "@/components/site/PhoneFrame";
@@ -32,13 +33,7 @@ const TIMEZONES = [
   "Europe/Madrid", "Europe/Rome", "Europe/Berlin", "Europe/Lisbon", "Africa/Casablanca", "Africa/Algiers",
   "Africa/Tunis", "Asia/Dubai", "America/Montreal", "America/New_York", "America/Los_Angeles",
 ];
-const FONT_LABELS: Record<(typeof FONT_KEYS)[number], string> = {
-  aboreto: "Aboreto (capitales gravées)",
-  dancing: "Dancing Script (manuscrite)",
-  jost: "Jost (lisible)",
-  cormorant: "Cormorant Garamond (serif élégante)",
-  amiri: "Amiri (arabe)",
-};
+const FONT_LABELS = Object.fromEntries(Object.entries(FONTS).map(([k, f]) => [k, f.label])) as Record<(typeof FONT_KEYS)[number], string>;
 const COLOR_LABELS: Record<keyof InvitationContent["theme"]["colors"], string> = {
   background: "Fond",
   surface: "Fond des encadrés",

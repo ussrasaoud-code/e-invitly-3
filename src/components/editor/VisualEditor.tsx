@@ -27,7 +27,8 @@ import {
   type RendererKey,
 } from "@/lib/invitation/schema";
 import type { SaveResult } from "@/lib/save-result";
-import { elementsFor, type ElementDef } from "@/lib/invitation/elements";
+import { elementsFor, flattenElements, type ElementDef } from "@/lib/invitation/elements";
+import { FONTS, FONT_GROUPS } from "@/lib/fonts";
 import { HistoryDrawer, type HistoryApi } from "./HistoryDrawer";
 import { useEditorState } from "./useEditorState";
 
@@ -35,7 +36,7 @@ const CLIPBOARD_KEY = "ei-layer-clipboard";
 const WIDTHS = [360, 390, 430] as const;
 const inputCls = "field min-h-9 py-1 text-sm";
 
-type Selection = { sectionId: string; layerId: string | null; elementId?: string | null } | null;
+type Selection = { sectionId: string; layerId: string | null; elementId?: string | null; layerIds?: string[] } | null;
 
 function Btn({ label, onClick, children, disabled, active }: { label: string; onClick: () => void; children: ReactNode; disabled?: boolean; active?: boolean }) {
   return (
@@ -141,8 +142,10 @@ export function VisualEditor({
 
   const section = sel ? c.sections.find((s) => s.id === sel.sectionId) ?? null : null;
   const layer = section && sel?.layerId ? section.layers.find((l) => l.id === sel.layerId) ?? null : null;
-  const elementDefs = section ? elementsFor(section.type, renderer) : [];
-  const element = section && sel?.elementId ? elementDefs.find((d) => d.id === sel.elementId) ?? null : null;
+  const elementDefs = section ? elementsFor(section.type, renderer, c) : [];
+  const element = section && sel?.elementId ? flattenElements(elementDefs).find((d) => d.id === sel.elementId) ?? null : null;
+  /** Calques sélectionnés ensemble (Maj+clic ou groupe) */
+  const multi = section && sel?.layerIds && sel.layerIds.length > 1 ? section.layers.filter((l) => sel.layerIds!.includes(l.id)) : [];
 
   useEffect(() => {
     try {
@@ -178,8 +181,28 @@ export function VisualEditor({
   };
   const deleteLayer = () => {
     if (!section || !layer) return;
-    patchLayers(section.id, (ls) => ls.filter((l) => l.id !== layer.id));
+    const ids = multi.length ? multi.filter((l) => !l.locked).map((l) => l.id) : [layer.id];
+    patchLayers(section.id, (ls) => ls.filter((l) => !ids.includes(l.id)));
     setSel({ sectionId: section.id, layerId: null });
+  };
+  const groupSelected = () => {
+    if (!section || multi.length < 2) return;
+    const gid = `g-${Math.random().toString(36).slice(2, 8)}`;
+    const ids = multi.map((l) => l.id);
+    patchLayers(section.id, (ls) => ls.map((l) => (ids.includes(l.id) ? { ...l, group: gid } : l)));
+    flash("Calques groupés : ils se déplacent ensemble.");
+  };
+  const ungroupSelected = () => {
+    if (!section) return;
+    const ids = (multi.length ? multi : layer ? [layer] : []).map((l) => l.id);
+    patchLayers(section.id, (ls) => ls.map((l) => (ids.includes(l.id) ? { ...l, group: "" } : l)));
+    if (layer) setSel({ sectionId: section.id, layerId: layer.id });
+    flash("Calques dégroupés.");
+  };
+  const patchMany = (patch: Partial<InvitationLayer>) => {
+    if (!section) return;
+    const ids = multi.map((l) => l.id);
+    patchLayers(section.id, (ls) => ls.map((l) => (ids.includes(l.id) ? { ...l, ...patch } : l)));
   };
   const duplicateLayer = () => {
     if (!section || !layer) return;
@@ -278,11 +301,14 @@ export function VisualEditor({
     () => ({
       selected: sel,
       select: (sectionId, layerId) => setSel({ sectionId, layerId }),
+      selectLayers: (sectionId, ids, primary) => setSel({ sectionId, layerId: primary, layerIds: ids }),
       change: patchLayer,
+      changeLayers: (sectionId, patches) => patchLayers(sectionId, (ls) => ls.map((l) => (patches[l.id] ? { ...l, ...patches[l.id] } : l))),
+      changeSection: patchSection,
       selectElement: (sectionId, elementId) => setSel({ sectionId, layerId: null, elementId }),
       changeElement: patchElement,
     }),
-    [sel, patchLayer, patchElement],
+    [sel, patchLayer, patchLayers, patchSection, patchElement],
   );
 
   /* ── Raccourcis clavier ─────────────────────────────────────────── */
@@ -328,7 +354,12 @@ export function VisualEditor({
         const step = e.shiftKey ? 5 : 0.5;
         const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
         const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
-        patchLayer(section.id, layer.id, { x: Math.round((layer.x + dx) * 10) / 10, y: Math.round((layer.y + dy) * 10) / 10 });
+        const ids = multi.length ? multi.filter((l) => !l.locked).map((l) => l.id) : [layer.id];
+        patchLayers(section.id, (ls) => ls.map((l) => (ids.includes(l.id) ? { ...l, x: Math.round((l.x + dx) * 10) / 10, y: Math.round((l.y + dy) * 10) / 10 } : l)));
+      } else if (mod && k === "g" && section) {
+        e.preventDefault();
+        if (e.shiftKey) ungroupSelected();
+        else groupSelected();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -442,8 +473,22 @@ export function VisualEditor({
                       {s.layers.length ? (
                         <ul className="mt-1 space-y-0.5">
                           {[...s.layers].reverse().map((l) => (
-                            <li key={l.id} className={`flex items-center gap-1 rounded-sm px-1 py-0.5 ${sel?.layerId === l.id ? "bg-white shadow-sm" : "hover:bg-paper"}`}>
-                              <button type="button" className={`min-w-0 flex-1 truncate text-left text-xs ${l.hidden ? "opacity-40" : ""}`} onClick={() => setSel({ sectionId: s.id, layerId: l.id })}>
+                            <li key={l.id} className={`flex items-center gap-1 rounded-sm px-1 py-0.5 ${sel?.layerId === l.id || sel?.layerIds?.includes(l.id) ? "bg-white shadow-sm" : "hover:bg-paper"}`}>
+                              <button
+                                type="button"
+                                className={`min-w-0 flex-1 truncate text-left text-xs ${l.hidden ? "opacity-40" : ""}`}
+                                title="Maj+clic pour sélectionner plusieurs calques"
+                                onClick={(e) => {
+                                  const cur = sel?.sectionId === s.id ? sel.layerIds ?? (sel.layerId ? [sel.layerId] : []) : [];
+                                  const groupIds = l.group ? s.layers.filter((x) => x.group === l.group).map((x) => x.id) : [l.id];
+                                  if (e.shiftKey) {
+                                    const next = cur.includes(l.id) ? cur.filter((id) => !groupIds.includes(id)) : [...new Set([...cur, ...groupIds])];
+                                    setSel(next.length ? { sectionId: s.id, layerId: next[0], layerIds: next } : { sectionId: s.id, layerId: null });
+                                  } else if (groupIds.length > 1) setSel({ sectionId: s.id, layerId: l.id, layerIds: groupIds });
+                                  else setSel({ sectionId: s.id, layerId: l.id });
+                                }}
+                              >
+                                {l.group ? <span aria-hidden="true" className="mr-1 text-forest" title="Calque groupé">⛓</span> : null}
                                 <span aria-hidden="true" className="mr-1 text-stone">{l.kind === "text" ? "T" : "▣"}</span>
                                 {layerName(l)}
                                 <span className="ml-1 text-[0.6rem] text-stone">{l.placement === "front" ? "devant" : "derrière"}</span>
@@ -461,27 +506,16 @@ export function VisualEditor({
                         <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => addLayer(newLayer("text", { y: 30 }))}>+ Texte</button>
                         {clipboard ? <button type="button" className="btn btn-ghost btn-sm !px-2 !text-[0.65rem]" onClick={pasteLayer}>Coller</button> : null}
                       </div>
-                      {elementsFor(s.type, renderer).length ? (
+                      {elementsFor(s.type, renderer, c).length ? (
                         <>
                           <p className="mt-3 text-[0.65rem] uppercase tracking-wider text-stone">Éléments du modèle</p>
-                          <ul className="mt-1 space-y-0.5">
-                            {elementsFor(s.type, renderer).map((d) => {
-                              const st = s.elements[d.id];
-                              const hidden = !!st?.hidden;
-                              return (
-                                <li key={d.id} className={`flex items-center gap-1 rounded-sm px-1 py-0.5 ${sel?.elementId === d.id ? "bg-white shadow-sm" : "hover:bg-paper"}`}>
-                                  <button type="button" className={`min-w-0 flex-1 truncate text-left text-xs ${hidden ? "line-through opacity-40" : ""}`} onClick={() => selectElement(s.id, d.id)}>
-                                    <span aria-hidden="true" className="mr-1 text-stone">{d.kind === "ornament" ? "✿" : d.kind === "text" ? "T" : "▤"}</span>
-                                    {d.label}
-                                    {st && !hidden ? <span className="ml-1 text-[0.6rem] text-forest">modifié</span> : null}
-                                  </button>
-                                  {d.hideable !== false ? (
-                                    <Btn label={hidden ? `Remettre : ${d.label}` : `Retirer : ${d.label}`} onClick={() => patchElement(s.id, d.id, { hidden: !hidden })}>{hidden ? "○" : "◉"}</Btn>
-                                  ) : null}
-                                </li>
-                              );
-                            })}
-                          </ul>
+                          <ElementTree
+                            defs={elementsFor(s.type, renderer, c)}
+                            section={s}
+                            selectedId={sel?.sectionId === s.id ? sel?.elementId ?? null : null}
+                            onSelect={(id) => selectElement(s.id, id)}
+                            onToggle={(id, hidden) => patchElement(s.id, id, { hidden })}
+                          />
                         </>
                       ) : null}
                     </div>
@@ -550,6 +584,14 @@ export function VisualEditor({
               onMusic={(patch) => update((x) => ({ ...x, music: { ...x.music, ...patch } }))}
               onColors={(patch) => update((x) => ({ ...x, theme: { ...x.theme, colors: { ...x.theme.colors, ...patch } } }))}
               onReplay={() => setEnvReplay((r) => r + 1)}
+            />
+          ) : multi.length > 1 && section ? (
+            <MultiLayerPanel
+              layers={multi}
+              onGroup={groupSelected}
+              onUngroup={ungroupSelected}
+              onPatch={patchMany}
+              onDelete={deleteLayer}
             />
           ) : element && section ? (
             <ElementPanel
@@ -695,14 +737,10 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
           <Field label="Texte">
             <textarea aria-label="Texte" className="field min-h-16 text-sm" maxLength={240} value={l.text} onChange={(e) => onChange({ text: e.target.value })} />
           </Field>
+          <Field label="Police">
+            <FontSelect value={l.font} onChange={(v) => onChange({ font: v as InvitationLayer["font"] })} themeOptions />
+          </Field>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Police">
-              <select aria-label="Police" className={inputCls} value={l.font} onChange={(e) => onChange({ font: e.target.value as InvitationLayer["font"] })}>
-                <option value="script">Manuscrite</option>
-                <option value="display">Titres</option>
-                <option value="body">Texte</option>
-              </select>
-            </Field>
             <Field label="Couleur">
               <span className="flex items-center gap-2">
                 <input type="color" value={l.color || "#7a6a52"} onChange={(e) => onChange({ color: e.target.value })} className="h-9 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur du texte" />
@@ -835,6 +873,12 @@ function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHre
         Section visible
       </label>
       <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
+        <legend className="mb-1 font-serif text-lg">Hauteur</legend>
+        <p className="text-xs text-stone">Tirez les poignées en haut et en bas de la section dans le téléphone, ou réglez ici.</p>
+        <NumberSlider label="Espace en haut" value={s.spaceTop} min={-30} max={300} unit="%" onChange={(v) => onChange({ spaceTop: v })} />
+        <NumberSlider label="Espace en bas" value={s.spaceBottom} min={-30} max={300} unit="%" onChange={(v) => onChange({ spaceBottom: v })} />
+      </fieldset>
+      <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="mb-1 font-serif text-lg">Fond de la section</legend>
         <div className="flex items-center gap-3">
           <input
@@ -897,9 +941,111 @@ function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHre
   );
 }
 
+/* ── Liste des éléments du modèle (avec groupes) ──────────────────── */
+function ElementTree({ defs, section, selectedId, onSelect, onToggle, depth = 0 }: {
+  defs: ElementDef[];
+  section: InvitationSection;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onToggle: (id: string, hidden: boolean) => void;
+  depth?: number;
+}) {
+  return (
+    <ul className={`mt-1 space-y-0.5 ${depth ? "ml-3 border-l border-line pl-1.5" : ""}`}>
+      {defs.map((d) => {
+        const st = section.elements[d.id];
+        const hidden = !!st?.hidden;
+        const open = !!d.children?.length && !!st?.ungrouped && !hidden;
+        return (
+          <li key={d.id}>
+            <div className={`flex items-center gap-1 rounded-sm px-1 py-0.5 ${selectedId === d.id ? "bg-white shadow-sm" : "hover:bg-paper"}`}>
+              <button type="button" className={`min-w-0 flex-1 truncate text-left text-xs ${hidden ? "line-through opacity-40" : ""}`} onClick={() => onSelect(d.id)}>
+                <span aria-hidden="true" className="mr-1 text-stone">{d.children?.length ? (open ? "▾" : "▸") : d.kind === "ornament" ? "✿" : d.kind === "text" ? "T" : "▤"}</span>
+                {d.label}
+                {d.children?.length ? <span className="ml-1 text-[0.6rem] text-stone">{open ? "dégroupé" : "groupe"}</span> : null}
+                {st && !hidden && !d.children?.length ? <span className="ml-1 text-[0.6rem] text-forest">modifié</span> : null}
+              </button>
+              {d.hideable !== false ? (
+                <Btn label={hidden ? `Remettre : ${d.label}` : `Retirer : ${d.label}`} onClick={() => onToggle(d.id, !hidden)}>{hidden ? "○" : "◉"}</Btn>
+              ) : null}
+            </div>
+            {open ? <ElementTree defs={d.children!} section={section} selectedId={selectedId} onSelect={onSelect} onToggle={onToggle} depth={depth + 1} /> : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Choix de police : polices du thème puis toutes les polices par famille */
+function FontSelect({ value, onChange, themeOptions = false, label = "Police" }: { value: string; onChange: (v: string) => void; themeOptions?: boolean; label?: string }) {
+  return (
+    <select aria-label={label} className={inputCls} value={value} onChange={(e) => onChange(e.target.value)} style={value && value in FONTS ? { fontFamily: FONTS[value as keyof typeof FONTS].stack } : undefined}>
+      {themeOptions ? (
+        <optgroup label="Polices du thème">
+          <option value="script">Manuscrite du thème</option>
+          <option value="display">Titres du thème</option>
+          <option value="body">Texte du thème</option>
+        </optgroup>
+      ) : (
+        <option value="">Police d&apos;origine (thème)</option>
+      )}
+      {FONT_GROUPS.map((g) => (
+        <optgroup key={g.kind} label={g.kind}>
+          {g.keys.map((k) => (
+            <option key={k} value={k} style={{ fontFamily: FONTS[k].stack }}>{FONTS[k].label}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
+/* ── Plusieurs calques sélectionnés ───────────────────────────────── */
+function MultiLayerPanel({ layers, onGroup, onUngroup, onPatch, onDelete }: {
+  layers: InvitationLayer[];
+  onGroup: () => void;
+  onUngroup: () => void;
+  onPatch: (patch: Partial<InvitationLayer>) => void;
+  onDelete: () => void;
+}) {
+  const grouped = layers.every((l) => l.group && l.group === layers[0].group);
+  const texts = layers.filter((l) => l.kind === "text");
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-[0.7rem] uppercase tracking-wider text-stone">{grouped ? "Groupe" : "Sélection multiple"}</p>
+        <h2 className="font-serif text-2xl">{layers.length} calques</h2>
+      </div>
+      <p className="text-xs text-stone">Glissez l&apos;un d&apos;eux pour les déplacer tous ensemble. Maj+clic ajoute ou retire un calque de la sélection.</p>
+      <div className="flex flex-wrap gap-2">
+        {grouped ? (
+          <button type="button" className="btn btn-primary btn-sm" onClick={onUngroup}>Dégrouper</button>
+        ) : (
+          <button type="button" className="btn btn-primary btn-sm" onClick={onGroup}>Grouper</button>
+        )}
+        <button type="button" className="btn btn-danger btn-sm" onClick={onDelete}>Supprimer les {layers.length} calques</button>
+      </div>
+      {texts.length ? (
+        <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
+          <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Les {texts.length} texte(s)</legend>
+          <Field label="Police">
+            <FontSelect value={texts.every((t) => t.font === texts[0].font) ? texts[0].font : "script"} onChange={(v) => onPatch({ font: v as InvitationLayer["font"] })} themeOptions label="Police des textes sélectionnés" />
+          </Field>
+          <label className="flex items-center gap-2 text-xs">
+            <input type="color" value={texts[0].color || "#7a6a52"} onChange={(e) => onPatch({ color: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur des textes sélectionnés" />
+            Couleur
+          </label>
+        </fieldset>
+      ) : null}
+      <NumberSlider label="Opacité" value={Math.round((layers[0].opacity ?? 1) * 100)} min={0} max={100} unit="%" onChange={(v) => onPatch({ opacity: v / 100 })} />
+    </div>
+  );
+}
+
 /* ── Panneau d'un élément intégré au modèle ───────────────────────── */
 function ElementPanel({ def, section, content: c, formHref, style, onStyle, onReset, onContent }: {
-  def: ElementDef;
+  def: ElementDef & { parent?: ElementDef };
   section: InvitationSection;
   content: InvitationContent;
   formHref: string;
@@ -908,69 +1054,140 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
   onReset: () => void;
   onContent: (fn: (c: InvitationContent) => InvitationContent) => void;
 }) {
-  const st = style ?? { hidden: false, dx: 0, dy: 0, scale: 1, rotation: 0, opacity: 1, color: "" };
+  const st = style ?? { hidden: false, dx: 0, dy: 0, scale: 1, rotation: 0, opacity: 1, color: "", font: "" as const, text: "", ungrouped: false };
   const patchSection = (patch: Partial<InvitationSection>) =>
     onContent((x) => ({ ...x, sections: x.sections.map((s) => (s.id === section.id ? { ...s, ...patch } : s)) }));
+  const isGroup = !!def.children?.length;
+
+  const input = (label: string, value: string, set: (v: string) => void, max: number, area = false) => (
+    <Field label={label}>
+      {area ? (
+        <textarea aria-label={label} className="field min-h-24 text-sm" maxLength={max} value={value} onChange={(e) => set(e.target.value)} />
+      ) : (
+        <input aria-label={label} className={inputCls} maxLength={max} value={value} onChange={(e) => set(e.target.value)} />
+      )}
+    </Field>
+  );
 
   let editor: ReactNode = null;
-  switch (def.edit) {
-    case "kicker":
-      editor = <Field label="Texte"><input aria-label="Texte" className={inputCls} maxLength={120} value={c.kicker} onChange={(e) => onContent((x) => ({ ...x, kicker: e.target.value }))} /></Field>;
-      break;
-    case "intro":
-      editor = <Field label="Texte"><textarea aria-label="Texte" className="field min-h-24 text-sm" maxLength={600} value={c.intro} onChange={(e) => onContent((x) => ({ ...x, intro: e.target.value }))} /></Field>;
-      break;
-    case "names":
-      editor = (
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Premier prénom"><input aria-label="Premier prénom" className={inputCls} maxLength={60} value={c.couple.partnerOne} onChange={(e) => onContent((x) => ({ ...x, couple: { ...x.couple, partnerOne: e.target.value } }))} /></Field>
-          <Field label="Second prénom"><input aria-label="Second prénom" className={inputCls} maxLength={60} value={c.couple.partnerTwo} onChange={(e) => onContent((x) => ({ ...x, couple: { ...x.couple, partnerTwo: e.target.value } }))} /></Field>
-        </div>
-      );
-      break;
-    case "venue":
-      editor = (
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Lieu"><input aria-label="Lieu" className={inputCls} maxLength={120} value={c.mainVenue.name} onChange={(e) => onContent((x) => ({ ...x, mainVenue: { ...x.mainVenue, name: e.target.value } }))} /></Field>
-          <Field label="Ville"><input aria-label="Ville" className={inputCls} maxLength={120} value={c.mainVenue.city} onChange={(e) => onContent((x) => ({ ...x, mainVenue: { ...x.mainVenue, city: e.target.value } }))} /></Field>
-        </div>
-      );
-      break;
-    case "section-title":
-      editor = <Field label="Texte" hint="Vide = titre par défaut, traduit selon la langue."><input aria-label="Texte" className={inputCls} maxLength={80} value={section.title} onChange={(e) => patchSection({ title: e.target.value })} /></Field>;
-      break;
-    case "section-body":
-      editor = <Field label="Texte"><textarea aria-label="Texte" className="field min-h-28 text-sm" maxLength={2000} value={section.body} onChange={(e) => patchSection({ body: e.target.value })} /></Field>;
-      break;
-    case "closing-title":
-      editor = <Field label="Texte"><input aria-label="Texte" className={inputCls} maxLength={120} value={c.closing.title} onChange={(e) => onContent((x) => ({ ...x, closing: { ...x.closing, title: e.target.value } }))} /></Field>;
-      break;
-    case "closing-text":
-      editor = <Field label="Texte"><textarea aria-label="Texte" className="field min-h-24 text-sm" maxLength={600} value={c.closing.text} onChange={(e) => onContent((x) => ({ ...x, closing: { ...x.closing, text: e.target.value } }))} /></Field>;
-      break;
-    case "dresscode-text":
-      editor = <Field label="Texte"><textarea aria-label="Texte" className="field min-h-24 text-sm" maxLength={600} value={c.dressCode.text} onChange={(e) => onContent((x) => ({ ...x, dressCode: { ...x.dressCode, text: e.target.value } }))} /></Field>;
-      break;
-    case "rsvp-intro":
-      editor = <Field label="Texte" hint="Vide = « Merci de répondre avant le… »."><textarea aria-label="Texte" className="field min-h-20 text-sm" maxLength={400} value={c.rsvp.intro} onChange={(e) => onContent((x) => ({ ...x, rsvp: { ...x.rsvp, intro: e.target.value } }))} /></Field>;
-      break;
+  const ed = def.edit;
+  if (typeof ed === "object") {
+    if ("partner" in ed) editor = input("Texte", c.couple[ed.partner], (v) => onContent((x) => ({ ...x, couple: { ...x.couple, [ed.partner]: v } })), 60);
+    else if ("venue" in ed) editor = input("Texte", c.mainVenue[ed.venue], (v) => onContent((x) => ({ ...x, mainVenue: { ...x.mainVenue, [ed.venue]: v } })), 120);
+    else if ("contact" in ed) {
+      const ct = c.contacts[ed.contact];
+      if (ct) editor = input("Texte", ct[ed.field], (v) => onContent((x) => ({ ...x, contacts: x.contacts.map((k, i) => (i === ed.contact ? { ...k, [ed.field]: v } : k)) })), ed.field === "phone" ? 30 : 80);
+    } else if ("event" in ed) {
+      const ev = c.events.find((e) => e.id === ed.event);
+      const setEv = (v: string) => onContent((x) => ({ ...x, events: x.events.map((e) => (e.id === ed.event ? { ...e, [ed.field]: v } : e)) }));
+      if (ev) {
+        editor =
+          ed.field === "startTime" ? (
+            <Field label="Heure">
+              <input aria-label="Heure" type="time" className={inputCls} value={ev.startTime} onChange={(e) => setEv(e.target.value)} />
+            </Field>
+          ) : (
+            input("Texte", ev[ed.field], setEv, ed.field === "description" ? 400 : ed.field === "address" ? 240 : 120, ed.field === "description")
+          );
+      }
+    }
+  } else {
+    switch (ed) {
+      case "kicker":
+        editor = input("Texte", c.kicker, (v) => onContent((x) => ({ ...x, kicker: v })), 120);
+        break;
+      case "intro":
+        editor = input("Texte", c.intro, (v) => onContent((x) => ({ ...x, intro: v })), 600, true);
+        break;
+      case "names":
+        editor = (
+          <div className="grid grid-cols-2 gap-2">
+            {input("Premier prénom", c.couple.partnerOne, (v) => onContent((x) => ({ ...x, couple: { ...x.couple, partnerOne: v } })), 60)}
+            {input("Second prénom", c.couple.partnerTwo, (v) => onContent((x) => ({ ...x, couple: { ...x.couple, partnerTwo: v } })), 60)}
+          </div>
+        );
+        break;
+      case "venue":
+        editor = (
+          <div className="grid grid-cols-2 gap-2">
+            {input("Lieu", c.mainVenue.name, (v) => onContent((x) => ({ ...x, mainVenue: { ...x.mainVenue, name: v } })), 120)}
+            {input("Ville", c.mainVenue.city, (v) => onContent((x) => ({ ...x, mainVenue: { ...x.mainVenue, city: v } })), 120)}
+          </div>
+        );
+        break;
+      case "section-title":
+        editor = (
+          <Field label="Texte" hint="Vide = titre par défaut, traduit selon la langue.">
+            <input aria-label="Texte" className={inputCls} maxLength={80} value={section.title} onChange={(e) => patchSection({ title: e.target.value })} />
+          </Field>
+        );
+        break;
+      case "section-body":
+        editor = input("Texte", section.body, (v) => patchSection({ body: v }), 2000, true);
+        break;
+      case "closing-title":
+        editor = input("Texte", c.closing.title, (v) => onContent((x) => ({ ...x, closing: { ...x.closing, title: v } })), 120);
+        break;
+      case "closing-text":
+        editor = input("Texte", c.closing.text, (v) => onContent((x) => ({ ...x, closing: { ...x.closing, text: v } })), 600, true);
+        break;
+      case "dresscode-text":
+        editor = input("Texte", c.dressCode.text, (v) => onContent((x) => ({ ...x, dressCode: { ...x.dressCode, text: v } })), 600, true);
+        break;
+      case "rsvp-intro":
+        editor = (
+          <Field label="Texte" hint="Vide = « Merci de répondre avant le… ».">
+            <textarea aria-label="Texte" className="field min-h-20 text-sm" maxLength={400} value={c.rsvp.intro} onChange={(e) => onContent((x) => ({ ...x, rsvp: { ...x.rsvp, intro: e.target.value } }))} />
+          </Field>
+        );
+        break;
+    }
   }
+  if (def.literal !== undefined) {
+    editor = (
+      <Field label="Texte" hint={`Vide = « ${def.literal} »`}>
+        <input aria-label="Texte" className={inputCls} maxLength={80} value={st.text} placeholder={def.literal} onChange={(e) => onStyle({ text: e.target.value })} />
+      </Field>
+    );
+  }
+  // Un groupe dégroupé ne bouge plus d'un bloc : seules ses parties se manipulent
+  const groupOpen = isGroup && st.ungrouped;
 
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-[0.7rem] uppercase tracking-wider text-stone">{SECTION_LABELS[section.type]} · élément du modèle</p>
+        <p className="text-[0.7rem] uppercase tracking-wider text-stone">
+          {SECTION_LABELS[section.type]} · {def.parent ? `partie de « ${def.parent.label} »` : isGroup ? "groupe d'éléments" : "élément du modèle"}
+        </p>
         <h2 className="font-serif text-2xl">{def.label}</h2>
       </div>
-      {st.hidden ? (
-        <p className="rounded-sm bg-paper px-3 py-2 text-sm">Cet élément est retiré : il n&apos;apparaît pas sur l&apos;invitation.</p>
+      {st.hidden ? <p className="rounded-sm bg-paper px-3 py-2 text-sm">Cet élément est retiré : il n&apos;apparaît pas sur l&apos;invitation.</p> : null}
+      {isGroup ? (
+        <div className="rounded-sm border border-line bg-white p-3 text-sm">
+          {groupOpen ? (
+            <>
+              <p className="text-xs text-stone">Groupe dégroupé : cliquez sur chaque partie dans le téléphone (ou dans la liste) pour la modifier, la déplacer ou la retirer.</p>
+              <button type="button" className="btn btn-secondary btn-sm mt-2" onClick={() => onStyle({ ungrouped: false })}>Regrouper</button>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-stone">Ce groupe contient {def.children!.length} parties ({def.children!.map((x) => x.label.toLowerCase()).join(", ")}). Dégroupez-le pour les modifier une à une.</p>
+              <button type="button" className="btn btn-primary btn-sm mt-2" onClick={() => onStyle({ ungrouped: true })}>Dégrouper</button>
+            </>
+          )}
+        </div>
       ) : null}
       {editor}
-      {!def.edit && def.kind !== "ornament" ? (
+      {!editor && !isGroup && def.kind !== "ornament" ? (
         <p className="text-xs text-stone">
           Son contenu se modifie dans le <Link href={formHref} className="text-forest underline">formulaire</Link>
           {def.hideable === false ? " ; sa logique est verrouillée." : "."}
         </p>
+      ) : null}
+      {def.kind !== "ornament" ? (
+        <Field label={isGroup ? "Police de tout le groupe" : "Police"}>
+          <FontSelect value={st.font} onChange={(v) => onStyle({ font: v as ElementStyle["font"] })} label={isGroup ? "Police de tout le groupe" : "Police"} />
+        </Field>
       ) : null}
       <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="sr-only">Apparence</legend>
@@ -993,7 +1210,7 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
           st.hidden ? (
             <button type="button" className="btn btn-primary btn-sm" onClick={() => onStyle({ hidden: false })}>Remettre l&apos;élément</button>
           ) : (
-            <button type="button" className="btn btn-danger btn-sm" onClick={() => onStyle({ hidden: true })}>Retirer l&apos;élément</button>
+            <button type="button" className="btn btn-danger btn-sm" onClick={() => onStyle({ hidden: true })}>{isGroup ? "Retirer tout le groupe" : "Retirer l'élément"}</button>
           )
         ) : null}
         {style ? <button type="button" className="btn btn-ghost btn-sm !px-2" onClick={onReset}>Réglages d&apos;origine</button> : null}

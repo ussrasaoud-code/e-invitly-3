@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { FONTS } from "@/lib/fonts";
 import type { InvitationLayer, InvitationSection } from "@/lib/invitation/schema";
 import { LayerEditorContext, SectionContext, type LayerEditor } from "./editor-context";
 import { AnimationContext, SectionAnimationContext } from "./Sections";
@@ -15,11 +16,10 @@ import { AnimationContext, SectionAnimationContext } from "./Sections";
 
 export { LayerEditorContext, type LayerEditor } from "./editor-context";
 
-const FONT_VAR: Record<InvitationLayer["font"], string> = {
-  display: "var(--inv-display)",
-  script: "var(--inv-script)",
-  body: "var(--inv-body)",
-};
+function fontFamily(f: InvitationLayer["font"]): string {
+  if (f === "display" || f === "script" || f === "body") return `var(--inv-${f})`;
+  return FONTS[f].stack;
+}
 
 const round = (n: number) => Math.round(n * 10) / 10;
 
@@ -54,7 +54,10 @@ export function SectionFrame({ section, children }: { section: InvitationSection
   const render = (placement: InvitationLayer["placement"]) =>
     layers
       .filter((l) => l.placement === placement)
-      .map((l) => <LayerView key={l.id} layer={l} sectionId={section.id} frame={ref} play={inView} animate={animate} />);
+      .map((l) => <LayerView key={l.id} layer={l} section={section} frame={ref} play={inView} animate={animate} />);
+  const sectionOnly = isSelectedSection && !editor?.selected?.layerId && !editor?.selected?.elementId;
+  const pad = (v: number) => (v > 0 ? `${v}cqw` : undefined);
+  const neg = (v: number) => (v < 0 ? `${v}cqw` : undefined);
 
   return (
     <div
@@ -62,9 +65,11 @@ export function SectionFrame({ section, children }: { section: InvitationSection
       className={`inv-frame relative isolate ${editor ? "inv-frame-edit" : ""} ${isSelectedSection ? "inv-frame-selected" : ""}`}
       data-section={section.type}
       data-section-id={section.id}
-      style={section.background.color ? { backgroundColor: section.background.color } : undefined}
+      style={{ backgroundColor: section.background.color || undefined, paddingTop: pad(section.spaceTop), paddingBottom: pad(section.spaceBottom) }}
       onPointerDown={editor ? (e) => {
-        if (e.target === e.currentTarget || !(e.target as HTMLElement).closest("[data-layer],[data-el]")) editor.select(section.id, null);
+        const t = e.target as HTMLElement;
+        if (t.closest(".inv-section-handle")) return;
+        if (e.target === e.currentTarget || !t.closest("[data-layer],.inv-el-active")) editor.select(section.id, null);
       } : undefined}
     >
       {section.background.image ? (
@@ -83,22 +88,61 @@ export function SectionFrame({ section, children }: { section: InvitationSection
       ) : null}
       {render("behind")}
       <SectionContext.Provider value={section}>
-        <SectionAnimationContext.Provider value={section.animation}>{children}</SectionAnimationContext.Provider>
+        <SectionAnimationContext.Provider value={section.animation}>
+          {section.spaceTop < 0 || section.spaceBottom < 0 ? (
+            <div style={{ marginTop: neg(section.spaceTop), marginBottom: neg(section.spaceBottom) }}>{children}</div>
+          ) : (
+            children
+          )}
+        </SectionAnimationContext.Provider>
       </SectionContext.Provider>
       {render("front")}
+      {editor && sectionOnly ? (
+        <>
+          <span
+            className="inv-section-handle inv-section-handle-top"
+            title="Tirer vers le haut pour agrandir la section"
+            onPointerDown={(e) => startSpace(e, section, "spaceTop", ref, editor)}
+            aria-hidden="true"
+          />
+          <span
+            className="inv-section-handle inv-section-handle-bottom"
+            title="Tirer vers le bas pour agrandir la section"
+            onPointerDown={(e) => startSpace(e, section, "spaceBottom", ref, editor)}
+            aria-hidden="true"
+          />
+        </>
+      ) : null}
     </div>
   );
 }
 
-function LayerView({ layer: l, sectionId, frame, play, animate }: {
+/** Poignées haut / bas : agrandir ou réduire l'espace de la section */
+function startSpace(e: ReactPointerEvent, section: InvitationSection, key: "spaceTop" | "spaceBottom", frame: React.RefObject<HTMLDivElement | null>, editor: LayerEditor) {
+  const rect = frame.current?.getBoundingClientRect();
+  if (!rect) return;
+  const sy = e.clientY;
+  const start = section[key];
+  drag(e, (ev) => {
+    const d = ((ev.clientY - sy) / rect.width) * 100;
+    const v = key === "spaceTop" ? start - d : start + d;
+    editor.changeSection(section.id, { [key]: Math.round(Math.min(300, Math.max(-30, v))) });
+  });
+}
+
+function LayerView({ layer: l, section, frame, play, animate }: {
   layer: InvitationLayer;
-  sectionId: string;
+  section: InvitationSection;
   frame: React.RefObject<HTMLDivElement | null>;
   play: boolean;
   animate: boolean;
 }) {
   const editor = useContext(LayerEditorContext);
-  const selected = editor?.selected?.layerId === l.id;
+  const sectionId = section.id;
+  const sel = editor?.selected;
+  const inMulti = !!sel && sel.sectionId === sectionId && !!sel.layerIds?.includes(l.id);
+  const selected = sel?.layerId === l.id || inMulti;
+  const single = sel?.layerId === l.id && (!sel?.layerIds || sel.layerIds.length <= 1);
   const entering = animate && l.enter.type !== "none";
 
   const pos: CSSProperties = {
@@ -121,7 +165,7 @@ function LayerView({ layer: l, sectionId, frame, play, animate }: {
     body = (
       <p
         className="m-0 whitespace-pre-line text-center leading-[1.1]"
-        style={{ fontFamily: FONT_VAR[l.font], fontSize: `${l.fontSize}cqw`, color: l.color || "var(--inv-accent)", transform: l.flip ? "scaleX(-1)" : undefined }}
+        style={{ fontFamily: fontFamily(l.font), fontSize: `${l.fontSize}cqw`, color: l.color || "var(--inv-accent)", transform: l.flip ? "scaleX(-1)" : undefined }}
       >
         {l.text}
       </p>
@@ -150,12 +194,12 @@ function LayerView({ layer: l, sectionId, frame, play, animate }: {
       className={`inv-layer absolute ${editor ? (l.locked ? "cursor-default" : "cursor-move") : "pointer-events-none"} ${selected ? "inv-layer-selected" : ""} ${l.placement === "behind" ? "inv-layer-behind" : ""}`}
       style={pos}
       aria-hidden={l.kind === "image" ? true : undefined}
-      onPointerDown={editor ? (e) => startMove(e, l, sectionId, frame, editor) : undefined}
+      onPointerDown={editor ? (e) => startMove(e, l, section, frame, editor) : undefined}
     >
       <div style={{ ...enterStyle, opacity: enterStyle.opacity ?? undefined }}>
         <div style={{ ...loopStyle, opacity: l.opacity }}>{body}</div>
       </div>
-      {editor && selected && !l.locked ? (
+      {editor && single && !l.locked ? (
         <>
           <span className="inv-handle inv-handle-resize" onPointerDown={(e) => startResize(e, l, sectionId, frame, editor)} aria-hidden="true" />
           <span className="inv-handle inv-handle-rotate" onPointerDown={(e) => startRotate(e, l, sectionId, editor)} aria-hidden="true" />
@@ -182,10 +226,27 @@ function drag(e: ReactPointerEvent, onMove: (ev: PointerEvent) => void) {
   window.addEventListener("pointercancel", up);
 }
 
-function startMove(e: ReactPointerEvent, l: InvitationLayer, sectionId: string, frame: React.RefObject<HTMLDivElement | null>, editor: LayerEditor) {
+function startMove(e: ReactPointerEvent, l: InvitationLayer, section: InvitationSection, frame: React.RefObject<HTMLDivElement | null>, editor: LayerEditor) {
   // Quitte le champ en cours de saisie pour que les raccourcis (Ctrl+C, flèches…) agissent sur le calque
   (document.activeElement as HTMLElement | null)?.blur?.();
-  editor.select(sectionId, l.id);
+  const sectionId = section.id;
+  const sel = editor.selected;
+  const current = sel?.sectionId === sectionId ? sel.layerIds ?? (sel.layerId ? [sel.layerId] : []) : [];
+
+  // Maj+clic : ajoute ou retire le calque (et son groupe) de la sélection
+  const groupIds = l.group ? section.layers.filter((x) => x.group === l.group).map((x) => x.id) : [l.id];
+  if (e.shiftKey) {
+    e.stopPropagation();
+    e.preventDefault();
+    const has = current.includes(l.id);
+    const next = has ? current.filter((id) => !groupIds.includes(id)) : [...new Set([...current, ...groupIds])];
+    if (next.length) editor.selectLayers(sectionId, next, has ? next[0] : l.id);
+    else editor.select(sectionId, null);
+    return;
+  }
+  const ids = current.includes(l.id) && current.length > 1 ? current : groupIds;
+  if (ids.length > 1) editor.selectLayers(sectionId, ids, l.id);
+  else editor.select(sectionId, l.id);
   if (l.locked || e.button !== 0) {
     e.stopPropagation();
     return;
@@ -194,11 +255,15 @@ function startMove(e: ReactPointerEvent, l: InvitationLayer, sectionId: string, 
   if (!rect) return;
   const sx = e.clientX;
   const sy = e.clientY;
+  const starts = section.layers.filter((x) => ids.includes(x.id) && !x.locked).map((x) => ({ id: x.id, x: x.x, y: x.y }));
   drag(e, (ev) => {
-    editor.change(sectionId, l.id, {
-      x: round(Math.min(160, Math.max(-60, l.x + ((ev.clientX - sx) / rect.width) * 100))),
-      y: round(Math.min(160, Math.max(-60, l.y + ((ev.clientY - sy) / rect.height) * 100))),
-    });
+    const dx = ((ev.clientX - sx) / rect.width) * 100;
+    const dy = ((ev.clientY - sy) / rect.height) * 100;
+    const patches: Record<string, Partial<InvitationLayer>> = {};
+    for (const s of starts) {
+      patches[s.id] = { x: round(Math.min(160, Math.max(-60, s.x + dx))), y: round(Math.min(160, Math.max(-60, s.y + dy))) };
+    }
+    editor.changeLayers(sectionId, patches);
   });
 }
 

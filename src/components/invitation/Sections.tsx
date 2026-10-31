@@ -6,7 +6,7 @@ import { EVENT_TYPE_LABELS, type InvitationContent, type InvitationEvent, type R
 import { formatDotDate, formatLongDate, formatTime, zonedToUtc } from "@/lib/time";
 import type { PublicRsvpConfig } from "@/lib/rsvp";
 import type { Labels } from "./i18n";
-import { El } from "./Element";
+import { El, ElText, elKey } from "./Element";
 import { LiveRsvpForm } from "./LiveRsvpForm";
 
 export type SectionProps = {
@@ -150,11 +150,11 @@ export function HeroSection({ content, renderer }: SectionProps) {
               ) : null}
               <El id="names">
                 <h1 className="mt-5 text-[2.6rem] italic leading-[1.05]" style={{ ...css.display, color: "var(--inv-ink)" }}>
-                  {couple.partnerOne}
-                  <span className="my-1 block text-[1.9rem] not-italic" style={{ ...css.script, color: "var(--inv-accent)" }}>
-                    &amp;
-                  </span>
-                  {couple.partnerTwo}
+                  <El id="names.one" as="span" className="block">{couple.partnerOne}</El>
+                  <El id="names.and" as="span" className="my-1 block text-[1.9rem] not-italic" style={{ ...css.script, color: "var(--inv-accent)" }}>
+                    <ElText fallback="&" />
+                  </El>
+                  <El id="names.two" as="span" className="block">{couple.partnerTwo}</El>
                 </h1>
               </El>
               <El id="date">
@@ -179,8 +179,8 @@ export function HeroSection({ content, renderer }: SectionProps) {
           {mainVenue.name ? (
             <El id="venue">
               <p className="mt-2 text-center text-sm tracking-wide" style={{ color: "var(--inv-muted)" }}>
-                {mainVenue.name}
-                {mainVenue.city ? ` — ${mainVenue.city}` : ""}
+                <El id="venue.name" as="span">{mainVenue.name}</El>
+                {mainVenue.city ? <El id="venue.city" as="span">{` — ${mainVenue.city}`}</El> : null}
               </p>
             </El>
           ) : null}
@@ -213,15 +213,21 @@ export function HeroSection({ content, renderer }: SectionProps) {
           </El>
         ) : null}
         <El id="names">
-          <h1 className="mt-8 text-[2.15rem] uppercase leading-tight tracking-[0.14em]" style={{ ...css.display, color: "var(--inv-ink)" }}>
-            {couple.partnerOne}
-          </h1>
-          <p className="my-1 text-[2.4rem] leading-none" style={{ ...css.script, color: "var(--inv-accent)" }}>
-            &amp;
-          </p>
-          <h1 className="text-[2.15rem] uppercase leading-tight tracking-[0.14em]" style={{ ...css.display, color: "var(--inv-ink)" }}>
-            {couple.partnerTwo}
-          </h1>
+          <El id="names.one">
+            <h1 className="mt-8 text-[2.15rem] uppercase leading-tight tracking-[0.14em]" style={{ ...css.display, color: "var(--inv-ink)" }}>
+              {couple.partnerOne}
+            </h1>
+          </El>
+          <El id="names.and">
+            <p className="my-1 text-[2.4rem] leading-none" style={{ ...css.script, color: "var(--inv-accent)" }}>
+              <ElText fallback="&" />
+            </p>
+          </El>
+          <El id="names.two">
+            <h1 className="text-[2.15rem] uppercase leading-tight tracking-[0.14em]" style={{ ...css.display, color: "var(--inv-ink)" }}>
+              {couple.partnerTwo}
+            </h1>
+          </El>
         </El>
       </Reveal>
       <Reveal delay={250}>
@@ -248,8 +254,8 @@ export function HeroSection({ content, renderer }: SectionProps) {
         {mainVenue.name ? (
           <El id="venue">
             <p className="mt-4 text-[0.95rem]" style={{ color: "var(--inv-ink)" }}>
-              {mainVenue.name}
-              {mainVenue.city ? <span className="block text-sm" style={{ color: "var(--inv-muted)" }}>{mainVenue.city}</span> : null}
+              <El id="venue.name" as="span" className="block">{mainVenue.name}</El>
+              {mainVenue.city ? <El id="venue.city" as="span" className="block text-sm" style={{ color: "var(--inv-muted)" }}>{mainVenue.city}</El> : null}
             </p>
           </El>
         ) : null}
@@ -270,35 +276,42 @@ export function ProgramSection({ content, renderer, labels, title }: SectionProp
         {renderer === "province" ? (
           <span aria-hidden="true" className="absolute bottom-3 top-3 w-px" style={{ insetInlineStart: "4.25rem", backgroundColor: "var(--inv-soft)" }} />
         ) : null}
-        {events.map((e, i) => (
-          <li key={e.id} className={renderer === "province" ? "relative mb-7 flex gap-6" : "mb-9 text-center last:mb-0"}>
+        {events.map((e, i) => {
+          const k = `list.${elKey(e.id)}`;
+          return (
+          <El id={k} as="li" key={e.id} className={renderer === "province" ? "relative mb-7 flex gap-6" : "mb-9 text-center last:mb-0"}>
             {renderer === "province" ? (
               <>
-                <span className="w-14 shrink-0 pt-0.5 text-end text-[1.15rem]" style={{ ...css.display, color: "var(--inv-accent)" }}>
+                <El id={`${k}.time`} as="span" className="w-14 shrink-0 pt-0.5 text-end text-[1.15rem]" style={{ ...css.display, color: "var(--inv-accent)" }}>
                   {formatTime(e.startTime, content.language)}
-                </span>
+                </El>
                 <span aria-hidden="true" className="relative z-10 mt-2.5 h-2 w-2 shrink-0 rotate-45" style={{ backgroundColor: "var(--inv-accent)", marginInlineStart: "-0.5rem" }} />
                 <div>
-                  <p className="text-[1.05rem]" style={{ color: "var(--inv-ink)" }}>{e.title || EVENT_TYPE_LABELS[e.type]}</p>
-                  {e.venueName ? <p className="text-sm" style={{ color: "var(--inv-muted)" }}>{e.venueName}</p> : null}
-                  {e.description ? <p className="mt-1 text-sm" style={{ color: "var(--inv-muted)" }}>{e.description}</p> : null}
+                  <El id={`${k}.title`}><p className="text-[1.05rem]" style={{ color: "var(--inv-ink)" }}>{e.title || EVENT_TYPE_LABELS[e.type]}</p></El>
+                  {e.venueName ? <El id={`${k}.place`}><p className="text-sm" style={{ color: "var(--inv-muted)" }}>{e.venueName}</p></El> : null}
+                  {e.description ? <El id={`${k}.desc`}><p className="mt-1 text-sm" style={{ color: "var(--inv-muted)" }}>{e.description}</p></El> : null}
                 </div>
               </>
             ) : (
               <>
                 {i > 0 && renderer === "the-garden" ? <Divider className="mx-auto mb-6 h-3 w-16" stroke="var(--inv-soft)" /> : null}
-                <p className="text-[1.6rem] leading-none" style={{ ...css.script, color: "var(--inv-accent)" }}>
-                  {formatTime(e.startTime, content.language)}
-                </p>
-                <p className="mt-2 text-[0.82rem] uppercase tracking-[0.24em]" style={{ ...css.display, color: "var(--inv-ink)" }}>
-                  {e.title || EVENT_TYPE_LABELS[e.type]}
-                </p>
-                {e.venueName ? <p className="mt-1 text-sm" style={{ color: "var(--inv-muted)" }}>{e.venueName}</p> : null}
-                {e.description ? <p className="mt-1 text-sm italic" style={{ color: "var(--inv-muted)" }}>{e.description}</p> : null}
+                <El id={`${k}.time`}>
+                  <p className="text-[1.6rem] leading-none" style={{ ...css.script, color: "var(--inv-accent)" }}>
+                    {formatTime(e.startTime, content.language)}
+                  </p>
+                </El>
+                <El id={`${k}.title`}>
+                  <p className="mt-2 text-[0.82rem] uppercase tracking-[0.24em]" style={{ ...css.display, color: "var(--inv-ink)" }}>
+                    {e.title || EVENT_TYPE_LABELS[e.type]}
+                  </p>
+                </El>
+                {e.venueName ? <El id={`${k}.place`}><p className="mt-1 text-sm" style={{ color: "var(--inv-muted)" }}>{e.venueName}</p></El> : null}
+                {e.description ? <El id={`${k}.desc`}><p className="mt-1 text-sm italic" style={{ color: "var(--inv-muted)" }}>{e.description}</p></El> : null}
               </>
             )}
-          </li>
-        ))}
+          </El>
+          );
+        })}
       </ol>
       </El>
     </Shell>
@@ -414,26 +427,30 @@ export function VenuesSection({ content, renderer, labels, title }: SectionProps
       <div className="mx-auto max-w-[320px] space-y-6">
         {venues.map((e) => {
           const links = mapLinks(e);
+          const k = `list.${elKey(e.id)}`;
           return (
-            <div key={e.id} className="inv-border-soft border p-5 text-center">
-              <p className="text-[0.75rem] uppercase tracking-[0.22em]" style={{ color: "var(--inv-accent)" }}>
-                {e.title || EVENT_TYPE_LABELS[e.type]}
-                {e.arrivalTime ? ` · ${labels.arrival} ${formatTime(e.arrivalTime, content.language)}` : ""}
-              </p>
-              <p className="mt-2 text-[1.05rem]" style={{ color: "var(--inv-ink)" }}>{e.venueName}</p>
-              <p className="mt-1 text-sm" style={{ color: "var(--inv-muted)" }}>{e.address}</p>
-              <div className="mt-4 flex justify-center gap-2">
+            <El id={k} key={e.id} className="inv-border-soft border p-5 text-center">
+              <El id={`${k}.title`}>
+                <p className="text-[0.75rem] uppercase tracking-[0.22em]" style={{ color: "var(--inv-accent)" }}>
+                  {e.title || EVENT_TYPE_LABELS[e.type]}
+                  {e.arrivalTime ? ` · ${labels.arrival} ${formatTime(e.arrivalTime, content.language)}` : ""}
+                </p>
+              </El>
+              <El id={`${k}.place`}><p className="mt-2 text-[1.05rem]" style={{ color: "var(--inv-ink)" }}>{e.venueName}</p></El>
+              <El id={`${k}.address`}><p className="mt-1 text-sm" style={{ color: "var(--inv-muted)" }}>{e.address}</p></El>
+              <El id={`${k}.maps`} className="mt-4 flex justify-center gap-2">
                 <a href={links.google} target="_blank" rel="noopener noreferrer" className="inv-border-accent inline-flex min-h-10 items-center border px-3 text-[0.68rem] uppercase tracking-[0.18em]" style={{ color: "var(--inv-accent)" }}>
                   {labels.googleMaps}
                 </a>
                 <a href={links.apple} target="_blank" rel="noopener noreferrer" className="inv-border-accent inline-flex min-h-10 items-center border px-3 text-[0.68rem] uppercase tracking-[0.18em]" style={{ color: "var(--inv-accent)" }}>
                   {labels.appleMaps}
                 </a>
-              </div>
-            </div>
+              </El>
+            </El>
           );
         })}
         {practical.length ? (
+          <El id="list.practical">
           <dl className="space-y-4 pt-2">
             {practical.map((x) => (
               <div key={x.k}>
@@ -442,6 +459,7 @@ export function VenuesSection({ content, renderer, labels, title }: SectionProps
               </div>
             ))}
           </dl>
+          </El>
         ) : null}
       </div>
       </El>
@@ -572,16 +590,18 @@ export function ContactsSection({ content, renderer, labels, title }: SectionPro
       <SectionTitle renderer={renderer}>{title || labels.contacts}</SectionTitle>
       <El id="list">
       <ul className="mx-auto grid max-w-[320px] gap-5 text-center">
-        {content.contacts.map((c) => (
-          <li key={`${c.name}-${c.phone}`}>
-            <p className="text-[1.05rem]" style={{ color: "var(--inv-ink)" }}>{c.name}</p>
-            {c.role ? <p className="text-sm" style={{ color: "var(--inv-muted)" }}>{c.role}</p> : null}
+        {content.contacts.map((c, i) => (
+          <El id={`list.c${i}`} as="li" key={`${c.name}-${c.phone}-${i}`}>
+            <El id={`list.c${i}.name`}><p className="text-[1.05rem]" style={{ color: "var(--inv-ink)" }}>{c.name}</p></El>
+            {c.role ? <El id={`list.c${i}.role`}><p className="text-sm" style={{ color: "var(--inv-muted)" }}>{c.role}</p></El> : null}
             {c.phone ? (
-              <a href={`tel:${c.phone.replace(/\s/g, "")}`} className="mt-1 inline-block text-sm underline underline-offset-4" style={{ color: "var(--inv-accent)" }} dir="ltr">
-                {c.phone}
-              </a>
+              <El id={`list.c${i}.phone`}>
+                <a href={`tel:${c.phone.replace(/\s/g, "")}`} className="mt-1 inline-block text-sm underline underline-offset-4" style={{ color: "var(--inv-accent)" }} dir="ltr">
+                  {c.phone}
+                </a>
+              </El>
             ) : null}
-          </li>
+          </El>
         ))}
       </ul>
       </El>

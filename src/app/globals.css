@@ -245,17 +245,40 @@
 .inv-frame-selected, .inv-frame-selected:hover { outline: 1.5px solid rgba(79, 107, 82, 0.7); }
 .inv-frame-edit .inv-layer { touch-action: none; user-select: none; }
 /* Dans l'éditeur, le contenu de la section laisse passer les clics vers les calques placés derrière lui */
-.inv-frame-edit > :not(.inv-layer):not(.inv-bg-image) { pointer-events: none; }
+.inv-frame-edit > :not(.inv-layer):not(.inv-bg-image):not(.inv-section-handle) { pointer-events: none; }
+.inv-frame-selected { z-index: 5; }
 .inv-frame-edit .inv-layer:hover { outline: 1px dashed rgba(79, 107, 82, 0.8); }
 .inv-layer-selected, .inv-layer-selected:hover { outline: 1.5px solid #4f6b52 !important; }
 /* Calque « derrière » sélectionné : passe devant le temps de le manipuler, en transparence */
 .inv-frame-edit .inv-layer-selected.inv-layer-behind { z-index: 4 !important; }
 .inv-frame-edit .inv-layer-selected.inv-layer-behind > div:first-child { opacity: 0.6; }
 /* Éléments intégrés au modèle : sélectionnables dans l'éditeur */
-.inv-frame-edit .inv-el { pointer-events: auto; cursor: move; user-select: none; touch-action: none; }
-.inv-frame-edit .inv-el:hover { outline: 1px dashed rgba(79, 107, 82, 0.8); outline-offset: 2px; }
+.inv-frame-edit .inv-el { pointer-events: auto; user-select: none; touch-action: none; }
+.inv-frame-edit .inv-el-active { cursor: move; }
+.inv-frame-edit .inv-el-active:hover { outline: 1px dashed rgba(79, 107, 82, 0.8); outline-offset: 2px; }
 .inv-frame-edit .inv-el-selected, .inv-frame-edit .inv-el-selected:hover { outline: 1.5px solid #4f6b52; outline-offset: 2px; }
-.inv-frame-edit .inv-el-hidden { opacity: 0.18 !important; }
+/* Groupe dégroupé : repère discret autour de ses parties */
+.inv-frame-edit .inv-el-ungrouped { outline: 1px dotted rgba(79, 107, 82, 0.45); outline-offset: 4px; }
+/* Les liens ne s'ouvrent pas dans l'éditeur : le clic sélectionne l'élément */
+.inv-frame-edit a { pointer-events: none; }
+/* Poignées pour agrandir une section */
+.inv-section-handle {
+  position: absolute;
+  left: 50%;
+  z-index: 6;
+  width: 64px;
+  height: 12px;
+  margin-left: -32px;
+  border-radius: 999px;
+  border: 1.5px solid #4f6b52;
+  background: #fff;
+  cursor: ns-resize;
+  touch-action: none;
+  pointer-events: auto;
+}
+.inv-section-handle::after { content: ""; position: absolute; left: 20px; right: 20px; top: 4px; height: 1.5px; background: #4f6b52; }
+.inv-section-handle-top { top: -6px; }
+.inv-section-handle-bottom { bottom: -6px; }
 .inv-handle {
   position: absolute;
   width: 14px;
