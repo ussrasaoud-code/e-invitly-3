@@ -82,3 +82,12 @@ export async function getPublicInvitation(slug: string, codeHash?: string | null
     version: row.version ?? 0,
   };
 }
+
+/** Comme getPublicInvitation, en utilisant le code d'accès mémorisé (cookie) si besoin. */
+export async function loadPublicInvitation(slug: string): Promise<PublicInvitation | null> {
+  const { cookies } = await import("next/headers");
+  const first = await getPublicInvitation(slug);
+  if (first?.kind !== "locked") return first;
+  const hash = (await cookies()).get(accessCookieName(first.invitationId))?.value;
+  return hash ? ((await getPublicInvitation(slug, hash)) ?? first) : first;
+}

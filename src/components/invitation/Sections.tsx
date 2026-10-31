@@ -4,13 +4,18 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { Arch, CornerSpray, Divider, Sprig } from "@/components/ornaments";
 import { EVENT_TYPE_LABELS, type InvitationContent, type InvitationEvent, type RendererKey } from "@/lib/invitation/schema";
 import { formatDotDate, formatLongDate, formatTime, zonedToUtc } from "@/lib/time";
+import type { PublicRsvpConfig } from "@/lib/rsvp";
 import type { Labels } from "./i18n";
+import { LiveRsvpForm } from "./LiveRsvpForm";
 
 export type SectionProps = {
   content: InvitationContent;
   renderer: RendererKey;
   labels: Labels;
   title: string;
+  /** Invitation publiée : adresse et configuration RSVP (lues côté serveur) */
+  slug?: string;
+  rsvp?: PublicRsvpConfig | null;
 };
 
 /* ── Apparition au défilement ─────────────────────────────────────── */
@@ -254,7 +259,7 @@ export function CountdownSection({ content, renderer, labels, title }: SectionPr
         <div className="mx-auto grid max-w-[320px] grid-cols-4 gap-2 text-center" role="timer" aria-live="off">
           {parts.map((p) => (
             <div key={p.l} className="py-3" style={{ borderInlineStart: renderer === "province" ? "none" : undefined }}>
-              <span className="block text-[2rem] leading-none tabular-nums" style={{ ...css.display, color: "var(--inv-ink)" }}>
+              <span className="block text-[2rem] leading-none lining-nums tabular-nums" style={{ ...css.display, color: "var(--inv-ink)" }}>
                 {String(p.v).padStart(2, "0")}
               </span>
               <span className="mt-2 block text-[0.62rem] uppercase tracking-[0.22em]" style={{ color: "var(--inv-muted)" }}>
@@ -361,10 +366,16 @@ export function VenuesSection({ content, renderer, labels, title }: SectionProps
 }
 
 /* ── RSVP (démo) ───────────────────────────────────────────────────── */
-export function RsvpSection({ content, renderer, labels, title, mode }: SectionProps & { mode: "demo" | "preview" | "live" }) {
+export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp }: SectionProps & { mode: "demo" | "preview" | "live" }) {
   const [attending, setAttending] = useState<"yes" | "no" | "">("");
   const [sent, setSent] = useState(false);
-  const deadline = content.rsvp.deadline ? formatLongDate(`${content.rsvp.deadline}T12:00`, content.language) : "";
+  // La date limite réglée dans l'onglet RSVP fait foi ; sinon celle du contenu.
+  const deadlineIso = rsvp?.deadline ?? null;
+  const deadline = deadlineIso
+    ? new Intl.DateTimeFormat({ fr: "fr-FR", en: "en-GB", ar: "ar-MA" }[content.language], { day: "numeric", month: "long", year: "numeric", timeZone: content.timezone }).format(new Date(deadlineIso))
+    : content.rsvp.deadline
+      ? formatLongDate(`${content.rsvp.deadline}T12:00`, content.language)
+      : "";
   const inputStyle = { color: "var(--inv-ink)", backgroundColor: "var(--inv-bg)" };
   const fieldCls = "inv-border-soft mt-1 block w-full min-h-11 border px-3 py-2 text-base outline-none focus:ring-2";
   return (
@@ -376,9 +387,13 @@ export function RsvpSection({ content, renderer, labels, title, mode }: SectionP
         </p>
       ) : null}
       {mode === "live" ? (
-        <p className="mx-auto max-w-[300px] text-center leading-relaxed" style={{ color: "var(--inv-ink)" }}>
-          {labels.rsvpSoon}
-        </p>
+        rsvp && slug ? (
+          <LiveRsvpForm slug={slug} config={rsvp} events={content.events} labels={labels} />
+        ) : (
+          <p className="mx-auto max-w-[300px] text-center leading-relaxed" style={{ color: "var(--inv-ink)" }}>
+            {labels.rsvpSoon}
+          </p>
+        )
       ) : sent ? (
         <p role="status" className="mx-auto max-w-[300px] text-center leading-relaxed" style={{ color: "var(--inv-ink)" }}>
           {labels.demoThanks}

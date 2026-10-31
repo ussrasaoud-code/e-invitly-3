@@ -105,7 +105,7 @@ export default async function SettingsPage() {
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" name="notifyOnNewRsvp" defaultChecked={notifications.notifyOnNewRsvp} className="h-4 w-4 accent-forest" />
-                M&apos;envoyer un e-mail à chaque réponse RSVP (phase 5)
+                M&apos;envoyer un e-mail à chaque réponse RSVP
               </label>
               <SubmitButton className="btn btn-secondary btn-sm">Enregistrer</SubmitButton>
             </fieldset>

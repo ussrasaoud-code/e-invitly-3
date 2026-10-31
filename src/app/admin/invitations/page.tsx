@@ -99,7 +99,7 @@ export default async function InvitationsPage({ searchParams }: { searchParams: 
                     </td>
                     <td className="px-4 py-3">{formatShortDate(i.published_at)}</td>
                     <td className="px-4 py-3 text-xs text-stone">{relativeFromNow(i.draft_updated_at)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">
+                    <td className="px-4 py-3 text-right lining-nums tabular-nums">
                       {s ? (
                         <span title={`${s.confirmed_people} personne(s) confirmée(s)`}>
                           {s.responses}

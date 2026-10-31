@@ -376,7 +376,7 @@ export function InvitationEditor({
 
           <Panel title="RSVP et message final">
             <div className="grid gap-4 sm:grid-cols-2">
-              <L label="Date limite de réponse"><input type="date" className={inputCls} value={c.rsvp.deadline} onChange={(e) => setIn("rsvp", { deadline: e.target.value })} /></L>
+              <L label="Date limite (démo et invitations sans réglage RSVP)" hint="Pour une invitation, la date limite qui ferme vraiment les réponses se règle dans l'onglet RSVP et s'affiche à la place de celle-ci."><input type="date" className={inputCls} value={c.rsvp.deadline} onChange={(e) => setIn("rsvp", { deadline: e.target.value })} /></L>
               <L label="Phrase d'introduction du RSVP" hint="Vide = « Merci de répondre avant le … »"><input className={inputCls} value={c.rsvp.intro} onChange={(e) => setIn("rsvp", { intro: e.target.value })} /></L>
               <L label="Titre du message final"><input className={inputCls} value={c.closing.title} onChange={(e) => setIn("closing", { title: e.target.value })} /></L>
               <L label="Message final"><input className={inputCls} value={c.closing.text} onChange={(e) => setIn("closing", { text: e.target.value })} /></L>

@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PageHeader, SoonPanel } from "@/components/admin/PageHeader";
+import { PageHeader } from "@/components/admin/PageHeader";
 import { CopyButton } from "@/components/admin/CopyButton";
 import { publicUrl } from "@/lib/publication";
 import { PreviewLink } from "./PreviewLink";
+import { RsvpTab } from "./RsvpTab";
+import { loadRsvpOverview } from "@/lib/rsvp-data";
+import { getOrCreateRsvpForm } from "@/lib/rsvp-server";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { requireStaff } from "@/lib/auth";
@@ -25,12 +28,12 @@ const TABS = [
   { value: "notes", label: "Notes internes" },
 ] as const;
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ onglet?: string; nouvelle?: string; publiee?: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ onglet?: string; nouvelle?: string; publiee?: string; q?: string; presence?: string }> };
 
 export default async function InvitationPage({ params, searchParams }: Props) {
   await requireStaff();
   const { id } = await params;
-  const { onglet = "contenu", nouvelle, publiee } = await searchParams;
+  const { onglet = "contenu", nouvelle, publiee, q, presence } = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const supabase = (await createClient())!;
 
@@ -41,13 +44,13 @@ export default async function InvitationPage({ params, searchParams }: Props) {
     .maybeSingle();
   if (!inv) notFound();
 
-  const [{ data: stats }, { data: access }, { data: rsvpForm }, { data: versions }, { data: redirects }, { count: activePreviews }] = await Promise.all([
-    supabase.from("rsvp_stats").select("*").eq("invitation_id", id).maybeSingle(),
+  if (onglet === "rsvp") await getOrCreateRsvpForm(supabase, id);
+  const [{ data: access }, { data: versions }, { data: redirects }, { count: activePreviews }, rsvpOverview] = await Promise.all([
     supabase.from("invitation_access").select("email, role, user_id, created_at").eq("invitation_id", id),
-    supabase.from("rsvp_forms").select("*").eq("invitation_id", id).maybeSingle(),
     supabase.from("invitation_versions").select("id, version, published_at, note").eq("invitation_id", id).order("version", { ascending: false }),
     supabase.from("slug_redirects").select("old_slug").eq("invitation_id", id),
     supabase.from("preview_tokens").select("token_hash", { count: "exact", head: true }).eq("invitation_id", id).gt("expires_at", new Date().toISOString()),
+    onglet === "rsvp" ? loadRsvpOverview(supabase, id) : Promise.resolve(null),
   ]);
 
   const parsed = invitationContentSchema.safeParse(inv.draft_content);
@@ -134,45 +137,9 @@ export default async function InvitationPage({ params, searchParams }: Props) {
       ) : null}
 
       {tab === "rsvp" ? (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <section className="card p-5">
-            <h2 className="font-serif text-2xl">Réponses</h2>
-            <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {[
-                ["Formulaires reçus", stats?.responses ?? 0],
-                ["Personnes confirmées", stats?.confirmed_people ?? 0],
-                ["Accompagnants", stats?.companions ?? 0],
-                ["Refus", stats?.declined_responses ?? 0],
-              ].map(([k, v]) => (
-                <div key={k as string}>
-                  <dt className="text-xs text-stone">{k}</dt>
-                  <dd className="font-serif text-3xl tabular-nums">{v}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="mt-4 text-xs text-stone">Personnes confirmées = réponses « oui » + leurs accompagnants.</p>
-          </section>
-          <section className="card p-5">
-            <h2 className="font-serif text-2xl">Configuration</h2>
-            {rsvpForm ? (
-              <dl className="mt-4 grid grid-cols-[10rem_1fr] gap-y-2 text-sm">
-                <dt className="text-stone">Formulaire</dt><dd>{rsvpForm.is_open ? "Ouvert" : "Fermé"}</dd>
-                <dt className="text-stone">Date limite</dt><dd>{formatShortDate(rsvpForm.deadline)}</dd>
-                <dt className="text-stone">Mode</dt><dd>{rsvpForm.mode === "code" ? "Invitations nominatives (code)" : "Réponse libre"}</dd>
-                <dt className="text-stone">Accompagnants max.</dt><dd>{rsvpForm.max_companions}</dd>
-              </dl>
-            ) : (
-              <p className="mt-3 text-sm text-stone">Aucun formulaire configuré.</p>
-            )}
-          </section>
-          <div className="lg:col-span-2">
-            <SoonPanel phase="phase 5">
-              Enregistrement réel des réponses depuis l&apos;invitation publiée, choix des champs (menus, allergies, questions
-              personnalisées), liste détaillée, corrections tracées et exports CSV / Excel. Le stockage et les statistiques
-              ci-dessus sont déjà en place côté base de données.
-            </SoonPanel>
-          </div>
-        </div>
+        rsvpOverview ? (
+          <RsvpTab invitationId={inv.id} overview={rsvpOverview} timezone={inv.timezone} q={q ?? ""} presence={presence ?? ""} isLive={isLive} />
+        ) : null
       ) : null}
 
       {tab === "publication" ? (
@@ -248,7 +215,7 @@ export default async function InvitationPage({ params, searchParams }: Props) {
               ) : null}
             </div>
             <p className="mt-3 text-xs text-stone">
-              Le formulaire RSVP en ligne arrive en phase 5. D&apos;ici là, la section RSVP de l&apos;invitation publiée indique aux invités que les réponses ouvriront prochainement.
+              Les réponses des invités arrivent dans l&apos;onglet RSVP. Le formulaire se règle depuis ce même onglet.
             </p>
           </section>
 

@@ -89,7 +89,9 @@ export default async function AdminHome({ searchParams }: { searchParams: Search
         ? `/admin/demandes/${r.resource_id}`
         : r.resource_type === "invitation"
           ? `/admin/invitations/${r.resource_id}`
-          : r.resource_type === "template"
+          : r.resource_type === "rsvp_response"
+            ? `/admin/invitations/${r.resource_id}?onglet=rsvp`
+            : r.resource_type === "template"
             ? `/admin/modeles/${r.resource_id}`
             : null;
 
@@ -117,7 +119,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Search
       <section aria-label="Indicateurs" className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         {kpis.map((k) => (
           <Link key={k.label} href={k.href} className={`card block p-4 transition-shadow hover:shadow-paper ${k.highlight ? "border-forest" : ""}`}>
-            <span className="block font-serif text-4xl leading-none tabular-nums">{k.value}</span>
+            <span className="block font-serif text-4xl leading-none lining-nums tabular-nums">{k.value}</span>
             <span className="mt-2 block text-xs leading-snug text-stone">{k.label}</span>
           </Link>
         ))}

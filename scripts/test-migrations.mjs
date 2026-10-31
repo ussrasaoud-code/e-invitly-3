@@ -188,6 +188,25 @@ await test("les statistiques distinguent réponses et personnes", async () => {
   assert.equal(Number(s.confirmed_people), 2);
   const all = await as("authenticated", mark.id, () => rows(`select * from public.rsvp_stats`));
   assert.equal(all.length, 1);
+  assert.equal(Number(s.child_menus), 0);
+});
+
+await test("un invité nominatif n'a qu'une réponse ; codes invités uniques sans tenir compte de la casse", async () => {
+  const [g] = await rows(`insert into public.guests (invitation_id, display_name, code) values ($1, 'Famille Martin', 'ABC123') returning id`, [markAlice]);
+  await assert.rejects(db.query(`insert into public.guests (invitation_id, display_name, code) values ($1, 'Autre', 'abc123')`, [markAlice]));
+  await db.query(`insert into public.rsvp_responses (invitation_id, guest_id, first_name, attending, idempotency_key) values ($1, $2, 'A', true, 'g1')`, [markAlice, g.id]);
+  await assert.rejects(db.query(`insert into public.rsvp_responses (invitation_id, guest_id, first_name, attending, idempotency_key) values ($1, $2, 'B', true, 'g2')`, [markAlice, g.id]));
+  await db.query(`delete from public.rsvp_responses where guest_id = $1`, [g.id]);
+  await db.query(`delete from public.guests where id = $1`, [g.id]);
+});
+
+await test("le couple lit l'historique des corrections de ses réponses, pas celles des autres", async () => {
+  const [mine] = await rows(`select id from public.rsvp_responses where invitation_id = $1 limit 1`, [markAlice]);
+  const [theirs] = await rows(`select id from public.rsvp_responses where invitation_id = $1 limit 1`, [naomiKate]);
+  await db.query(`insert into public.rsvp_response_edits (response_id, before, after) values ($1, '{}', '{}'), ($2, '{}', '{}')`, [mine.id, theirs.id]);
+  const seen = await as("authenticated", mark.id, () => rows(`select response_id from public.rsvp_response_edits`));
+  assert.deepEqual(seen.map((r) => r.response_id), [mine.id]);
+  await assert.rejects(as("authenticated", mark.id, () => rows(`insert into public.rsvp_response_edits (response_id, before, after) values ($1, '{}', '{}')`, [mine.id])));
 });
 
 await test("impossible de refuser l'invitation tout en déclarant des accompagnants", async () => {

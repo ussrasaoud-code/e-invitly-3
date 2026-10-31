@@ -18,18 +18,17 @@ au DNS ou au déploiement.
 | 3 — Administration | Vue d'ensemble, demandes, conversion en invitation, éditeur par sections avec aperçu, modèles et versions, paramètres, recherche | ✅ fait et testé |
 | 3b — Médias | Import et bibliothèque de fichiers | ⏳ prochaine livraison (stockage déjà créé) |
 | 4 — Publication | Page publique `/[adresse]`, aperçu privé (7 jours), publier / dépublier, historique, redirections, code d'accès, noindex | ✅ fait et testé |
-| 5 — RSVP | Enregistrement des réponses, exports, espace couple complet | ⏳ base de données et statistiques prêtes |
+| 5 — RSVP | Formulaire réel dans l'invitation, réglages par invitation, questions personnalisées, invités nominatifs avec codes, statistiques par moment, corrections tracées, exports Excel/CSV, espace couple, notifications | ✅ fait et testé |
 | 6 — Éditeur visuel libre | Calques déplaçables façon Canva | ⏳ |
 | 7 — Finalisation | Anglais/arabe du site, audit accessibilité, mise en ligne | ⏳ |
 
 Les fonctions pas encore disponibles sont signalées comme telles dans l'administration : aucun bouton
 factice.
 
-**Tests réalisés** : 21 tests de sécurité de la base (isolation des couples, version publiée vs
-brouillon, code d'accès, redirections, anti-abus…), 19 tests unitaires (adresses, fuseaux horaires,
-conversion demande → invitation), 29 vérifications de bout en bout dans un vrai navigateur (demande
-client, connexion, conversion, éditeur, aperçu, publication, modification après publication,
-changement d'adresse, code d'accès, dépublication, accès refusés).
+**Tests réalisés** : 23 tests de sécurité de la base, 25 tests unitaires (adresses, fuseaux horaires,
+conversion demande → invitation, règles RSVP), 38 vérifications de bout en bout dans un vrai
+navigateur (demande, connexion, conversion, éditeur, aperçu, publication, code d'accès, réponses RSVP,
+codes invités, corrections, exports, espace couple, accès refusés).
 
 ---
 
@@ -148,10 +147,12 @@ n'est plus utilisé.
    proposée, les points à vérifier sont listés dans *Notes internes*.
 4. Onglet **Informations et design** : ajustez textes, horaires, sections, couleurs, polices,
    enveloppe et musique, avec l'aperçu téléphone à côté. L'enregistrement est automatique.
-5. Onglet **Publication** : *Créer un lien d'aperçu* pour la validation du couple, puis **Publier**,
+5. Onglet **RSVP** : réglez le formulaire (champs, date limite, accompagnants, questions), suivez
+   les réponses, corrigez-les si besoin et exportez la liste (Excel ou CSV).
+6. Onglet **Publication** : *Créer un lien d'aperçu* pour la validation du couple, puis **Publier**,
    **Copier le lien** et envoyez-le. Après une modification, **Publier les modifications** : le lien
    ne change pas. **Dépublier** retire l'invitation du site sans rien effacer.
-6. **Modèles** : chaque modification enregistre une nouvelle version ; les invitations existantes
+7. **Modèles** : chaque modification enregistre une nouvelle version ; les invitations existantes
    gardent la leur.
 
 ---

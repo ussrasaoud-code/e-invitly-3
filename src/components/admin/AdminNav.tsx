@@ -11,7 +11,7 @@ const ITEMS = [
   { href: "/admin/invitations", label: "Invitations" },
   { href: "/admin/modeles", label: "Modèles" },
   { href: "/admin/editeur", label: "Éditeur", soon: "Phase 6" },
-  { href: "/admin/rsvp", label: "RSVP", soon: "Phase 5" },
+  { href: "/admin/rsvp", label: "RSVP" },
   { href: "/admin/medias", label: "Médias", soon: "Phase 3b" },
   { href: "/admin/parametres", label: "Paramètres" },
 ];

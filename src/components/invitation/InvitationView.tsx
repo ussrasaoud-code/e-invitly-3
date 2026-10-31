@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState, type CSSProperties } from "react";
 import type { FontKey, InvitationContent, RendererKey, SectionType } from "@/lib/invitation/schema";
+import type { PublicRsvpConfig } from "@/lib/rsvp";
 import { Envelope } from "./Envelope";
 import { labelsFor } from "./i18n";
 import {
@@ -44,9 +45,12 @@ export type InvitationViewProps = {
   framed?: boolean;
   /** Masque l'enveloppe (aperçu dans l'éditeur) */
   skipEnvelope?: boolean;
+  /** Invitation publiée : adresse et configuration du formulaire RSVP */
+  slug?: string;
+  rsvp?: PublicRsvpConfig | null;
 };
 
-export function InvitationView({ content, renderer, mode, framed = false, skipEnvelope = false }: InvitationViewProps) {
+export function InvitationView({ content, renderer, mode, framed = false, skipEnvelope = false, slug, rsvp }: InvitationViewProps) {
   const labels = labelsFor(content.language);
   const { colors, fonts } = content.theme;
   const showEnvelope = !skipEnvelope && content.envelope.mode !== "none";
@@ -110,7 +114,7 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
         {content.sections
           .filter((s) => s.visible)
           .map((s) => {
-            const props: SectionProps = { content, renderer, labels, title: s.title };
+            const props: SectionProps = { content, renderer, labels, title: s.title, slug, rsvp };
             if (s.type === "rsvp") return <RsvpSection key={s.id} {...props} mode={mode} />;
             const Component = SECTION_COMPONENTS[s.type];
             return <Component key={s.id} {...props} />;

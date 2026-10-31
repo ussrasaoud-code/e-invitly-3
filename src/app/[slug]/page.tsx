@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Sprig } from "@/components/ornaments";
 import { InvitationView } from "@/components/invitation/InvitationView";
-import { accessCookieName, getPublicInvitation } from "@/lib/publication";
+import { loadPublicInvitation } from "@/lib/publication";
+import { getPublicRsvpConfig } from "@/lib/rsvp-server";
 import { CodeForm } from "./CodeForm";
 
 /**
@@ -13,12 +13,7 @@ import { CodeForm } from "./CodeForm";
  */
 type Params = Promise<{ slug: string }>;
 
-async function load(slug: string) {
-  const first = await getPublicInvitation(slug);
-  if (first?.kind !== "locked") return first;
-  const hash = (await cookies()).get(accessCookieName(first.invitationId))?.value;
-  return hash ? ((await getPublicInvitation(slug, hash)) ?? first) : first;
-}
+const load = loadPublicInvitation;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
@@ -57,5 +52,6 @@ export default async function PublicInvitationPage({ params }: { params: Params 
     );
   }
 
-  return <InvitationView content={inv.content} renderer={inv.renderer} mode="live" />;
+  const rsvp = await getPublicRsvpConfig(inv.invitationId);
+  return <InvitationView content={inv.content} renderer={inv.renderer} mode="live" slug={inv.slug} rsvp={rsvp} />;
 }

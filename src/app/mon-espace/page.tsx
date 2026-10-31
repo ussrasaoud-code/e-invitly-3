@@ -58,11 +58,11 @@ export default async function ClientSpace() {
                     ].map(([k, v]) => (
                       <div key={k as string}>
                         <dt className="text-xs text-stone">{k}</dt>
-                        <dd className="font-serif text-2xl tabular-nums">{v}</dd>
+                        <dd className="font-serif text-2xl lining-nums tabular-nums">{v}</dd>
                       </div>
                     ))}
                   </dl>
-                  <p className="mt-4 text-xs text-stone">La liste détaillée et l&apos;export des réponses arrivent très bientôt.</p>
+                  <Link href={`/mon-espace/${i.id}`} className="btn btn-primary btn-sm mt-5">Voir toutes les réponses</Link>
                 </li>
               );
             })}
