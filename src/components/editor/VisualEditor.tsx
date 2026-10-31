@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { InvitationView } from "@/components/invitation/InvitationView";
 import { LayerEditorContext, type LayerEditor } from "@/components/invitation/Layers";
 import { MediaPicker } from "@/components/media/MediaPicker";
+import { MediaUrlField } from "@/components/media/MediaUrlField";
 import {
   ENTER_ANIMATIONS,
   ENTER_ANIMATION_LABELS,
@@ -123,6 +124,12 @@ export function VisualEditor({
   const ed = useEditorState({ initial, initialSavedAt, save, autosave });
   const { content: c, update } = ed;
   const [sel, setSel] = useState<Selection>(null);
+  /** Écran d'ouverture (enveloppe ou vidéo) affiché dans le téléphone */
+  const [envView, setEnvView] = useState(false);
+  const [envReplay, setEnvReplay] = useState(0);
+  useEffect(() => {
+    if (sel) setEnvView(false);
+  }, [sel]);
   const [width, setWidth] = useState<(typeof WIDTHS)[number]>(390);
   const [animate, setAnimate] = useState(false);
   const [replay, setReplay] = useState(0);
@@ -392,6 +399,19 @@ export function VisualEditor({
       <div className="grid min-h-0 flex-1 grid-cols-[250px_minmax(0,1fr)_300px]">
         {/* ── Colonne gauche : sections et calques ── */}
         <aside className="min-h-0 overflow-y-auto border-r border-line bg-ivory p-3" aria-label="Sections et calques">
+          <button
+            type="button"
+            onClick={() => {
+              setSel(null);
+              setEnvView(true);
+              setEnvReplay((r) => r + 1);
+            }}
+            className={`mb-3 flex w-full items-center gap-2 rounded-sm px-1.5 py-1.5 text-left text-sm ${envView ? "bg-sage-soft" : "hover:bg-paper"}`}
+          >
+            <span aria-hidden="true" className="text-stone">✉</span>
+            Ouverture de l&apos;invitation
+            <span className="ml-auto text-[0.65rem] text-stone">{c.envelope.mode === "video" ? "vidéo" : c.envelope.mode === "animation" ? "enveloppe" : "aucune"}</span>
+          </button>
           <p className="px-1 text-[0.7rem] uppercase tracking-wider text-stone">Sections</p>
           <ul className="mt-2 space-y-0.5">
             {c.sections.map((s, i) => {
@@ -499,9 +519,22 @@ export function VisualEditor({
             style={{ width: width + 12 }}
             aria-label="Aperçu modifiable de l'invitation"
           >
-            <LayerEditorContext.Provider value={editorApi}>
-              <InvitationView key={`${replay}-${animate}`} content={c} renderer={renderer} mode="preview" framed skipEnvelope animations={animate} />
-            </LayerEditorContext.Provider>
+            {envView ? (
+              <div className="relative overflow-y-auto" style={{ height: Math.round(width * 2.05) }}>
+                {c.envelope.mode === "none" ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center text-sm text-stone">
+                    <p className="font-serif text-xl text-charcoal">Pas d&apos;écran d&apos;ouverture</p>
+                    <p>L&apos;invitation s&apos;affiche directement. Choisissez « Enveloppe animée » ou « Vidéo » dans le panneau de droite.</p>
+                  </div>
+                ) : (
+                  <InvitationView key={`env-${envReplay}-${c.envelope.mode}-${c.envelope.videoUrl}`} content={c} renderer={renderer} mode="preview" framed animations />
+                )}
+              </div>
+            ) : (
+              <LayerEditorContext.Provider value={editorApi}>
+                <InvitationView key={`${replay}-${animate}`} content={c} renderer={renderer} mode="preview" framed skipEnvelope animations={animate} />
+              </LayerEditorContext.Provider>
+            )}
           </div>
           <p className="mx-auto mt-3 max-w-md text-center text-xs text-stone">
             Cliquez sur un élément, un calque ou une section pour le modifier. Glissez pour déplacer, poignée ronde du coin pour agrandir, poignée du haut pour pivoter (Maj : par pas de 15°).
@@ -510,7 +543,15 @@ export function VisualEditor({
 
         {/* ── Colonne droite : propriétés ── */}
         <aside className="min-h-0 overflow-y-auto border-l border-line bg-ivory p-4" aria-label="Propriétés">
-          {element && section ? (
+          {envView ? (
+            <EnvelopePanel
+              content={c}
+              onEnvelope={(patch) => update((x) => ({ ...x, envelope: { ...x.envelope, ...patch } }))}
+              onMusic={(patch) => update((x) => ({ ...x, music: { ...x.music, ...patch } }))}
+              onColors={(patch) => update((x) => ({ ...x, theme: { ...x.theme, colors: { ...x.theme.colors, ...patch } } }))}
+              onReplay={() => setEnvReplay((r) => r + 1)}
+            />
+          ) : element && section ? (
             <ElementPanel
               key={`${section.id}-${element.id}`}
               def={element}
@@ -889,6 +930,81 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
         ) : null}
         {style ? <button type="button" className="btn btn-ghost btn-sm !px-2" onClick={onReset}>Réglages d&apos;origine</button> : null}
       </div>
+    </div>
+  );
+}
+
+/* ── Panneau de l'écran d'ouverture ───────────────────────────────── */
+function EnvelopePanel({ content: c, onEnvelope, onMusic, onColors, onReplay }: {
+  content: InvitationContent;
+  onEnvelope: (patch: Partial<InvitationContent["envelope"]>) => void;
+  onMusic: (patch: Partial<InvitationContent["music"]>) => void;
+  onColors: (patch: Partial<InvitationContent["theme"]["colors"]>) => void;
+  onReplay: () => void;
+}) {
+  const env = c.envelope;
+  const color = (key: keyof InvitationContent["theme"]["colors"], label: string) => (
+    <label className="flex items-center gap-2 text-xs">
+      <input type="color" value={c.theme.colors[key]} onChange={(e) => onColors({ [key]: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label={label} />
+      {label}
+    </label>
+  );
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-[0.7rem] uppercase tracking-wider text-stone">Premier écran vu par les invités</p>
+        <h2 className="font-serif text-2xl">Ouverture de l&apos;invitation</h2>
+      </div>
+      <Field label="Type d'ouverture">
+        <select aria-label="Type d'ouverture" className={inputCls} value={env.mode} onChange={(e) => onEnvelope({ mode: e.target.value as InvitationContent["envelope"]["mode"] })}>
+          <option value="animation">Enveloppe animée (toucher le cachet)</option>
+          <option value="video">Vidéo d&apos;ouverture</option>
+          <option value="none">Aucune (invitation directe)</option>
+        </select>
+      </Field>
+      {env.mode === "animation" ? (
+        <>
+          <Field label="Initiales du cachet" hint="Jusqu'à 6 caractères, ex. C&E.">
+            <input aria-label="Initiales du cachet" className={inputCls} maxLength={6} value={env.sealText} onChange={(e) => onEnvelope({ sealText: e.target.value })} />
+          </Field>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={env.autoStart} onChange={(e) => onEnvelope({ autoStart: e.target.checked })} className="h-4 w-4 accent-forest" />
+            S&apos;ouvrir toute seule après 1 seconde
+          </label>
+          <fieldset className="space-y-2 border-t border-line pt-3">
+            <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Couleurs (communes à toute l&apos;invitation)</legend>
+            {color("surface", "Papier de l'enveloppe")}
+            {color("background", "Fond et carte")}
+            {color("accentSoft", "Liserés")}
+            {color("accent", "Cachet de cire")}
+          </fieldset>
+        </>
+      ) : null}
+      {env.mode === "video" ? (
+        <>
+          <Field label="Vidéo (MP4)" hint="À la fin de la vidéo, l'invitation s'ouvre seule. Format conseillé : vertical 1080×1920, moins de 15 Mo.">
+            <MediaUrlField kinds={["video"]} className={inputCls} label="Vidéo d'ouverture" value={env.videoUrl} onChange={(v) => onEnvelope({ videoUrl: v })} />
+          </Field>
+          <Field label="Image d'attente (facultatif)" hint="Affichée pendant le chargement de la vidéo.">
+            <MediaUrlField kinds={["image"]} className={inputCls} label="Image d'attente" value={env.posterUrl} onChange={(v) => onEnvelope({ posterUrl: v })} />
+          </Field>
+          {!env.videoUrl ? <p className="text-xs text-danger">Choisissez une vidéo : sans elle, l&apos;enveloppe animée est affichée à la place.</p> : null}
+        </>
+      ) : null}
+      <fieldset className="space-y-3 border-t border-line pt-3">
+        <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Musique</legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={c.music.enabled} onChange={(e) => onMusic({ enabled: e.target.checked })} className="h-4 w-4 accent-forest" />
+          Lancer une musique à l&apos;ouverture
+        </label>
+        {c.music.enabled ? (
+          <MediaUrlField kinds={["audio"]} className={inputCls} label="Fichier audio" value={c.music.url} onChange={(v) => onMusic({ url: v })} />
+        ) : null}
+      </fieldset>
+      {env.mode !== "none" ? (
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onReplay}>▶ Rejouer l&apos;ouverture</button>
+      ) : null}
+      <p className="text-xs text-stone">Dans le téléphone, touchez le cachet (ou laissez la vidéo se terminer) pour voir l&apos;enchaînement avec l&apos;invitation.</p>
     </div>
   );
 }

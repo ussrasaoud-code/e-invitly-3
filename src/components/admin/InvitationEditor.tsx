@@ -123,6 +123,7 @@ export function InvitationEditor({
   const lastPush = useRef(0);
   /** Dernier contenu enregistré : on ne sauvegarde que si le contenu a réellement changé */
   const savedJson = useRef(JSON.stringify(initial));
+  const savedAtRef = useRef(initialSavedAt);
   const latest = useRef(content);
   latest.current = content;
 
@@ -166,7 +167,10 @@ export function InvitationEditor({
     try {
       const snapshot = latest.current;
       const res = await saveAction(snapshot);
-      if (res.ok) savedJson.current = JSON.stringify(snapshot);
+      if (res.ok) {
+        savedJson.current = JSON.stringify(snapshot);
+        savedAtRef.current = res.savedAt;
+      }
       setSave(res.ok ? { kind: "saved", at: res.savedAt } : { kind: "error", message: res.message, issues: res.issues });
     } catch {
       setSave({ kind: "error", message: "Connexion perdue : rien n'a été enregistré. Réessayez." });
@@ -175,7 +179,10 @@ export function InvitationEditor({
 
   // Sauvegarde automatique (1,5 s après la dernière modification)
   useEffect(() => {
-    if (JSON.stringify(content) === savedJson.current) return;
+    if (JSON.stringify(content) === savedJson.current) {
+      setSave((s) => (s.kind === "dirty" ? { kind: "saved", at: savedAtRef.current } : s));
+      return;
+    }
     setSave({ kind: "dirty" });
     if (!autosave) return;
     const t = window.setTimeout(runSave, 1500);

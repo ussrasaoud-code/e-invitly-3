@@ -667,6 +667,26 @@ with sync_playwright() as p:
     a.screenshot(path=SHOTS / "31-editeur-elements.png")
     ok("éléments du modèle : sélection au clic, texte modifié, déplacé, recoloré, ornements retirés")
 
+    # Écran d'ouverture (enveloppe) visible et réglable dans l'éditeur
+    left.get_by_role("button", name=re.compile("Ouverture de l'invitation")).click()
+    expect(props.get_by_role("heading", name="Ouverture de l'invitation")).to_be_visible()
+    canvas = a.get_by_label("Aperçu modifiable de l'invitation")
+    seal = canvas.get_by_role("button", name="Ouvrir l'invitation").first
+    expect(seal).to_be_visible()
+    props.get_by_label("Initiales du cachet").fill("M&A")
+    d = wait_draft(lambda d: d["envelope"]["sealText"] == "M&A", "initiales du cachet")
+    a.screenshot(path=SHOTS / "33-editeur-enveloppe.png")
+    seal.click()
+    a.wait_for_timeout(2600)
+    expect(canvas.locator('[data-section="hero"]')).to_be_visible()
+    props.get_by_label("Type d'ouverture").select_option("video")
+    expect(props.get_by_text("Choisissez une vidéo")).to_be_visible()
+    props.get_by_label("Type d'ouverture").select_option("animation")
+    d = wait_draft(lambda d: d["envelope"]["mode"] == "animation", "retour à l'enveloppe animée")
+    left.get_by_role("button", name=re.compile(r"^Invitation principale")).click()
+    expect(canvas.get_by_role("button", name="Ouvrir l'invitation")).to_have_count(0)
+    ok("éditeur visuel : écran d'ouverture affiché, cachet modifié, ouverture jouée, retour aux sections")
+
     # Historique : point de sauvegarde puis restauration
     a.get_by_role("button", name="Historique").click()
     hist = a.get_by_role("dialog", name="Historique du brouillon")

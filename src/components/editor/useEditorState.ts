@@ -31,6 +31,7 @@ export function useEditorState({
   const [save, setSave] = useState<SaveState>({ kind: "saved", at: initialSavedAt });
   const lastPush = useRef(0);
   const savedJson = useRef(JSON.stringify(initial));
+  const savedAt = useRef(initialSavedAt);
   const latest = useRef(content);
 
   const commit = useCallback((next: InvitationContent) => {
@@ -76,7 +77,10 @@ export function useEditorState({
     try {
       const snapshot = latest.current;
       const res = await saveAction(snapshot);
-      if (res.ok) savedJson.current = JSON.stringify(snapshot);
+      if (res.ok) {
+        savedJson.current = JSON.stringify(snapshot);
+        savedAt.current = res.savedAt;
+      }
       setSave(res.ok ? { kind: "saved", at: res.savedAt } : { kind: "error", message: res.message, issues: res.issues });
     } catch {
       setSave({ kind: "error", message: "Connexion perdue : rien n'a été enregistré. Réessayez." });
@@ -85,19 +89,24 @@ export function useEditorState({
 
   /** Remplace le contenu par une version déjà enregistrée côté serveur (restauration). */
   const reset = useCallback(
-    (next: InvitationContent, savedAt: string) => {
+    (next: InvitationContent, at: string) => {
       past.current = [...past.current, latest.current];
       future.current = [];
       savedJson.current = JSON.stringify(next);
+      savedAt.current = at;
       lastPush.current = 0;
       commit(next);
-      setSave({ kind: "saved", at: savedAt });
+      setSave({ kind: "saved", at });
     },
     [commit],
   );
 
   useEffect(() => {
-    if (JSON.stringify(content) === savedJson.current) return;
+    if (JSON.stringify(content) === savedJson.current) {
+      // Retour à l'état déjà enregistré (ex. modification puis annulation) : rien à sauvegarder
+      setSave((s) => (s.kind === "dirty" ? { kind: "saved", at: savedAt.current } : s));
+      return;
+    }
     setSave({ kind: "dirty" });
     if (!autosave) return;
     const t = window.setTimeout(runSave, 1500);
