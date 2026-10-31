@@ -11,7 +11,7 @@ import type { InvitationContentInput, InvitationSection, RendererKey } from "./s
 
 const sections = (titles: Partial<Record<InvitationSection["type"], string>> = {}): InvitationSection[] =>
   (["hero", "program", "countdown", "dresscode", "venues", "rsvp", "contacts", "closing"] as const).map(
-    (type) => ({ id: `s-${type}`, type, visible: true, title: titles[type] ?? "", body: "", height: 60, animation: "inherit", layers: [], elements: {} }),
+    (type) => ({ id: `s-${type}`, type, visible: true, title: titles[type] ?? "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { color: "", image: "", fit: "cover", opacity: 1 } }),
   );
 
 const sharedDemo = {
@@ -138,7 +138,7 @@ export const PRESETS: Record<RendererKey, InvitationContentInput> = {
     intro: "",
     dressCode: { text: "", palette: [] },
     closing: { title: "", text: "" },
-    sections: [{ id: "s-hero", type: "hero", visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {} }],
+    sections: [{ id: "s-hero", type: "hero", visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { color: "", image: "", fit: "cover", opacity: 1 } }],
     theme: {
       colors: {
         background: "#FFFFFF",

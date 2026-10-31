@@ -581,6 +581,12 @@ export function VisualEditor({
           ) : section ? (
             <SectionPanel
               section={section}
+              themeColors={c.theme.colors}
+              onApplyBackgroundToAll={() => {
+                const bg = section.background;
+                setSections((ss) => ss.map((x) => ({ ...x, background: { ...bg } })));
+                flash("Fond appliqué à toutes les sections.");
+              }}
               formHref={formHref}
               canDelete={c.sections.length > 1}
               onChange={(patch) => patchSection(section.id, patch)}
@@ -607,6 +613,15 @@ export function VisualEditor({
                   <li>Échap : désélectionner</li>
                 </ul>
               </div>
+              <Field label="Fond de l'invitation (couleur du thème)">
+                <input
+                  type="color"
+                  value={c.theme.colors.background}
+                  onChange={(e) => update((x) => ({ ...x, theme: { ...x.theme, colors: { ...x.theme.colors, background: e.target.value } } }))}
+                  className="h-10 w-12 cursor-pointer rounded-sm border border-line"
+                  aria-label="Fond de l'invitation"
+                />
+              </Field>
               <Field label="Animations de l'invitation">
                 <select
                   aria-label="Animations de l'invitation"
@@ -702,7 +717,7 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
         <input aria-label="Nom du calque" className={inputCls} maxLength={60} value={l.name} onChange={(e) => onChange({ name: e.target.value })} placeholder="ex. Pivoine en haut à gauche" />
       </Field>
 
-      <fieldset className="space-y-3 border-t border-line pt-3">
+      <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="sr-only">Position et taille</legend>
         <div className="space-y-3">
           <NumberSlider label="Horizontal" value={l.x} min={-60} max={160} step={0.5} unit="%" onChange={(v) => onChange({ x: v })} />
@@ -736,7 +751,7 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
         ) : null}
       </fieldset>
 
-      <fieldset className="space-y-3 border-t border-line pt-3">
+      <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="mb-1 font-serif text-lg">Animation</legend>
         <Field label="Apparition">
           <select aria-label="Apparition" className={inputCls} value={l.enter.type} onChange={(e) => onChange({ enter: { ...l.enter, type: e.target.value as InvitationLayer["enter"]["type"] } })}>
@@ -771,8 +786,10 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
 /* ── Panneau d'une section ────────────────────────────────────────── */
 const NOT_DUPLICABLE: InvitationSection["type"][] = ["hero", "rsvp", "countdown"];
 
-function SectionPanel({ section: s, formHref, canDelete, onChange, onDuplicate, onDelete, onAddImage, onAddText }: {
+function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHref, canDelete, onChange, onDuplicate, onDelete, onAddImage, onAddText }: {
   section: InvitationSection;
+  themeColors: InvitationContent["theme"]["colors"];
+  onApplyBackgroundToAll: () => void;
   formHref: string;
   canDelete: boolean;
   onChange: (patch: Partial<InvitationSection>) => void;
@@ -817,6 +834,57 @@ function SectionPanel({ section: s, formHref, canDelete, onChange, onDuplicate, 
         <input type="checkbox" checked={s.visible} onChange={(e) => onChange({ visible: e.target.checked })} className="h-4 w-4 accent-forest" />
         Section visible
       </label>
+      <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
+        <legend className="mb-1 font-serif text-lg">Fond de la section</legend>
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            value={s.background.color || themeColors.background}
+            onChange={(e) => onChange({ background: { ...s.background, color: e.target.value } })}
+            className="h-10 w-12 cursor-pointer rounded-sm border border-line"
+            aria-label="Couleur du fond de la section"
+          />
+          <div className="text-xs text-stone">
+            {s.background.color ? (
+              <>
+                {s.background.color.toUpperCase()} ·{" "}
+                <button type="button" className="underline" onClick={() => onChange({ background: { ...s.background, color: "" } })}>couleur du thème</button>
+              </>
+            ) : (
+              "Couleur du thème"
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5" aria-label="Couleurs du thème">
+          {(["background", "surface", "accentSoft", "accent", "ink"] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              title={themeColors[k]}
+              aria-label={`Fond ${themeColors[k]}`}
+              onClick={() => onChange({ background: { ...s.background, color: themeColors[k] } })}
+              className="h-7 w-7 rounded-full border border-line"
+              style={{ backgroundColor: themeColors[k] }}
+            />
+          ))}
+        </div>
+        <Field label="Image ou texture de fond (facultatif)">
+          <MediaUrlField kinds={["image", "svg"]} className={inputCls} label="Image de fond" value={s.background.image} onChange={(v) => onChange({ background: { ...s.background, image: v } })} />
+        </Field>
+        {s.background.image ? (
+          <>
+            <Field label="Disposition">
+              <select aria-label="Disposition de l'image de fond" className={inputCls} value={s.background.fit} onChange={(e) => onChange({ background: { ...s.background, fit: e.target.value as InvitationSection["background"]["fit"] } })}>
+                <option value="cover">Remplir toute la section</option>
+                <option value="contain">Image entière, centrée</option>
+                <option value="repeat">Motif répété (texture)</option>
+              </select>
+            </Field>
+            <NumberSlider label="Opacité de l'image" value={Math.round(s.background.opacity * 100)} min={0} max={100} unit="%" onChange={(v) => onChange({ background: { ...s.background, opacity: v / 100 } })} />
+          </>
+        ) : null}
+        <button type="button" className="btn btn-ghost btn-sm !whitespace-normal !px-2 text-left" onClick={onApplyBackgroundToAll}>Appliquer ce fond à toutes les sections</button>
+      </fieldset>
       <div className="flex flex-wrap gap-2 border-t border-line pt-3">
         <button type="button" className="btn btn-secondary btn-sm" onClick={onAddImage}>+ Illustration</button>
         <button type="button" className="btn btn-secondary btn-sm" onClick={onAddText}>+ Texte libre</button>
@@ -904,7 +972,7 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
           {def.hideable === false ? " ; sa logique est verrouillée." : "."}
         </p>
       ) : null}
-      <fieldset className="space-y-3 border-t border-line pt-3">
+      <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="sr-only">Apparence</legend>
         <div className="space-y-3">
           <NumberSlider label="Décalage horizontal" value={st.dx} min={-100} max={100} step={0.5} unit="%" onChange={(v) => onStyle({ dx: v })} />
@@ -971,7 +1039,7 @@ function EnvelopePanel({ content: c, onEnvelope, onMusic, onColors, onReplay }: 
             <input type="checkbox" checked={env.autoStart} onChange={(e) => onEnvelope({ autoStart: e.target.checked })} className="h-4 w-4 accent-forest" />
             S&apos;ouvrir toute seule après 1 seconde
           </label>
-          <fieldset className="space-y-2 border-t border-line pt-3">
+          <fieldset className="min-w-0 space-y-2 border-t border-line pt-3">
             <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Couleurs (communes à toute l&apos;invitation)</legend>
             {color("surface", "Papier de l'enveloppe")}
             {color("background", "Fond et carte")}
@@ -991,7 +1059,7 @@ function EnvelopePanel({ content: c, onEnvelope, onMusic, onColors, onReplay }: 
           {!env.videoUrl ? <p className="text-xs text-danger">Choisissez une vidéo : sans elle, l&apos;enveloppe animée est affichée à la place.</p> : null}
         </>
       ) : null}
-      <fieldset className="space-y-3 border-t border-line pt-3">
+      <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Musique</legend>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={c.music.enabled} onChange={(e) => onMusic({ enabled: e.target.checked })} className="h-4 w-4 accent-forest" />

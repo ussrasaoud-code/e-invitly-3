@@ -667,6 +667,15 @@ with sync_playwright() as p:
     a.screenshot(path=SHOTS / "31-editeur-elements.png")
     ok("éléments du modèle : sélection au clic, texte modifié, déplacé, recoloré, ornements retirés")
 
+    # Fond d'une section
+    left.get_by_role("button", name=re.compile(r"^Le programme")).click()
+    expect(props.get_by_role("heading", name="Programme")).to_be_visible()
+    props.get_by_label("Couleur du fond de la section").fill("#336699")
+    d = wait_draft(lambda d: sec(d, "program")[0]["background"]["color"] == "#336699", "fond de section")
+    bg = a.locator('[data-section="program"]').evaluate("e => getComputedStyle(e).backgroundColor")
+    assert bg == "rgb(51, 102, 153)", bg
+    ok("éditeur visuel : couleur de fond d'une section")
+
     # Écran d'ouverture (enveloppe) visible et réglable dans l'éditeur
     left.get_by_role("button", name=re.compile("Ouverture de l'invitation")).click()
     expect(props.get_by_role("heading", name="Ouverture de l'invitation")).to_be_visible()
@@ -728,6 +737,7 @@ with sync_playwright() as p:
     expect(vis.locator('[data-section="hero"] [data-el="divider"]')).to_have_count(0)
     expect(vis.locator('[data-section="hero"] [data-el="corner-right"]')).to_have_count(1)
     expect(vis.get_by_text("Avec leurs familles réunies")).to_be_visible()
+    assert vis.locator('[data-section="program"]').evaluate("e => getComputedStyle(e).backgroundColor") == "rgb(51, 102, 153)"
     vis.locator('[data-section="program"]').scroll_into_view_if_needed()
     vis.wait_for_timeout(2500)
     vis.screenshot(path=SHOTS / "30-invitation-avec-calques.png")

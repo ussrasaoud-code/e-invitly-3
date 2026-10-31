@@ -62,10 +62,25 @@ export function SectionFrame({ section, children }: { section: InvitationSection
       className={`inv-frame relative isolate ${editor ? "inv-frame-edit" : ""} ${isSelectedSection ? "inv-frame-selected" : ""}`}
       data-section={section.type}
       data-section-id={section.id}
+      style={section.background.color ? { backgroundColor: section.background.color } : undefined}
       onPointerDown={editor ? (e) => {
         if (e.target === e.currentTarget || !(e.target as HTMLElement).closest("[data-layer],[data-el]")) editor.select(section.id, null);
       } : undefined}
     >
+      {section.background.image ? (
+        <div
+          aria-hidden="true"
+          className="inv-bg-image pointer-events-none absolute inset-0"
+          style={{
+            zIndex: -2,
+            backgroundImage: `url("${section.background.image}")`,
+            backgroundSize: section.background.fit === "repeat" ? "auto" : section.background.fit,
+            backgroundRepeat: section.background.fit === "repeat" ? "repeat" : "no-repeat",
+            backgroundPosition: "center",
+            opacity: section.background.opacity,
+          }}
+        />
+      ) : null}
       {render("behind")}
       <SectionContext.Provider value={section}>
         <SectionAnimationContext.Provider value={section.animation}>{children}</SectionAnimationContext.Provider>

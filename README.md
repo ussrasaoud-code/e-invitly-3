@@ -25,8 +25,8 @@ au DNS ou au déploiement.
 Les fonctions pas encore disponibles sont signalées comme telles dans l'administration : aucun bouton
 factice.
 
-**Tests réalisés** : 26 tests de sécurité de la base, 35 tests unitaires (adresses, fuseaux horaires,
-conversion demande → invitation, règles RSVP, médias, calques), 53 vérifications de bout en bout dans un vrai
+**Tests réalisés** : 26 tests de sécurité de la base, 36 tests unitaires (adresses, fuseaux horaires,
+conversion demande → invitation, règles RSVP, médias, calques), 54 vérifications de bout en bout dans un vrai
 navigateur (demande, connexion, conversion, éditeur, aperçu, publication, code d'accès, réponses RSVP,
 codes invités, corrections, exports, espace couple, médias, éditeur visuel, historique, accès refusés).
 

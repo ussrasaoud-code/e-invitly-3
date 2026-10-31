@@ -25,6 +25,11 @@ export function isAllowedAssetUrl(v: string): boolean {
   return process.env.NODE_ENV !== "production" && /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(v);
 }
 
+/** Adresse insérée dans un url("…") CSS : ni guillemets, ni parenthèses, ni barre oblique inverse. */
+export function isCssSafeUrl(v: string): boolean {
+  return isAllowedAssetUrl(v) && !/["'()\\\s]/.test(v);
+}
+
 const text = (max = 400) => z.string().trim().max(max);
 const optionalText = (max = 400) => text(max).optional().default("");
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur hexadécimale attendue (#RRGGBB)");
@@ -35,6 +40,7 @@ const safeUrl = z
   .refine(isAllowedAssetUrl, "Lien https:// attendu")
   .optional()
   .default("");
+const cssUrl = z.string().trim().max(1000).refine(isCssSafeUrl, "Adresse d'image invalide").optional().default("");
 
 export const EVENT_TYPES = [
   "civil",
@@ -133,7 +139,7 @@ export const layerSchema = z.object({
   kind: z.enum(["image", "text"]),
   name: optionalText(60),
   /** Image : adresse du fichier (bibliothèque de médias) */
-  src: safeUrl,
+  src: cssUrl,
   /** Texte libre (jamais du HTML) */
   text: optionalText(240),
   font: z.enum(["display", "script", "body"]).default("script"),
@@ -177,6 +183,17 @@ export const elementStyleSchema = z.object({
 });
 export type ElementStyle = z.infer<typeof elementStyleSchema>;
 
+export const DEFAULT_SECTION_BACKGROUND = { color: "", image: "", fit: "cover" as const, opacity: 1 };
+export const sectionBackgroundSchema = z
+  .object({
+    color: hexColor.or(z.literal("")).default(""),
+    /** Image ou texture de fond (bibliothèque de médias) */
+    image: cssUrl,
+    fit: z.enum(["cover", "contain", "repeat"]).default("cover"),
+    opacity: num(0, 1, 1),
+  })
+  .default(DEFAULT_SECTION_BACKGROUND);
+
 export const sectionSchema = z.object({
   id: z.string().min(1).max(40),
   type: z.enum(SECTION_TYPES),
@@ -189,6 +206,8 @@ export const sectionSchema = z.object({
   /** Animation d'apparition du contenu ("inherit" = réglage du thème) */
   animation: z.enum(["inherit", ...ENTER_ANIMATIONS]).default("inherit"),
   layers: z.array(layerSchema).max(40).default([]),
+  /** Fond propre à la section (vide = fond du thème) */
+  background: sectionBackgroundSchema,
   /** Éléments intégrés du modèle : masqués, déplacés, recolorés… (clé = identifiant de l'élément) */
   elements: z.record(z.string().regex(/^[a-z][a-z-]{0,29}$/), elementStyleSchema).default({}),
 });
@@ -197,7 +216,7 @@ export type InvitationSection = z.infer<typeof sectionSchema>;
 const shortId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
 export function newSection(type: SectionType): InvitationSection {
-  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {} };
+  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND } };
 }
 
 export function newLayer(kind: InvitationLayer["kind"], patch: Partial<InvitationLayer> = {}): InvitationLayer {
