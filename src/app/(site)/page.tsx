@@ -1,4 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
+import colombe from "../../../public/decor/colombe.png";
+import fleurs from "../../../public/decor/fleurs-aquarelle.png";
 import { CornerSpray, Divider, Sprig } from "@/components/ornaments";
 import { InteractiveDemo } from "@/components/site/InteractiveDemo";
 import { SetupNotice } from "@/components/site/SetupNotice";
@@ -34,14 +37,14 @@ export default async function HomePage() {
       {/* ── Hero ── */}
       <section className="relative overflow-hidden paper-texture">
         <CornerSpray className="pointer-events-none absolute -left-8 -top-4 hidden w-64 -scale-y-100 text-sage md:block" stroke="#586C60" fill="#A6B5A2" />
-        <div className="mx-auto grid max-w-6xl items-center gap-14 px-5 pb-20 pt-12 md:grid-cols-[1.1fr_0.9fr] md:pb-28 md:pt-20">
+        <div className="mx-auto grid max-w-6xl items-center gap-14 px-5 pb-20 pt-12 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:pb-28 md:pt-20">
           <div className="animate-rise text-center md:text-left">
             <p className="eyebrow">Invitations digitales</p>
             <h1 className="mt-5 font-serif text-[2.6rem] leading-[1.08] text-charcoal sm:text-5xl md:text-[3.6rem]">
               {home.heroTitle}
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-[1.06rem] leading-relaxed text-stone md:mx-0">{home.heroSubtitle}</p>
-            <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row md:justify-start">
+            <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap md:justify-start">
               <Link href="/invitations" className="btn btn-primary">
                 Découvrir les invitations
               </Link>
@@ -51,12 +54,16 @@ export default async function HomePage() {
             </div>
             <p className="mt-8 font-script text-2xl text-forest">Touchez le cachet pour ouvrir l&apos;invitation</p>
           </div>
-          <div className="animate-[rise_1.1s_cubic-bezier(.2,.7,.2,1)_.25s_both]">
-            {showcase.length ? (
-              <InteractiveDemo items={showcase} showTabs={false} />
-            ) : (
-              <SetupNotice what="la démonstration" />
-            )}
+
+          <div className="relative mx-auto w-full min-w-0 max-w-[460px] animate-[rise_1.1s_cubic-bezier(.2,.7,.2,1)_.25s_both] px-8 py-20 sm:px-16 sm:py-12 md:px-0 lg:px-16">
+            {/* Décor : colombes et fleurs aquarelle autour du téléphone, avec un espace autour du cadre */}
+            <Image src={colombe} alt="" aria-hidden className="pointer-events-none absolute left-0 top-0 z-10 w-16 animate-[float_7s_ease-in-out_infinite] sm:-left-12 sm:top-2 sm:w-24 md:hidden lg:block lg:-left-16 lg:w-24" sizes="96px" priority />
+            <Image src={fleurs} alt="" aria-hidden className="pointer-events-none absolute right-0 top-0 w-11 rotate-[200deg] sm:-right-12 sm:top-2 sm:w-24 md:hidden lg:block lg:-right-16 lg:w-24" sizes="96px" />
+            <Image src={fleurs} alt="" aria-hidden className="pointer-events-none absolute bottom-0 left-0 w-11 sm:-left-12 sm:bottom-2 sm:w-24 md:hidden lg:block lg:-left-16 lg:w-24" sizes="96px" />
+            <Image src={colombe} alt="" aria-hidden className="pointer-events-none absolute bottom-1 right-0 z-10 w-16 -scale-x-100 animate-[float_8s_ease-in-out_1.5s_infinite] sm:-right-12 sm:bottom-4 sm:w-24 md:hidden lg:block lg:-right-16 lg:w-24" sizes="96px" />
+            <div className="relative">
+              {showcase.length ? <InteractiveDemo items={showcase} showTabs={false} /> : <SetupNotice what="la démonstration" />}
+            </div>
           </div>
         </div>
       </section>
