@@ -68,7 +68,7 @@ export function AdminNav({ email, role, newRequests }: { email: string; role: st
     <>
       {/* Barre mobile */}
       <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-line bg-white px-4 lg:hidden">
-        <Logo href="/admin" />
+        <Logo href="/admin" className="h-7" />
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls="admin-menu" className="flex h-11 w-11 items-center justify-center" aria-label="Menu">
           <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
             {open ? <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.4" /> : <path d="M4 8h16M4 16h16" stroke="currentColor" strokeWidth="1.4" />}
@@ -84,8 +84,8 @@ export function AdminNav({ email, role, newRequests }: { email: string; role: st
       {/* Barre latérale */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col justify-between border-r border-line bg-white p-5 lg:flex">
         <div>
-          <Logo href="/admin" />
-          <p className="mb-6 mt-1 pl-7 text-[0.68rem] uppercase tracking-[0.2em] text-stone">Administration</p>
+          <Logo href="/admin" className="h-8" />
+          <p className="mb-6 mt-2 text-[0.68rem] uppercase tracking-[0.2em] text-stone">Administration</p>
           {links}
         </div>
         {footer}

@@ -20,7 +20,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-ivory/90 backdrop-blur supports-[backdrop-filter]:bg-ivory/75">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:h-20">
-        <Logo />
+        <Logo priority className="h-8 md:h-10" />
         <nav aria-label="Navigation principale" className="hidden items-center gap-8 md:flex">
           {NAV.map((n) => (
             <Link key={n.href} href={n.href} className="text-[0.78rem] uppercase tracking-[0.18em] text-charcoal/80 transition-colors hover:text-forest">

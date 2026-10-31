@@ -24,7 +24,7 @@ export default async function ClientSpace() {
   return (
     <div className="min-h-dvh bg-ivory">
       <header className="flex items-center justify-between border-b border-line px-5 py-4">
-        <Logo />
+        <Logo className="h-8" />
         <form action="/auth/deconnexion" method="post">
           <button className="text-sm text-stone hover:text-danger">Déconnexion</button>
         </form>
