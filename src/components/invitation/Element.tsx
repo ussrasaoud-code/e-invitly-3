@@ -13,7 +13,8 @@ export function El({ id, children, className = "", style, as: Tag = "div" }: { i
   const section = useContext(SectionContext);
   const editor = useContext(LayerEditorContext);
   const st = section?.elements?.[id];
-  if (st?.hidden && !editor) return null;
+  // Élément retiré : absent de l'invitation comme de l'éditeur (il se remet depuis la liste de gauche)
+  if (st?.hidden) return null;
   const selected = !!editor && editor.selected?.sectionId === section?.id && editor.selected?.elementId === id;
 
   const css: CSSProperties = { ...style };

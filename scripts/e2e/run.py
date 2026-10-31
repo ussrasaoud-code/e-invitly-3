@@ -662,6 +662,8 @@ with sync_playwright() as p:
     expect(props.get_by_role("heading", name="Ornement central")).to_be_visible()
     a.keyboard.press("Delete")
     d = wait_draft(lambda d: sec(d, "hero")[0]["elements"].get("divider", {}).get("hidden") is True, "ornement retiré au clavier")
+    expect(a.locator('[data-section="hero"] [data-el="divider"]')).to_have_count(0)
+    expect(a.locator('[data-section="hero"] [data-el="corner-left"]')).to_have_count(0)
     a.screenshot(path=SHOTS / "31-editeur-elements.png")
     ok("éléments du modèle : sélection au clic, texte modifié, déplacé, recoloré, ornements retirés")
 

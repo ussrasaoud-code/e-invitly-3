@@ -28,7 +28,7 @@ export function SectionFrame({ section, children }: { section: InvitationSection
   const animate = useContext(AnimationContext);
   const ref = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
-  const layers = section.layers.filter((l) => !l.hidden || editor);
+  const layers = section.layers.filter((l) => !l.hidden);
 
   useEffect(() => {
     const el = ref.current;
@@ -138,7 +138,7 @@ function LayerView({ layer: l, sectionId, frame, play, animate }: {
       onPointerDown={editor ? (e) => startMove(e, l, sectionId, frame, editor) : undefined}
     >
       <div style={{ ...enterStyle, opacity: enterStyle.opacity ?? undefined }}>
-        <div style={{ ...loopStyle, opacity: editor && l.hidden ? 0.25 : l.opacity }}>{body}</div>
+        <div style={{ ...loopStyle, opacity: l.opacity }}>{body}</div>
       </div>
       {editor && selected && !l.locked ? (
         <>
