@@ -4,14 +4,13 @@ import { StatusBadge } from "@/components/admin/StatusBadge";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { requireStaff } from "@/lib/auth";
 import { categoryLabel } from "@/lib/catalog";
-import { RENDERERS } from "@/lib/invitation/schema";
 import { TEMPLATE_STATUS } from "@/lib/status";
 import { createClient } from "@/lib/supabase/server";
 import { createTemplate, moveTemplate, setTemplateStatus, toggleFeatured } from "./actions";
 
 export const metadata = { title: "Modèles" };
 
-const RENDERER_LABEL: Record<string, string> = { "the-garden": "The Garden", province: "Province" };
+const RENDERER_LABEL: Record<string, string> = { blank: "Page blanche (partir de zéro)", "the-garden": "The Garden", province: "Province" };
 
 export default async function TemplatesPage({ searchParams }: { searchParams: Promise<{ archives?: string }> }) {
   await requireStaff();
@@ -96,10 +95,11 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
         <section className="card mt-10 max-w-2xl p-5">
           <h2 className="font-serif text-2xl">Nouveau modèle</h2>
           <p className="mt-1 text-sm text-stone">
-            Part d&apos;un moteur de rendu existant (mise en page). Vous ajustez ensuite couleurs, polices, sections et textes ;
-            il reste hors catalogue jusqu&apos;à sa publication. Une mise en page entièrement nouvelle demande un nouveau moteur de rendu (développement).
+            Partez d&apos;une <strong>page blanche</strong> (aucun ornement, une seule section) pour tout composer dans l&apos;éditeur visuel,
+            ou d&apos;une mise en page existante. Le modèle reste hors catalogue jusqu&apos;à sa publication.
           </p>
-          <form action={createTemplate} className="mt-4 grid gap-3 sm:grid-cols-[1fr_200px_auto] sm:items-end">
+          <form action={createTemplate} className="mt-4 grid gap-3 sm:grid-cols-[1fr_220px_auto] sm:items-end">
+            <input type="hidden" name="ouvrir" value="editeur" />
             <label>
               <span className="field-label !text-xs">Nom</span>
               <input name="name" required maxLength={80} className="field min-h-10 text-sm" />
@@ -107,10 +107,10 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
             <label>
               <span className="field-label !text-xs">Mise en page de base</span>
               <select name="renderer" className="field min-h-10 text-sm">
-                {RENDERERS.map((r) => <option key={r} value={r}>{RENDERER_LABEL[r] ?? r}</option>)}
+                {(["blank", "the-garden", "province"] as const).map((r) => <option key={r} value={r}>{RENDERER_LABEL[r] ?? r}</option>)}
               </select>
             </label>
-            <SubmitButton className="btn btn-primary btn-sm" pendingLabel="Création…">Créer</SubmitButton>
+            <SubmitButton className="btn btn-primary btn-sm" pendingLabel="Création…">Créer et ouvrir l&apos;éditeur</SubmitButton>
           </form>
         </section>
       ) : null}

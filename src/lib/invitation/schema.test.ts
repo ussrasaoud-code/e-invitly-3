@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PRESETS } from "./presets";
-import { cloneSection, invitationContentSchema, layerSchema, newLayer, newSection } from "./schema";
+import { elementsFor } from "./elements";
+import { cloneSection, invitationContentSchema, layerSchema, newLayer, newSection, sectionSchema, templateDefinitionSchema } from "./schema";
 
 describe("calques et sections (phase 6)", () => {
   it("un contenu enregistré avant la phase 6 reste valide (valeurs par défaut)", () => {
@@ -25,5 +26,22 @@ describe("calques et sections (phase 6)", () => {
     expect(copy.layers[0].id).not.toBe(s.layers[0].id);
     copy.layers[0].x = 10;
     expect(s.layers[0].x).toBe(50);
+  });
+});
+
+describe("modèle vierge et éléments du modèle", () => {
+  it("la page blanche est un modèle valide, sans ornement et avec une seule section", () => {
+    const def = templateDefinitionSchema.parse({ renderer: "blank", sample: PRESETS.blank });
+    expect(def.sample.sections.map((s) => s.type)).toEqual(["hero"]);
+    expect(def.sample.envelope.mode).toBe("none");
+    expect(elementsFor("hero", "blank").some((e) => e.kind === "ornament")).toBe(false);
+    expect(elementsFor("hero", "the-garden").map((e) => e.id)).toContain("corner-left");
+  });
+
+  it("les réglages d'éléments sont bornés et les clés contrôlées", () => {
+    const base = newSection("hero");
+    expect(sectionSchema.safeParse({ ...base, elements: { names: { dx: 10, color: "#112233" } } }).success).toBe(true);
+    expect(sectionSchema.safeParse({ ...base, elements: { names: { scale: 10 } } }).success).toBe(false);
+    expect(sectionSchema.safeParse({ ...base, elements: { "<script>": { hidden: true } } }).success).toBe(false);
   });
 });

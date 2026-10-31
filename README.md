@@ -19,14 +19,14 @@ au DNS ou au déploiement.
 | 3b — Médias | Import multiple (glisser-déposer), collections, filtres, recherche, fiche et mots-clés, choix depuis l'éditeur et les modèles, SVG contrôlés, suppression bloquée si le fichier est utilisé | ✅ fait et testé |
 | 4 — Publication | Page publique `/[adresse]`, aperçu privé (7 jours), publier / dépublier, historique, redirections, code d'accès, noindex | ✅ fait et testé |
 | 5 — RSVP | Formulaire réel dans l'invitation, réglages par invitation, questions personnalisées, invités nominatifs avec codes, statistiques par moment, corrections tracées, exports Excel/CSV, espace couple, notifications | ✅ fait et testé |
-| 6 — Éditeur visuel | Éditeur 3 colonnes (invitations et modèles) : calques d'illustrations et de textes libres déplaçables, redimensionnables, pivotables, opacité, miroir, devant/derrière, teinte, verrouillage, copier-coller ; animations par élément ; sections texte libre et bande décorative, dupliquer / supprimer ; historique du brouillon avec restauration | ✅ fait et testé |
+| 6 — Éditeur visuel | Éditeur 3 colonnes (invitations et modèles) : éléments du modèle sélectionnables (titres, prénoms, ornements : modifier, déplacer, recolorer, retirer), calques d'illustrations et de textes libres déplaçables, redimensionnables, pivotables, opacité, miroir, devant/derrière, teinte, verrouillage, copier-coller ; animations par élément ; sections texte libre et bande décorative, dupliquer / supprimer ; historique du brouillon avec restauration ; modèle vierge « page blanche » | ✅ fait et testé |
 | 7 — Finalisation | Anglais/arabe du site, audit accessibilité, mise en ligne | ⏳ |
 
 Les fonctions pas encore disponibles sont signalées comme telles dans l'administration : aucun bouton
 factice.
 
-**Tests réalisés** : 26 tests de sécurité de la base, 33 tests unitaires (adresses, fuseaux horaires,
-conversion demande → invitation, règles RSVP, médias, calques), 50 vérifications de bout en bout dans un vrai
+**Tests réalisés** : 26 tests de sécurité de la base, 35 tests unitaires (adresses, fuseaux horaires,
+conversion demande → invitation, règles RSVP, médias, calques), 52 vérifications de bout en bout dans un vrai
 navigateur (demande, connexion, conversion, éditeur, aperçu, publication, code d'accès, réponses RSVP,
 codes invités, corrections, exports, espace couple, médias, éditeur visuel, historique, accès refusés).
 

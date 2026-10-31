@@ -11,7 +11,7 @@ import type { InvitationContentInput, InvitationSection, RendererKey } from "./s
 
 const sections = (titles: Partial<Record<InvitationSection["type"], string>> = {}): InvitationSection[] =>
   (["hero", "program", "countdown", "dresscode", "venues", "rsvp", "contacts", "closing"] as const).map(
-    (type) => ({ id: `s-${type}`, type, visible: true, title: titles[type] ?? "", body: "", height: 60, animation: "inherit", layers: [] }),
+    (type) => ({ id: `s-${type}`, type, visible: true, title: titles[type] ?? "", body: "", height: 60, animation: "inherit", layers: [], elements: {} }),
   );
 
 const sharedDemo = {
@@ -130,6 +130,29 @@ export const PRESETS: Record<RendererKey, InvitationContentInput> = {
       ornament: "province",
       animation: "soft",
     },
+  },
+  /** Page blanche : aucun ornement, une seule section, à composer dans l'éditeur visuel */
+  blank: {
+    ...sharedDemo,
+    kicker: "",
+    intro: "",
+    dressCode: { text: "", palette: [] },
+    closing: { title: "", text: "" },
+    sections: [{ id: "s-hero", type: "hero", visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {} }],
+    theme: {
+      colors: {
+        background: "#FFFFFF",
+        surface: "#F6F5F2",
+        ink: "#2B2B2B",
+        muted: "#77756F",
+        accent: "#2B2B2B",
+        accentSoft: "#D9D6CF",
+      },
+      fonts: { display: "cormorant", script: "dancing", body: "jost" },
+      ornament: "none",
+      animation: "soft",
+    },
+    envelope: { mode: "none", videoUrl: "", posterUrl: "", sealText: "", autoStart: false },
   },
 };
 

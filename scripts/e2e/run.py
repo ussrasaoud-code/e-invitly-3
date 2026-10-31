@@ -3,7 +3,7 @@ Parcours de bout en bout (scénarios 1, 2, 5, 7 du cahier des charges).
 Prérequis : banc d'essai local (scripts/local-stack/server.mjs) + `next dev`.
 Usage : PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers python3 scripts/e2e/run.py
 """
-import json, os, re, sys, time, urllib.request, urllib.error
+import json, os, re, sys, time, urllib.request, urllib.error, urllib.parse
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
@@ -639,6 +639,32 @@ with sync_playwright() as p:
     a.screenshot(path=SHOTS / "29-editeur-visuel.png")
     ok("éditeur visuel : section « texte libre » ajoutée, dupliquée, supprimée")
 
+    # Éléments intégrés au modèle : sélectionner, modifier, déplacer, retirer
+    left.get_by_role("button", name=re.compile(r"^Invitation principale")).click()
+    left.get_by_role("button", name=re.compile("^Bouquet en haut à gauche")).click()
+    expect(props.get_by_role("heading", name="Bouquet en haut à gauche")).to_be_visible()
+    props.get_by_role("button", name="Retirer l'élément").click()
+    d = wait_draft(lambda d: sec(d, "hero")[0]["elements"].get("corner-left", {}).get("hidden") is True, "ornement retiré")
+    a.locator('[data-section="hero"] [data-el="kicker"]').click()
+    expect(props.get_by_role("heading", name="Accroche")).to_be_visible()
+    props.get_by_label("Texte", exact=True).fill("Avec leurs familles réunies")
+    d = wait_draft(lambda d: d["kicker"] == "Avec leurs familles réunies", "texte modifié depuis l'élément")
+    names = a.locator('[data-section="hero"] [data-el="names"]')
+    nb = names.bounding_box()
+    a.mouse.move(nb["x"] + nb["width"] / 2, nb["y"] + 10)
+    a.mouse.down()
+    a.mouse.move(nb["x"] + nb["width"] / 2 + 25, nb["y"] + 30, steps=6)
+    a.mouse.up()
+    expect(props.get_by_role("heading", name="Prénoms")).to_be_visible()
+    props.get_by_label("Imposer une couleur").check()
+    d = wait_draft(lambda d: (sec(d, "hero")[0]["elements"].get("names", {}).get("dx", 0) > 2) and sec(d, "hero")[0]["elements"]["names"]["color"] != "", "prénoms déplacés et recolorés")
+    a.locator('[data-section="hero"] [data-el="divider"]').click()
+    expect(props.get_by_role("heading", name="Ornement central")).to_be_visible()
+    a.keyboard.press("Delete")
+    d = wait_draft(lambda d: sec(d, "hero")[0]["elements"].get("divider", {}).get("hidden") is True, "ornement retiré au clavier")
+    a.screenshot(path=SHOTS / "31-editeur-elements.png")
+    ok("éléments du modèle : sélection au clic, texte modifié, déplacé, recoloré, ornements retirés")
+
     # Historique : point de sauvegarde puis restauration
     a.get_by_role("button", name="Historique").click()
     hist = a.get_by_role("dialog", name="Historique du brouillon")
@@ -676,6 +702,10 @@ with sync_playwright() as p:
     expect(vis.locator('[data-section="program"] [data-layer]')).to_have_count(2)
     expect(vis.locator('[data-section="hero"] [data-layer]').filter(has_text="Save the date")).to_have_count(1)
     expect(vis.get_by_text("Notre histoire")).to_be_visible()
+    expect(vis.locator('[data-section="hero"] [data-el="corner-left"]')).to_have_count(0)
+    expect(vis.locator('[data-section="hero"] [data-el="divider"]')).to_have_count(0)
+    expect(vis.locator('[data-section="hero"] [data-el="corner-right"]')).to_have_count(1)
+    expect(vis.get_by_text("Avec leurs familles réunies")).to_be_visible()
     vis.locator('[data-section="program"]').scroll_into_view_if_needed()
     vis.wait_for_timeout(2500)
     vis.screenshot(path=SHOTS / "30-invitation-avec-calques.png")
@@ -701,6 +731,28 @@ with sync_playwright() as p:
     page.goto(f"{BASE}/demo/the-garden")
     expect(page.get_by_text(welcome)).to_have_count(1)
     ok("modèles : décors ajoutés dans l'éditeur visuel → nouvelle version, visible sur la démo")
+
+    # Modèle vierge : partir de zéro
+    a.goto(f"{BASE}/admin/editeur")
+    blank_name = f"Page test {int(time.time())}"
+    a.get_by_label("Nom du nouveau modèle").fill(blank_name)
+    a.get_by_role("button", name="Créer un modèle vierge").click()
+    a.wait_for_url(re.compile(r"/admin/modeles/[0-9a-f-]+/editeur$"), timeout=20000)
+    expect(a.get_by_role("heading", name=f"Modèle {blank_name}")).to_be_visible()
+    assert left.locator("ul").first.locator("> li").count() == 1
+    expect(a.locator("[data-section] svg")).to_have_count(0)
+    left.get_by_label("Ajouter une section").select_option("text")
+    props.get_by_label("Titre affiché").fill("Notre histoire")
+    left.get_by_role("button", name="+ Texte").click()
+    props.get_by_label("Texte", exact=True).fill("Save the date")
+    a.get_by_role("button", name="Enregistrer une nouvelle version").click()
+    expect(a.get_by_role("status").filter(has_text="Version enregistrée")).to_be_visible(timeout=10000)
+    bt = api("GET", f"/rest/v1/templates?name=eq.{urllib.parse.quote(blank_name)}&select=status,current_version_id")[0]
+    assert bt["status"] == "draft"
+    bv = api("GET", f"/rest/v1/template_versions?id=eq.{bt['current_version_id']}&select=renderer,definition")[0]
+    assert bv["renderer"] == "blank" and [x["type"] for x in bv["definition"]["sample"]["sections"]] == ["hero", "text"], bv["definition"]["sample"]["sections"]
+    a.screenshot(path=SHOTS / "32-modele-vierge.png")
+    ok("modèle vierge : créé depuis l'éditeur, sans ornement, composé puis enregistré (hors catalogue)")
 
     # ── Scénario 7 : un couple ne voit que son invitation ────────────
     client = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True)

@@ -6,6 +6,7 @@ import { EVENT_TYPE_LABELS, type InvitationContent, type InvitationEvent, type R
 import { formatDotDate, formatLongDate, formatTime, zonedToUtc } from "@/lib/time";
 import type { PublicRsvpConfig } from "@/lib/rsvp";
 import type { Labels } from "./i18n";
+import { El } from "./Element";
 import { LiveRsvpForm } from "./LiveRsvpForm";
 
 export type SectionProps = {
@@ -83,15 +84,23 @@ const css = {
 function SectionTitle({ children, renderer }: { children: ReactNode; renderer: RendererKey }) {
   if (!children) return null;
   return renderer === "province" ? (
-    <h2 className="mb-8 text-center text-[2rem] italic leading-tight" style={{ ...css.display, color: "var(--inv-ink)" }}>
-      {children}
-    </h2>
-  ) : (
-    <div className="mb-8 flex flex-col items-center gap-3">
-      <h2 className="text-center text-[0.95rem] uppercase tracking-[0.32em]" style={{ ...css.display, color: "var(--inv-accent)" }}>
+    <El id="title" className="mb-8">
+      <h2 className="text-center text-[2rem] italic leading-tight" style={{ ...css.display, color: "var(--inv-ink)" }}>
         {children}
       </h2>
-      <Divider className="h-4 w-32" stroke="var(--inv-soft)" />
+    </El>
+  ) : (
+    <div className="mb-8 flex flex-col items-center gap-3">
+      <El id="title">
+        <h2 className="text-center text-[0.95rem] uppercase tracking-[0.32em]" style={{ ...css.display, color: "var(--inv-accent)" }}>
+          {children}
+        </h2>
+      </El>
+      {renderer === "the-garden" ? (
+        <El id="title-ornament">
+          <Divider className="h-4 w-32" stroke="var(--inv-soft)" />
+        </El>
+      ) : null}
     </div>
   );
 }
@@ -117,86 +126,132 @@ export function HeroSection({ content, renderer }: SectionProps) {
     return (
       <section className="relative px-6 pb-16 pt-12">
         <div className="relative mx-auto aspect-[200/260] w-full max-w-[320px]">
-          <Arch className="absolute inset-0 h-full w-full" stroke="var(--inv-accent)" fill="var(--inv-surface)" />
-          <Sprig className="pointer-events-none absolute -bottom-3 -left-5 h-28 w-16 -rotate-[28deg]" stroke="var(--inv-accent)" fill="var(--inv-soft)" />
-          <Sprig className="pointer-events-none absolute -bottom-3 -right-5 h-28 w-16 rotate-[28deg] -scale-x-100" stroke="var(--inv-accent)" fill="var(--inv-soft)" />
+          <El id="arch" className="absolute inset-0">
+            <Arch className="h-full w-full" stroke="var(--inv-accent)" fill="var(--inv-surface)" />
+          </El>
+          <El id="sprig-left" className="pointer-events-none absolute -bottom-3 -left-5 z-[1] h-28 w-16">
+            <Sprig className="h-full w-full -rotate-[28deg]" stroke="var(--inv-accent)" fill="var(--inv-soft)" />
+          </El>
+          <El id="sprig-right" className="pointer-events-none absolute -bottom-3 -right-5 z-[1] h-28 w-16">
+            <Sprig className="h-full w-full rotate-[28deg] -scale-x-100" stroke="var(--inv-accent)" fill="var(--inv-soft)" />
+          </El>
           <div className="absolute inset-x-10 bottom-[10%] top-[24%] flex flex-col items-center justify-center text-center">
             <Reveal>
-              <p className="text-[0.62rem] uppercase leading-relaxed tracking-[0.24em]" style={{ color: "var(--inv-muted)" }}>
-                {kicker}
-              </p>
+              <El id="kicker">
+                <p className="text-[0.62rem] uppercase leading-relaxed tracking-[0.24em]" style={{ color: "var(--inv-muted)" }}>
+                  {kicker}
+                </p>
+              </El>
               {couple.photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={couple.photoUrl} alt="" className="mx-auto mt-5 h-24 w-24 rounded-full object-cover" />
+                <El id="photo">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={couple.photoUrl} alt="" className="mx-auto mt-5 h-24 w-24 rounded-full object-cover" />
+                </El>
               ) : null}
-              <h1 className="mt-5 text-[2.6rem] italic leading-[1.05]" style={{ ...css.display, color: "var(--inv-ink)" }}>
-                {couple.partnerOne}
-                <span className="my-1 block text-[1.9rem] not-italic" style={{ ...css.script, color: "var(--inv-accent)" }}>
-                  &amp;
-                </span>
-                {couple.partnerTwo}
-              </h1>
-              <p className="mt-6 text-[0.95rem] tracking-[0.2em]" style={{ ...css.display, color: "var(--inv-accent)" }}>
-                {formatDotDate(eventAt)}
-              </p>
+              <El id="names">
+                <h1 className="mt-5 text-[2.6rem] italic leading-[1.05]" style={{ ...css.display, color: "var(--inv-ink)" }}>
+                  {couple.partnerOne}
+                  <span className="my-1 block text-[1.9rem] not-italic" style={{ ...css.script, color: "var(--inv-accent)" }}>
+                    &amp;
+                  </span>
+                  {couple.partnerTwo}
+                </h1>
+              </El>
+              <El id="date">
+                <p className="mt-6 text-[0.95rem] tracking-[0.2em] lining-nums" style={{ ...css.display, color: "var(--inv-accent)" }}>
+                  {formatDotDate(eventAt)}
+                </p>
+              </El>
             </Reveal>
           </div>
         </div>
         <Reveal delay={200}>
-          <p className="mx-auto mt-8 max-w-[300px] text-center text-[1.02rem] leading-relaxed" style={{ color: "var(--inv-ink)" }}>
-            {intro}
-          </p>
-          <p className="mt-6 text-center text-[1.35rem] capitalize" style={{ ...css.display, color: "var(--inv-accent)" }}>
-            {date}
-          </p>
-          {mainVenue.name ? (
-            <p className="mt-2 text-center text-sm tracking-wide" style={{ color: "var(--inv-muted)" }}>
-              {mainVenue.name}
-              {mainVenue.city ? ` — ${mainVenue.city}` : ""}
+          <El id="intro">
+            <p className="mx-auto mt-8 max-w-[300px] text-center text-[1.02rem] leading-relaxed" style={{ color: "var(--inv-ink)" }}>
+              {intro}
             </p>
+          </El>
+          <El id="date-long">
+            <p className="mt-6 text-center text-[1.35rem] capitalize" style={{ ...css.display, color: "var(--inv-accent)" }}>
+              {date}
+            </p>
+          </El>
+          {mainVenue.name ? (
+            <El id="venue">
+              <p className="mt-2 text-center text-sm tracking-wide" style={{ color: "var(--inv-muted)" }}>
+                {mainVenue.name}
+                {mainVenue.city ? ` — ${mainVenue.city}` : ""}
+              </p>
+            </El>
           ) : null}
         </Reveal>
       </section>
     );
   }
   return (
-    <section className="relative overflow-hidden px-7 pb-20 pt-24 text-center">
-      <CornerSpray className="pointer-events-none absolute -left-4 -top-6 w-36 -scale-y-100 opacity-90" stroke="var(--inv-accent)" fill="var(--inv-soft)" />
-      <CornerSpray className="pointer-events-none absolute -right-4 -top-6 w-36 -scale-x-100 -scale-y-100 opacity-90" stroke="var(--inv-accent)" fill="var(--inv-soft)" />
+    <section className={`relative overflow-hidden px-7 pb-20 text-center ${renderer === "the-garden" ? "pt-24" : "pt-20"}`}>
+      {renderer === "the-garden" ? (
+        <>
+          <El id="corner-left" className="pointer-events-none absolute -left-4 -top-6 w-36">
+            <CornerSpray className="w-full -scale-y-100 opacity-90" stroke="var(--inv-accent)" fill="var(--inv-soft)" />
+          </El>
+          <El id="corner-right" className="pointer-events-none absolute -right-4 -top-6 w-36">
+            <CornerSpray className="w-full -scale-x-100 -scale-y-100 opacity-90" stroke="var(--inv-accent)" fill="var(--inv-soft)" />
+          </El>
+        </>
+      ) : null}
       <Reveal>
-        <p className="text-[0.68rem] uppercase tracking-[0.34em]" style={{ color: "var(--inv-muted)" }}>
-          {kicker}
-        </p>
+        <El id="kicker">
+          <p className="text-[0.68rem] uppercase tracking-[0.34em]" style={{ color: "var(--inv-muted)" }}>
+            {kicker}
+          </p>
+        </El>
         {couple.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={couple.photoUrl} alt="" className="mx-auto mt-8 aspect-[3/4] w-40 object-cover" />
+          <El id="photo">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={couple.photoUrl} alt="" className="mx-auto mt-8 aspect-[3/4] w-40 object-cover" />
+          </El>
         ) : null}
-        <h1 className="mt-8 text-[2.15rem] uppercase leading-tight tracking-[0.14em]" style={{ ...css.display, color: "var(--inv-ink)" }}>
-          {couple.partnerOne}
-        </h1>
-        <p className="my-1 text-[2.4rem] leading-none" style={{ ...css.script, color: "var(--inv-accent)" }}>
-          &amp;
-        </p>
-        <h1 className="text-[2.15rem] uppercase leading-tight tracking-[0.14em]" style={{ ...css.display, color: "var(--inv-ink)" }}>
-          {couple.partnerTwo}
-        </h1>
+        <El id="names">
+          <h1 className="mt-8 text-[2.15rem] uppercase leading-tight tracking-[0.14em]" style={{ ...css.display, color: "var(--inv-ink)" }}>
+            {couple.partnerOne}
+          </h1>
+          <p className="my-1 text-[2.4rem] leading-none" style={{ ...css.script, color: "var(--inv-accent)" }}>
+            &amp;
+          </p>
+          <h1 className="text-[2.15rem] uppercase leading-tight tracking-[0.14em]" style={{ ...css.display, color: "var(--inv-ink)" }}>
+            {couple.partnerTwo}
+          </h1>
+        </El>
       </Reveal>
       <Reveal delay={250}>
-        <p className="mx-auto mt-8 max-w-[290px] leading-relaxed" style={{ color: "var(--inv-ink)" }}>
-          {intro}
-        </p>
-        <Divider className="mx-auto mt-8 h-4 w-36" stroke="var(--inv-soft)" />
-        <p className="mt-6 text-[1.05rem] tracking-[0.28em]" style={{ ...css.display, color: "var(--inv-accent)" }}>
-          {formatDotDate(eventAt)}
-        </p>
-        <p className="mt-2 text-sm capitalize" style={{ color: "var(--inv-muted)" }}>
-          {date}
-        </p>
-        {mainVenue.name ? (
-          <p className="mt-4 text-[0.95rem]" style={{ color: "var(--inv-ink)" }}>
-            {mainVenue.name}
-            {mainVenue.city ? <span className="block text-sm" style={{ color: "var(--inv-muted)" }}>{mainVenue.city}</span> : null}
+        <El id="intro">
+          <p className="mx-auto mt-8 max-w-[290px] leading-relaxed" style={{ color: "var(--inv-ink)" }}>
+            {intro}
           </p>
+        </El>
+        {renderer === "the-garden" ? (
+          <El id="divider">
+            <Divider className="mx-auto mt-8 h-4 w-36" stroke="var(--inv-soft)" />
+          </El>
+        ) : null}
+        <El id="date">
+          <p className="mt-6 text-[1.05rem] tracking-[0.28em] lining-nums" style={{ ...css.display, color: "var(--inv-accent)" }}>
+            {formatDotDate(eventAt)}
+          </p>
+        </El>
+        <El id="date-long">
+          <p className="mt-2 text-sm capitalize" style={{ color: "var(--inv-muted)" }}>
+            {date}
+          </p>
+        </El>
+        {mainVenue.name ? (
+          <El id="venue">
+            <p className="mt-4 text-[0.95rem]" style={{ color: "var(--inv-ink)" }}>
+              {mainVenue.name}
+              {mainVenue.city ? <span className="block text-sm" style={{ color: "var(--inv-muted)" }}>{mainVenue.city}</span> : null}
+            </p>
+          </El>
         ) : null}
       </Reveal>
     </section>
@@ -210,6 +265,7 @@ export function ProgramSection({ content, renderer, labels, title }: SectionProp
   return (
     <Shell renderer={renderer} tone="tinted">
       <SectionTitle renderer={renderer}>{title || labels.program}</SectionTitle>
+      <El id="list">
       <ol className="relative mx-auto max-w-[320px]">
         {renderer === "province" ? (
           <span aria-hidden="true" className="absolute bottom-3 top-3 w-px" style={{ insetInlineStart: "4.25rem", backgroundColor: "var(--inv-soft)" }} />
@@ -230,7 +286,7 @@ export function ProgramSection({ content, renderer, labels, title }: SectionProp
               </>
             ) : (
               <>
-                {i > 0 ? <Divider className="mx-auto mb-6 h-3 w-16" stroke="var(--inv-soft)" /> : null}
+                {i > 0 && renderer === "the-garden" ? <Divider className="mx-auto mb-6 h-3 w-16" stroke="var(--inv-soft)" /> : null}
                 <p className="text-[1.6rem] leading-none" style={{ ...css.script, color: "var(--inv-accent)" }}>
                   {formatTime(e.startTime, content.language)}
                 </p>
@@ -244,6 +300,7 @@ export function ProgramSection({ content, renderer, labels, title }: SectionProp
           </li>
         ))}
       </ol>
+      </El>
     </Shell>
   );
 }
@@ -272,6 +329,7 @@ export function CountdownSection({ content, renderer, labels, title }: SectionPr
   return (
     <Shell renderer={renderer}>
       <SectionTitle renderer={renderer}>{title}</SectionTitle>
+      <El id="timer">
       {diff === null ? (
         <div className="h-[72px]" aria-hidden="true" />
       ) : parts ? (
@@ -292,6 +350,7 @@ export function CountdownSection({ content, renderer, labels, title }: SectionPr
           {sameDay ? labels.countdownToday : labels.countdownPast}
         </p>
       )}
+      </El>
     </Shell>
   );
 }
@@ -303,15 +362,19 @@ export function DressCodeSection({ content, renderer, labels, title }: SectionPr
   return (
     <Shell renderer={renderer} tone="tinted">
       <SectionTitle renderer={renderer}>{title || labels.dresscode}</SectionTitle>
-      <p className="mx-auto max-w-[300px] text-center leading-relaxed" style={{ color: "var(--inv-ink)" }}>
-        {text}
-      </p>
+      <El id="text">
+        <p className="mx-auto max-w-[300px] text-center leading-relaxed" style={{ color: "var(--inv-ink)" }}>
+          {text}
+        </p>
+      </El>
       {palette.length ? (
-        <ul className="mt-7 flex justify-center gap-3" aria-label="Palette de couleurs">
-          {palette.map((c) => (
-            <li key={c} className="inv-border-soft h-9 w-9 rounded-full border" style={{ background: c }} title={c} />
-          ))}
-        </ul>
+        <El id="palette">
+          <ul className="mt-7 flex justify-center gap-3" aria-label="Palette de couleurs">
+            {palette.map((c) => (
+              <li key={c} className="inv-border-soft h-9 w-9 rounded-full border" style={{ background: c }} title={c} />
+            ))}
+          </ul>
+        </El>
       ) : null}
     </Shell>
   );
@@ -347,6 +410,7 @@ export function VenuesSection({ content, renderer, labels, title }: SectionProps
   return (
     <Shell renderer={renderer}>
       <SectionTitle renderer={renderer}>{title || labels.venues}</SectionTitle>
+      <El id="list">
       <div className="mx-auto max-w-[320px] space-y-6">
         {venues.map((e) => {
           const links = mapLinks(e);
@@ -380,6 +444,7 @@ export function VenuesSection({ content, renderer, labels, title }: SectionProps
           </dl>
         ) : null}
       </div>
+      </El>
     </Shell>
   );
 }
@@ -401,10 +466,13 @@ export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp
     <Shell renderer={renderer} tone="tinted">
       <SectionTitle renderer={renderer}>{title || labels.rsvp}</SectionTitle>
       {content.rsvp.intro || deadline ? (
-        <p className="mx-auto mb-7 max-w-[300px] text-center text-sm leading-relaxed" style={{ color: "var(--inv-muted)" }}>
-          {content.rsvp.intro || `${labels.rsvpBefore} ${deadline}.`}
-        </p>
+        <El id="intro">
+          <p className="mx-auto mb-7 max-w-[300px] text-center text-sm leading-relaxed" style={{ color: "var(--inv-muted)" }}>
+            {content.rsvp.intro || `${labels.rsvpBefore} ${deadline}.`}
+          </p>
+        </El>
       ) : null}
+      <El id="form">
       {mode === "live" ? (
         rsvp && slug ? (
           <LiveRsvpForm slug={slug} config={rsvp} events={content.events} labels={labels} />
@@ -491,6 +559,7 @@ export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp
           </p>
         </form>
       )}
+      </El>
     </Shell>
   );
 }
@@ -501,6 +570,7 @@ export function ContactsSection({ content, renderer, labels, title }: SectionPro
   return (
     <Shell renderer={renderer}>
       <SectionTitle renderer={renderer}>{title || labels.contacts}</SectionTitle>
+      <El id="list">
       <ul className="mx-auto grid max-w-[320px] gap-5 text-center">
         {content.contacts.map((c) => (
           <li key={`${c.name}-${c.phone}`}>
@@ -514,6 +584,7 @@ export function ContactsSection({ content, renderer, labels, title }: SectionPro
           </li>
         ))}
       </ul>
+      </El>
     </Shell>
   );
 }
@@ -525,14 +596,22 @@ export function ClosingSection({ content, renderer }: SectionProps) {
   return (
     <section className="relative overflow-hidden px-7 pb-24 pt-16 text-center">
       {renderer === "the-garden" ? (
-        <Sprig className="mx-auto mb-6 h-24 w-14" stroke="var(--inv-accent)" fill="var(--inv-soft)" />
+        <El id="sprig" className="mx-auto mb-6 h-24 w-14">
+          <Sprig className="h-full w-full" stroke="var(--inv-accent)" fill="var(--inv-soft)" />
+        </El>
       ) : null}
       <Reveal>
-        <p className="text-[2.4rem] leading-none" style={{ ...css.script, color: "var(--inv-accent)" }}>{title}</p>
-        <p className="mx-auto mt-5 max-w-[280px] leading-relaxed" style={{ color: "var(--inv-ink)" }}>{text}</p>
-        <p className="mt-8 text-[0.8rem] uppercase tracking-[0.3em]" style={{ ...css.display, color: "var(--inv-muted)" }}>
-          {content.couple.partnerOne} &amp; {content.couple.partnerTwo}
-        </p>
+        <El id="title">
+          <p className="text-[2.4rem] leading-none" style={{ ...css.script, color: "var(--inv-accent)" }}>{title}</p>
+        </El>
+        <El id="text">
+          <p className="mx-auto mt-5 max-w-[280px] leading-relaxed" style={{ color: "var(--inv-ink)" }}>{text}</p>
+        </El>
+        <El id="signature">
+          <p className="mt-8 text-[0.8rem] uppercase tracking-[0.3em]" style={{ ...css.display, color: "var(--inv-muted)" }}>
+            {content.couple.partnerOne} &amp; {content.couple.partnerTwo}
+          </p>
+        </El>
       </Reveal>
     </section>
   );
@@ -545,9 +624,11 @@ export function TextSection({ renderer, title, body }: SectionProps & { body: st
     <Shell renderer={renderer}>
       <SectionTitle renderer={renderer}>{title}</SectionTitle>
       {body ? (
-        <p className="mx-auto max-w-[330px] whitespace-pre-line text-center leading-relaxed" style={{ color: "var(--inv-ink)" }}>
-          {body}
-        </p>
+        <El id="body">
+          <p className="mx-auto max-w-[330px] whitespace-pre-line text-center leading-relaxed" style={{ color: "var(--inv-ink)" }}>
+            {body}
+          </p>
+        </El>
       ) : null}
     </Shell>
   );

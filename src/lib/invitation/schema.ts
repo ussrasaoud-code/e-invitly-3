@@ -163,6 +163,20 @@ export const layerSchema = z.object({
 });
 export type InvitationLayer = z.infer<typeof layerSchema>;
 
+/** Réglages d'un élément intégré au modèle (titre, prénoms, ornement…) */
+export const elementStyleSchema = z.object({
+  hidden: z.boolean().default(false),
+  /** Décalage en % de la largeur de l'invitation */
+  dx: num(-100, 100, 0),
+  dy: num(-300, 300, 0),
+  scale: num(0.3, 3, 1),
+  rotation: num(-180, 180, 0),
+  opacity: num(0, 1, 1),
+  /** Couleur imposée à tout l'élément (vide = couleurs du thème) */
+  color: hexColor.or(z.literal("")).default(""),
+});
+export type ElementStyle = z.infer<typeof elementStyleSchema>;
+
 export const sectionSchema = z.object({
   id: z.string().min(1).max(40),
   type: z.enum(SECTION_TYPES),
@@ -175,13 +189,15 @@ export const sectionSchema = z.object({
   /** Animation d'apparition du contenu ("inherit" = réglage du thème) */
   animation: z.enum(["inherit", ...ENTER_ANIMATIONS]).default("inherit"),
   layers: z.array(layerSchema).max(40).default([]),
+  /** Éléments intégrés du modèle : masqués, déplacés, recolorés… (clé = identifiant de l'élément) */
+  elements: z.record(z.string().regex(/^[a-z][a-z-]{0,29}$/), elementStyleSchema).default({}),
 });
 export type InvitationSection = z.infer<typeof sectionSchema>;
 
 const shortId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
 export function newSection(type: SectionType): InvitationSection {
-  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [] };
+  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {} };
 }
 
 export function newLayer(kind: InvitationLayer["kind"], patch: Partial<InvitationLayer> = {}): InvitationLayer {
@@ -289,10 +305,10 @@ export type InvitationContentInput = z.input<typeof invitationContentSchema>;
 
 /** Définition d'un modèle stockée dans template_versions.definition */
 export const templateDefinitionSchema = z.object({
-  renderer: z.enum(["the-garden", "province"]),
+  renderer: z.enum(["the-garden", "province", "blank"]),
   sample: invitationContentSchema,
 });
 export type TemplateDefinition = z.infer<typeof templateDefinitionSchema>;
 
-export const RENDERERS = ["the-garden", "province"] as const;
+export const RENDERERS = ["the-garden", "province", "blank"] as const;
 export type RendererKey = (typeof RENDERERS)[number];

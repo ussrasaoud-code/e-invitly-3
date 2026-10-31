@@ -237,6 +237,6 @@ export async function createTemplate(form: FormData) {
     .select("id")
     .single();
   if (v) await supabase.from("templates").update({ current_version_id: v.id }).eq("id", t.id);
-  await logActivity({ actorId: user.id, action: "template.created", resourceType: "template", resourceId: t.id, summary: `Modèle ${name} créé` });
-  redirect(`/admin/modeles/${t.id}`);
+  await logActivity({ actorId: user.id, action: "template.created", resourceType: "template", resourceId: t.id, summary: `Modèle ${name} créé${renderer === "blank" ? " (page blanche)" : ""}` });
+  redirect(form.get("ouvrir") === "editeur" ? `/admin/modeles/${t.id}/editeur` : `/admin/modeles/${t.id}`);
 }

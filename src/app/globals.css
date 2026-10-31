@@ -248,6 +248,14 @@
 .inv-frame-edit > :not(.inv-layer) { pointer-events: none; }
 .inv-frame-edit .inv-layer:hover { outline: 1px dashed rgba(79, 107, 82, 0.8); }
 .inv-layer-selected, .inv-layer-selected:hover { outline: 1.5px solid #4f6b52 !important; }
+/* Calque « derrière » sélectionné : passe devant le temps de le manipuler, en transparence */
+.inv-frame-edit .inv-layer-selected.inv-layer-behind { z-index: 4 !important; }
+.inv-frame-edit .inv-layer-selected.inv-layer-behind > div:first-child { opacity: 0.6; }
+/* Éléments intégrés au modèle : sélectionnables dans l'éditeur */
+.inv-frame-edit .inv-el { pointer-events: auto; cursor: move; user-select: none; touch-action: none; }
+.inv-frame-edit .inv-el:hover { outline: 1px dashed rgba(79, 107, 82, 0.8); outline-offset: 2px; }
+.inv-frame-edit .inv-el-selected, .inv-frame-edit .inv-el-selected:hover { outline: 1.5px solid #4f6b52; outline-offset: 2px; }
+.inv-frame-edit .inv-el-hidden { opacity: 0.18 !important; }
 .inv-handle {
   position: absolute;
   width: 14px;

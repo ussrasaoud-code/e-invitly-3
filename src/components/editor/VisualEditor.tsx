@@ -18,6 +18,7 @@ import {
   layerSchema,
   newLayer,
   newSection,
+  type ElementStyle,
   type InvitationContent,
   type InvitationContentInput,
   type InvitationLayer,
@@ -25,6 +26,7 @@ import {
   type RendererKey,
 } from "@/lib/invitation/schema";
 import type { SaveResult } from "@/lib/save-result";
+import { elementsFor, type ElementDef } from "@/lib/invitation/elements";
 import { HistoryDrawer, type HistoryApi } from "./HistoryDrawer";
 import { useEditorState } from "./useEditorState";
 
@@ -32,7 +34,7 @@ const CLIPBOARD_KEY = "ei-layer-clipboard";
 const WIDTHS = [360, 390, 430] as const;
 const inputCls = "field min-h-9 py-1 text-sm";
 
-type Selection = { sectionId: string; layerId: string | null } | null;
+type Selection = { sectionId: string; layerId: string | null; elementId?: string | null } | null;
 
 function Btn({ label, onClick, children, disabled, active }: { label: string; onClick: () => void; children: ReactNode; disabled?: boolean; active?: boolean }) {
   return (
@@ -132,6 +134,8 @@ export function VisualEditor({
 
   const section = sel ? c.sections.find((s) => s.id === sel.sectionId) ?? null : null;
   const layer = section && sel?.layerId ? section.layers.find((l) => l.id === sel.layerId) ?? null : null;
+  const elementDefs = section ? elementsFor(section.type, renderer) : [];
+  const element = section && sel?.elementId ? elementDefs.find((d) => d.id === sel.elementId) ?? null : null;
 
   useEffect(() => {
     try {
@@ -238,9 +242,40 @@ export function VisualEditor({
     canvasRef.current?.querySelector(`[data-section-id="${sectionId}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" });
   };
 
+  const patchElement = useCallback(
+    (sectionId: string, elementId: string, patch: Partial<ElementStyle>) =>
+      setSections((ss) =>
+        ss.map((s) => {
+          if (s.id !== sectionId) return s;
+          const current = s.elements[elementId] ?? { hidden: false, dx: 0, dy: 0, scale: 1, rotation: 0, opacity: 1, color: "" };
+          return { ...s, elements: { ...s.elements, [elementId]: { ...current, ...patch } } };
+        }),
+      ),
+    [setSections],
+  );
+  const resetElement = (sectionId: string, elementId: string) =>
+    setSections((ss) =>
+      ss.map((s) => {
+        if (s.id !== sectionId) return s;
+        const rest = { ...s.elements };
+        delete rest[elementId];
+        return { ...s, elements: rest };
+      }),
+    );
+  const selectElement = (sectionId: string, elementId: string) => {
+    setSel({ sectionId, layerId: null, elementId });
+    window.setTimeout(() => canvasRef.current?.querySelector(`[data-section-id="${sectionId}"] [data-el="${elementId}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 30);
+  };
+
   const editorApi = useMemo<LayerEditor>(
-    () => ({ selected: sel, select: (sectionId, layerId) => setSel({ sectionId, layerId }), change: patchLayer }),
-    [sel, patchLayer],
+    () => ({
+      selected: sel,
+      select: (sectionId, layerId) => setSel({ sectionId, layerId }),
+      change: patchLayer,
+      selectElement: (sectionId, elementId) => setSel({ sectionId, layerId: null, elementId }),
+      changeElement: patchElement,
+    }),
+    [sel, patchLayer, patchElement],
   );
 
   /* ── Raccourcis clavier ─────────────────────────────────────────── */
@@ -269,8 +304,18 @@ export function VisualEditor({
       } else if ((e.key === "Delete" || e.key === "Backspace") && layer && !layer.locked) {
         e.preventDefault();
         deleteLayer();
+      } else if ((e.key === "Delete" || e.key === "Backspace") && element && section && element.hideable !== false) {
+        e.preventDefault();
+        patchElement(section.id, element.id, { hidden: true });
       } else if (e.key === "Escape") {
         setSel(null);
+      } else if (element && section && e.key.startsWith("Arrow")) {
+        e.preventDefault();
+        const st = section.elements[element.id];
+        const step = e.shiftKey ? 5 : 0.5;
+        const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+        const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+        patchElement(section.id, element.id, { dx: Math.round(((st?.dx ?? 0) + dx) * 10) / 10, dy: Math.round(((st?.dy ?? 0) + dy) * 10) / 10 });
       } else if (layer && !layer.locked && section && e.key.startsWith("Arrow")) {
         e.preventDefault();
         const step = e.shiftKey ? 5 : 0.5;
@@ -379,7 +424,7 @@ export function VisualEditor({
                           {[...s.layers].reverse().map((l) => (
                             <li key={l.id} className={`flex items-center gap-1 rounded-sm px-1 py-0.5 ${sel?.layerId === l.id ? "bg-white shadow-sm" : "hover:bg-paper"}`}>
                               <button type="button" className={`min-w-0 flex-1 truncate text-left text-xs ${l.hidden ? "opacity-40" : ""}`} onClick={() => setSel({ sectionId: s.id, layerId: l.id })}>
-                                <span className="mr-1 text-stone">{l.kind === "text" ? "T" : "▣"}</span>
+                                <span aria-hidden="true" className="mr-1 text-stone">{l.kind === "text" ? "T" : "▣"}</span>
                                 {layerName(l)}
                                 <span className="ml-1 text-[0.6rem] text-stone">{l.placement === "front" ? "devant" : "derrière"}</span>
                               </button>
@@ -396,6 +441,29 @@ export function VisualEditor({
                         <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => addLayer(newLayer("text", { y: 30 }))}>+ Texte</button>
                         {clipboard ? <button type="button" className="btn btn-ghost btn-sm !px-2 !text-[0.65rem]" onClick={pasteLayer}>Coller</button> : null}
                       </div>
+                      {elementsFor(s.type, renderer).length ? (
+                        <>
+                          <p className="mt-3 text-[0.65rem] uppercase tracking-wider text-stone">Éléments du modèle</p>
+                          <ul className="mt-1 space-y-0.5">
+                            {elementsFor(s.type, renderer).map((d) => {
+                              const st = s.elements[d.id];
+                              const hidden = !!st?.hidden;
+                              return (
+                                <li key={d.id} className={`flex items-center gap-1 rounded-sm px-1 py-0.5 ${sel?.elementId === d.id ? "bg-white shadow-sm" : "hover:bg-paper"}`}>
+                                  <button type="button" className={`min-w-0 flex-1 truncate text-left text-xs ${hidden ? "line-through opacity-40" : ""}`} onClick={() => selectElement(s.id, d.id)}>
+                                    <span aria-hidden="true" className="mr-1 text-stone">{d.kind === "ornament" ? "✿" : d.kind === "text" ? "T" : "▤"}</span>
+                                    {d.label}
+                                    {st && !hidden ? <span className="ml-1 text-[0.6rem] text-forest">modifié</span> : null}
+                                  </button>
+                                  {d.hideable !== false ? (
+                                    <Btn label={hidden ? `Remettre : ${d.label}` : `Retirer : ${d.label}`} onClick={() => patchElement(s.id, d.id, { hidden: !hidden })}>{hidden ? "○" : "◉"}</Btn>
+                                  ) : null}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </>
+                      ) : null}
                     </div>
                   ) : null}
                 </li>
@@ -436,13 +504,25 @@ export function VisualEditor({
             </LayerEditorContext.Provider>
           </div>
           <p className="mx-auto mt-3 max-w-md text-center text-xs text-stone">
-            Cliquez sur une section ou un calque pour le modifier. Glissez pour déplacer, poignée ronde du coin pour agrandir, poignée du haut pour pivoter (Maj : par pas de 15°).
+            Cliquez sur un élément, un calque ou une section pour le modifier. Glissez pour déplacer, poignée ronde du coin pour agrandir, poignée du haut pour pivoter (Maj : par pas de 15°).
           </p>
         </main>
 
         {/* ── Colonne droite : propriétés ── */}
         <aside className="min-h-0 overflow-y-auto border-l border-line bg-ivory p-4" aria-label="Propriétés">
-          {layer && section ? (
+          {element && section ? (
+            <ElementPanel
+              key={`${section.id}-${element.id}`}
+              def={element}
+              section={section}
+              content={c}
+              formHref={formHref}
+              style={section.elements[element.id]}
+              onStyle={(patch) => patchElement(section.id, element.id, patch)}
+              onReset={() => resetElement(section.id, element.id)}
+              onContent={(fn) => update(fn)}
+            />
+          ) : layer && section ? (
             <LayerPanel
               key={layer.id}
               layer={layer}
@@ -471,7 +551,8 @@ export function VisualEditor({
           ) : (
             <div className="space-y-4 text-sm">
               <h2 className="font-serif text-2xl">Éditeur visuel</h2>
-              <p className="text-stone">Sélectionnez une section dans le téléphone ou dans la liste de gauche pour y ajouter des fleurs, des colombes, des textures ou un texte libre.</p>
+              <p className="text-stone">Cliquez sur n&apos;importe quel élément du téléphone (titre, prénoms, ornement, illustration) pour le modifier, le déplacer, le recolorer ou le retirer. La liste de gauche montre aussi, pour chaque section, ses calques et les éléments du modèle, même retirés.</p>
+              <p className="text-stone">Sélectionnez une section pour y ajouter des fleurs, des colombes, des textures ou un texte libre.</p>
               <p className="text-stone">
                 Les prénoms, la date, le programme et les lieux se modifient dans le <Link href={formHref} className="text-forest underline">formulaire</Link> : la mise en page s&apos;adapte seule.
               </p>
@@ -582,7 +663,7 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
 
       <fieldset className="space-y-3 border-t border-line pt-3">
         <legend className="sr-only">Position et taille</legend>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-3">
           <NumberSlider label="Horizontal" value={l.x} min={-60} max={160} step={0.5} unit="%" onChange={(v) => onChange({ x: v })} />
           <NumberSlider label="Vertical" value={l.y} min={-60} max={160} step={0.5} unit="%" onChange={(v) => onChange({ y: v })} />
         </div>
@@ -702,6 +783,111 @@ function SectionPanel({ section: s, formHref, canDelete, onChange, onDuplicate, 
       <div className="flex flex-wrap gap-2 border-t border-line pt-3">
         {!NOT_DUPLICABLE.includes(s.type) ? <button type="button" className="btn btn-ghost btn-sm !px-2" onClick={onDuplicate}>Dupliquer la section</button> : null}
         <button type="button" className="btn btn-danger btn-sm !px-2" onClick={onDelete} disabled={!canDelete}>Supprimer la section</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Panneau d'un élément intégré au modèle ───────────────────────── */
+function ElementPanel({ def, section, content: c, formHref, style, onStyle, onReset, onContent }: {
+  def: ElementDef;
+  section: InvitationSection;
+  content: InvitationContent;
+  formHref: string;
+  style: ElementStyle | undefined;
+  onStyle: (patch: Partial<ElementStyle>) => void;
+  onReset: () => void;
+  onContent: (fn: (c: InvitationContent) => InvitationContent) => void;
+}) {
+  const st = style ?? { hidden: false, dx: 0, dy: 0, scale: 1, rotation: 0, opacity: 1, color: "" };
+  const patchSection = (patch: Partial<InvitationSection>) =>
+    onContent((x) => ({ ...x, sections: x.sections.map((s) => (s.id === section.id ? { ...s, ...patch } : s)) }));
+
+  let editor: ReactNode = null;
+  switch (def.edit) {
+    case "kicker":
+      editor = <Field label="Texte"><input aria-label="Texte" className={inputCls} maxLength={120} value={c.kicker} onChange={(e) => onContent((x) => ({ ...x, kicker: e.target.value }))} /></Field>;
+      break;
+    case "intro":
+      editor = <Field label="Texte"><textarea aria-label="Texte" className="field min-h-24 text-sm" maxLength={600} value={c.intro} onChange={(e) => onContent((x) => ({ ...x, intro: e.target.value }))} /></Field>;
+      break;
+    case "names":
+      editor = (
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Premier prénom"><input aria-label="Premier prénom" className={inputCls} maxLength={60} value={c.couple.partnerOne} onChange={(e) => onContent((x) => ({ ...x, couple: { ...x.couple, partnerOne: e.target.value } }))} /></Field>
+          <Field label="Second prénom"><input aria-label="Second prénom" className={inputCls} maxLength={60} value={c.couple.partnerTwo} onChange={(e) => onContent((x) => ({ ...x, couple: { ...x.couple, partnerTwo: e.target.value } }))} /></Field>
+        </div>
+      );
+      break;
+    case "venue":
+      editor = (
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Lieu"><input aria-label="Lieu" className={inputCls} maxLength={120} value={c.mainVenue.name} onChange={(e) => onContent((x) => ({ ...x, mainVenue: { ...x.mainVenue, name: e.target.value } }))} /></Field>
+          <Field label="Ville"><input aria-label="Ville" className={inputCls} maxLength={120} value={c.mainVenue.city} onChange={(e) => onContent((x) => ({ ...x, mainVenue: { ...x.mainVenue, city: e.target.value } }))} /></Field>
+        </div>
+      );
+      break;
+    case "section-title":
+      editor = <Field label="Texte" hint="Vide = titre par défaut, traduit selon la langue."><input aria-label="Texte" className={inputCls} maxLength={80} value={section.title} onChange={(e) => patchSection({ title: e.target.value })} /></Field>;
+      break;
+    case "section-body":
+      editor = <Field label="Texte"><textarea aria-label="Texte" className="field min-h-28 text-sm" maxLength={2000} value={section.body} onChange={(e) => patchSection({ body: e.target.value })} /></Field>;
+      break;
+    case "closing-title":
+      editor = <Field label="Texte"><input aria-label="Texte" className={inputCls} maxLength={120} value={c.closing.title} onChange={(e) => onContent((x) => ({ ...x, closing: { ...x.closing, title: e.target.value } }))} /></Field>;
+      break;
+    case "closing-text":
+      editor = <Field label="Texte"><textarea aria-label="Texte" className="field min-h-24 text-sm" maxLength={600} value={c.closing.text} onChange={(e) => onContent((x) => ({ ...x, closing: { ...x.closing, text: e.target.value } }))} /></Field>;
+      break;
+    case "dresscode-text":
+      editor = <Field label="Texte"><textarea aria-label="Texte" className="field min-h-24 text-sm" maxLength={600} value={c.dressCode.text} onChange={(e) => onContent((x) => ({ ...x, dressCode: { ...x.dressCode, text: e.target.value } }))} /></Field>;
+      break;
+    case "rsvp-intro":
+      editor = <Field label="Texte" hint="Vide = « Merci de répondre avant le… »."><textarea aria-label="Texte" className="field min-h-20 text-sm" maxLength={400} value={c.rsvp.intro} onChange={(e) => onContent((x) => ({ ...x, rsvp: { ...x.rsvp, intro: e.target.value } }))} /></Field>;
+      break;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-[0.7rem] uppercase tracking-wider text-stone">{SECTION_LABELS[section.type]} · élément du modèle</p>
+        <h2 className="font-serif text-2xl">{def.label}</h2>
+      </div>
+      {st.hidden ? (
+        <p className="rounded-sm bg-paper px-3 py-2 text-sm">Cet élément est retiré : il n&apos;apparaît pas sur l&apos;invitation.</p>
+      ) : null}
+      {editor}
+      {!def.edit && def.kind !== "ornament" ? (
+        <p className="text-xs text-stone">
+          Son contenu se modifie dans le <Link href={formHref} className="text-forest underline">formulaire</Link>
+          {def.hideable === false ? " ; sa logique est verrouillée." : "."}
+        </p>
+      ) : null}
+      <fieldset className="space-y-3 border-t border-line pt-3">
+        <legend className="sr-only">Apparence</legend>
+        <div className="space-y-3">
+          <NumberSlider label="Décalage horizontal" value={st.dx} min={-100} max={100} step={0.5} unit="%" onChange={(v) => onStyle({ dx: v })} />
+          <NumberSlider label="Décalage vertical" value={st.dy} min={-300} max={300} step={0.5} unit="%" onChange={(v) => onStyle({ dy: v })} />
+        </div>
+        <NumberSlider label="Taille" value={Math.round(st.scale * 100)} min={30} max={300} unit="%" onChange={(v) => onStyle({ scale: v / 100 })} />
+        <NumberSlider label="Rotation" value={st.rotation} min={-180} max={180} unit="°" onChange={(v) => onStyle({ rotation: v })} />
+        <NumberSlider label="Opacité" value={Math.round(st.opacity * 100)} min={0} max={100} unit="%" onChange={(v) => onStyle({ opacity: v / 100 })} />
+        <Field label="Couleur">
+          <span className="flex items-center gap-2">
+            <input type="checkbox" checked={!!st.color} onChange={(e) => onStyle({ color: e.target.checked ? c.theme.colors.accent : "" })} className="h-4 w-4 accent-forest" aria-label="Imposer une couleur" />
+            {st.color ? <input type="color" value={st.color} onChange={(e) => onStyle({ color: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur de l'élément" /> : <span className="text-xs text-stone">couleurs du thème</span>}
+          </span>
+        </Field>
+      </fieldset>
+      <div className="flex flex-wrap gap-2 border-t border-line pt-3">
+        {def.hideable !== false ? (
+          st.hidden ? (
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => onStyle({ hidden: false })}>Remettre l&apos;élément</button>
+          ) : (
+            <button type="button" className="btn btn-danger btn-sm" onClick={() => onStyle({ hidden: true })}>Retirer l&apos;élément</button>
+          )
+        ) : null}
+        {style ? <button type="button" className="btn btn-ghost btn-sm !px-2" onClick={onReset}>Réglages d&apos;origine</button> : null}
       </div>
     </div>
   );

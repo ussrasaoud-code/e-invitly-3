@@ -1,8 +1,9 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { InvitationLayer, InvitationSection } from "@/lib/invitation/schema";
+import { LayerEditorContext, SectionContext, type LayerEditor } from "./editor-context";
 import { AnimationContext, SectionAnimationContext } from "./Sections";
 
 /**
@@ -12,14 +13,7 @@ import { AnimationContext, SectionAnimationContext } from "./Sections";
  * tous les téléphones.
  */
 
-export type LayerEditor = {
-  selected: { sectionId: string; layerId: string | null } | null;
-  select: (sectionId: string, layerId: string | null) => void;
-  change: (sectionId: string, layerId: string, patch: Partial<InvitationLayer>) => void;
-};
-
-/** Présent uniquement dans l'éditeur visuel */
-export const LayerEditorContext = createContext<LayerEditor | null>(null);
+export { LayerEditorContext, type LayerEditor } from "./editor-context";
 
 const FONT_VAR: Record<InvitationLayer["font"], string> = {
   display: "var(--inv-display)",
@@ -69,11 +63,13 @@ export function SectionFrame({ section, children }: { section: InvitationSection
       data-section={section.type}
       data-section-id={section.id}
       onPointerDown={editor ? (e) => {
-        if (e.target === e.currentTarget || !(e.target as HTMLElement).closest("[data-layer]")) editor.select(section.id, null);
+        if (e.target === e.currentTarget || !(e.target as HTMLElement).closest("[data-layer],[data-el]")) editor.select(section.id, null);
       } : undefined}
     >
       {render("behind")}
-      <SectionAnimationContext.Provider value={section.animation}>{children}</SectionAnimationContext.Provider>
+      <SectionContext.Provider value={section}>
+        <SectionAnimationContext.Provider value={section.animation}>{children}</SectionAnimationContext.Provider>
+      </SectionContext.Provider>
       {render("front")}
     </div>
   );
@@ -136,7 +132,7 @@ function LayerView({ layer: l, sectionId, frame, play, animate }: {
   return (
     <div
       data-layer={l.id}
-      className={`inv-layer absolute ${editor ? (l.locked ? "cursor-default" : "cursor-move") : "pointer-events-none"} ${selected ? "inv-layer-selected" : ""}`}
+      className={`inv-layer absolute ${editor ? (l.locked ? "cursor-default" : "cursor-move") : "pointer-events-none"} ${selected ? "inv-layer-selected" : ""} ${l.placement === "behind" ? "inv-layer-behind" : ""}`}
       style={pos}
       aria-hidden={l.kind === "image" ? true : undefined}
       onPointerDown={editor ? (e) => startMove(e, l, sectionId, frame, editor) : undefined}

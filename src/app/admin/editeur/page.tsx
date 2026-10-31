@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { EmptyState, PageHeader } from "@/components/admin/PageHeader";
 import { StatusBadge } from "@/components/admin/StatusBadge";
+import { SubmitButton } from "@/components/admin/SubmitButton";
 import { requireStaff } from "@/lib/auth";
+import { createTemplate } from "../modeles/actions";
 import { INVITATION_STATUS, type InvitationStatus } from "@/lib/status";
 import { createClient } from "@/lib/supabase/server";
 import { relativeFromNow } from "@/lib/time";
@@ -22,6 +24,22 @@ export default async function EditorPage() {
         title="Éditeur visuel"
         description="Décors de la bibliothèque (fleurs, colombes, textures), textes libres, animations par élément, sections ajoutées ou dupliquées, historique du brouillon. Les textes, dates et lieux restent dans le formulaire de chaque invitation."
       />
+      <section className="card mb-8 p-5">
+        <h2 className="font-serif text-2xl">Partir d&apos;une page blanche</h2>
+        <p className="mt-1 max-w-2xl text-sm text-stone">
+          Un nouveau modèle sans aucun ornement, avec seulement les prénoms : ajoutez vos sections, vos illustrations, vos textes et vos animations.
+          Il reste hors catalogue jusqu&apos;à ce que vous le publiiez.
+        </p>
+        <form action={createTemplate} className="mt-4 flex flex-wrap items-end gap-3">
+          <input type="hidden" name="renderer" value="blank" />
+          <input type="hidden" name="ouvrir" value="editeur" />
+          <label className="min-w-60 flex-1 sm:max-w-sm">
+            <span className="field-label !text-xs">Nom du nouveau modèle</span>
+            <input name="name" required maxLength={80} placeholder="ex. Bohème champêtre" className="field min-h-10 text-sm" />
+          </label>
+          <SubmitButton className="btn btn-primary btn-sm" pendingLabel="Création…">Créer un modèle vierge</SubmitButton>
+        </form>
+      </section>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <section>
           <h2 className="mb-3 font-serif text-2xl">Invitations récentes</h2>
