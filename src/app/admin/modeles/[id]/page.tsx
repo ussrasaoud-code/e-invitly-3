@@ -135,6 +135,9 @@ export default async function TemplatePage({ params, searchParams }: Props) {
               Ces réglages forment la base de chaque nouvelle invitation créée avec ce modèle. Les prénoms, lieux et contacts
               servent uniquement à la démo : ils sont remplacés par ceux du client lors de la conversion d&apos;une demande.
             </p>
+            <p className="mb-4">
+              <Link href={`/admin/modeles/${t.id}/editeur`} className="btn btn-secondary btn-sm">Ouvrir l&apos;éditeur visuel (décors, textes libres, animations)</Link>
+            </p>
             <InvitationEditor
               save={saveTemplateVersion.bind(null, t.id)}
               autosave={false}

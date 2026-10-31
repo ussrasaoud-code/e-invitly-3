@@ -5,15 +5,18 @@ import type { FontKey, InvitationContent, RendererKey, SectionType } from "@/lib
 import type { PublicRsvpConfig } from "@/lib/rsvp";
 import { Envelope } from "./Envelope";
 import { labelsFor } from "./i18n";
+import { SectionFrame } from "./Layers";
 import {
   AnimationContext,
   ClosingSection,
   ContactsSection,
   CountdownSection,
+  DecorSection,
   DressCodeSection,
   HeroSection,
   ProgramSection,
   RsvpSection,
+  TextSection,
   VenuesSection,
   type SectionProps,
 } from "./Sections";
@@ -26,7 +29,7 @@ const FONT_STACKS: Record<FontKey, string> = {
   amiri: '"Amiri", serif',
 };
 
-const SECTION_COMPONENTS: Record<Exclude<SectionType, "rsvp">, (p: SectionProps) => React.ReactNode> = {
+const SECTION_COMPONENTS: Record<Exclude<SectionType, "rsvp" | "text" | "decor">, (p: SectionProps) => React.ReactNode> = {
   hero: HeroSection,
   program: ProgramSection,
   countdown: CountdownSection,
@@ -48,9 +51,11 @@ export type InvitationViewProps = {
   /** Invitation publiée : adresse et configuration du formulaire RSVP */
   slug?: string;
   rsvp?: PublicRsvpConfig | null;
+  /** false : animations coupées (éditeur visuel, hors prévisualisation) */
+  animations?: boolean;
 };
 
-export function InvitationView({ content, renderer, mode, framed = false, skipEnvelope = false, slug, rsvp }: InvitationViewProps) {
+export function InvitationView({ content, renderer, mode, framed = false, skipEnvelope = false, slug, rsvp, animations = true }: InvitationViewProps) {
   const labels = labelsFor(content.language);
   const { colors, fonts } = content.theme;
   const showEnvelope = !skipEnvelope && content.envelope.mode !== "none";
@@ -110,14 +115,24 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
         style={opened ? { opacity: 1 } : { opacity: 0, height: 0, overflow: "hidden" }}
         aria-hidden={!opened}
       >
-        <AnimationContext.Provider value={content.theme.animation !== "none"}>
+        <AnimationContext.Provider value={animations && content.theme.animation !== "none"}>
         {content.sections
           .filter((s) => s.visible)
           .map((s) => {
             const props: SectionProps = { content, renderer, labels, title: s.title, slug, rsvp };
-            if (s.type === "rsvp") return <RsvpSection key={s.id} {...props} mode={mode} />;
-            const Component = SECTION_COMPONENTS[s.type];
-            return <Component key={s.id} {...props} />;
+            let inner: React.ReactNode;
+            if (s.type === "rsvp") inner = <RsvpSection {...props} mode={mode} />;
+            else if (s.type === "text") inner = <TextSection {...props} body={s.body} />;
+            else if (s.type === "decor") inner = <DecorSection height={s.height} />;
+            else {
+              const Component = SECTION_COMPONENTS[s.type];
+              inner = <Component {...props} />;
+            }
+            return (
+              <SectionFrame key={s.id} section={s}>
+                {inner}
+              </SectionFrame>
+            );
           })}
         </AnimationContext.Provider>
       </main>

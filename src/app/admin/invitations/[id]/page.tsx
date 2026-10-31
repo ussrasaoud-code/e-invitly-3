@@ -90,6 +90,7 @@ export default async function InvitationPage({ params, searchParams }: Props) {
             {isLive ? (
               <a href={`/${inv.slug}`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Voir en ligne ↗</a>
             ) : null}
+            <Link href={`/admin/invitations/${inv.id}/editeur`} className="btn btn-secondary btn-sm">Éditeur visuel</Link>
             <Link href={`/admin/invitations/${inv.id}?onglet=publication`} className="btn btn-primary btn-sm">
               {isLive ? "Publication" : "Publier"}
             </Link>

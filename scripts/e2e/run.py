@@ -548,6 +548,160 @@ with sync_playwright() as p:
         assert e.code == 404
     ok("médias : suppression d'un fichier inutilisé (base + stockage)")
 
+    # ── Phase 6 : éditeur visuel ──────────────────────────────────────
+    def draft():
+        return api("GET", f"/rest/v1/invitations?id=eq.{inv_id}&select=draft_content")[0]["draft_content"]
+    def wait_draft(pred, what):
+        for _ in range(40):
+            d = draft()
+            if pred(d):
+                return d
+            time.sleep(0.4)
+        raise AssertionError(f"brouillon : {what}")
+    def sec(d, t):
+        return [x for x in d["sections"] if x["type"] == t]
+
+    a.goto(f"{BASE}/admin/invitations/{inv_id}")
+    a.get_by_role("link", name="Éditeur visuel").click()
+    a.wait_for_url(re.compile(r"/editeur$"))
+    left = a.get_by_role("complementary", name="Sections et calques")
+    props = a.get_by_role("complementary", name="Propriétés")
+    expect(a.get_by_role("heading", name="Mark & Alice")).to_be_visible()
+    left.get_by_role("button", name=re.compile(r"^Le programme")).click()
+    expect(props.get_by_role("heading", name="Programme")).to_be_visible()
+    left.get_by_role("button", name="+ Image").click()
+    dlg = a.get_by_role("dialog", name="Ajouter une illustration")
+    dlg.get_by_role("button", name=re.compile("pivoine rose")).click()
+    expect(props.get_by_role("heading", name="Illustration")).to_be_visible()
+    d = wait_draft(lambda d: len(sec(d, "program")[0]["layers"]) == 1, "calque image ajouté")
+    assert sec(d, "program")[0]["layers"][0]["src"] == png_url
+    ok("éditeur visuel : illustration de la bibliothèque ajoutée à une section")
+
+    layer = a.locator('[data-section="program"] [data-layer]').first
+    box = layer.bounding_box()
+    a.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    a.mouse.down()
+    a.mouse.move(box["x"] + box["width"] / 2 + 60, box["y"] + box["height"] / 2 + 30, steps=8)
+    a.mouse.up()
+    d = wait_draft(lambda d: sec(d, "program")[0]["layers"][0]["x"] > 60, "déplacement à la souris")
+    rot = a.locator(".inv-handle-rotate")
+    rb = rot.bounding_box()
+    a.mouse.move(rb["x"] + 7, rb["y"] + 7)
+    a.mouse.down()
+    a.mouse.move(rb["x"] + 120, rb["y"] + 80, steps=6)
+    a.mouse.up()
+    props.get_by_label("Opacité (valeur)").fill("60")
+    props.get_by_label("Apparition", exact=True).select_option("draw")
+    props.get_by_label("Mouvement continu").select_option("sway")
+    props.get_by_label("Place par rapport au texte de la section").select_option("front")
+    d = wait_draft(lambda d: sec(d, "program")[0]["layers"][0]["loop"] == "sway" and sec(d, "program")[0]["layers"][0]["placement"] == "front", "réglages du calque")
+    L = sec(d, "program")[0]["layers"][0]
+    assert L["opacity"] == 0.6 and L["enter"]["type"] == "draw" and L["rotation"] != 0, L
+    ok("éditeur visuel : déplacer, pivoter, opacité, animation d'apparition et mouvement continu")
+
+    left.get_by_role("button", name="+ Texte").click()
+    props.get_by_label("Texte", exact=True).fill("Save the date")
+    d = wait_draft(lambda d: any(l["text"] == "Save the date" for l in sec(d, "program")[0]["layers"]), "calque texte")
+    a.locator("[data-layer]").filter(has_text="Save the date").click()
+    a.keyboard.press("Control+c")
+    left.get_by_role("button", name=re.compile(r"^Invitation principale")).click()
+    a.keyboard.press("Control+v")
+    d = wait_draft(lambda d: any(l["text"] == "Save the date" for l in sec(d, "hero")[0]["layers"]), "copier-coller vers une autre section")
+    n_hero = len(sec(d, "hero")[0]["layers"])
+    expect(props.get_by_role("heading", name="Texte libre")).to_be_visible()
+    a.wait_for_timeout(300)
+    a.keyboard.press("Delete")
+    try:
+        d = wait_draft(lambda d: len(sec(d, "hero")[0]["layers"]) == n_hero - 1, "suppression au clavier")
+    except AssertionError:
+        a.screenshot(path=SHOTS / "debug-suppr.png")
+        print(json.dumps(sec(draft(), "hero")[0]["layers"])[:600], n_hero)
+        raise
+    a.keyboard.press("Control+z")
+    try:
+        d = wait_draft(lambda d: len(sec(d, "hero")[0]["layers"]) == n_hero, "annuler la suppression")
+    except AssertionError:
+        a.screenshot(path=SHOTS / "debug-undo.png")
+        print("focus:", a.evaluate("document.activeElement && document.activeElement.outerHTML.slice(0,200)"), len(sec(draft(), "hero")[0]["layers"]), n_hero)
+        raise
+    ok("éditeur visuel : texte libre, copier-coller entre sections, Suppr et Ctrl+Z")
+
+    left.get_by_label("Ajouter une section").select_option("text")
+    props.get_by_label("Titre affiché").fill("Notre histoire")
+    props.get_by_label("Texte", exact=True).fill("Rencontrés à Lyon en 2019.")
+    props.get_by_role("button", name="Dupliquer la section").click()
+    d = wait_draft(lambda d: len(sec(d, "text")) == 2 and all(x["body"] == "Rencontrés à Lyon en 2019." for x in sec(d, "text")), "section dupliquée")
+    props.get_by_role("button", name="Supprimer la section").click()
+    d = wait_draft(lambda d: len(sec(d, "text")) == 1, "section supprimée")
+    order = [x["type"] for x in d["sections"]]
+    assert order.index("text") == order.index("hero") + 1, order
+    a.wait_for_timeout(300)
+    a.screenshot(path=SHOTS / "29-editeur-visuel.png")
+    ok("éditeur visuel : section « texte libre » ajoutée, dupliquée, supprimée")
+
+    # Historique : point de sauvegarde puis restauration
+    a.get_by_role("button", name="Historique").click()
+    hist = a.get_by_role("dialog", name="Historique du brouillon")
+    hist.get_by_label("Créer un point de sauvegarde du brouillon actuel").fill("Validé par Alice")
+    hist.get_by_role("button", name="Créer").click()
+    expect(hist.get_by_text("Validé par Alice")).to_be_visible(timeout=10000)
+    expect(hist.get_by_text("Avant une séance de modifications").first).to_be_visible()
+    hist.get_by_role("button", name="Fermer").click()
+    left.get_by_role("button", name=re.compile(r"^Notre histoire")).click()
+    props.get_by_label("Texte", exact=True).fill("Texte à jeter")
+    d = wait_draft(lambda d: sec(d, "text")[0]["body"] == "Texte à jeter", "modification avant restauration")
+    expect(a.get_by_role("status").filter(has_text="Brouillon enregistré")).to_be_visible(timeout=10000)
+    a.get_by_role("button", name="Historique").click()
+    hist.locator("li").filter(has_text="Validé par Alice").get_by_role("button", name="Restaurer").click()
+    expect(a.get_by_text("Brouillon restauré")).to_be_visible(timeout=10000)
+    d = wait_draft(lambda d: sec(d, "text")[0]["body"] == "Rencontrés à Lyon en 2019.", "restauration")
+    expect(props.get_by_label("Texte", exact=True)).to_have_count(0)
+    a.get_by_role("button", name="Historique").click()
+    expect(hist.get_by_text(re.compile("Avant la restauration du"))).to_be_visible(timeout=10000)
+    hist.get_by_role("button", name="Fermer").click()
+    ok("historique : point de sauvegarde, restauration, état remplacé conservé")
+
+    # Publication : les calques apparaissent sur l'invitation en ligne
+    a.goto(f"{BASE}/admin/invitations/{inv_id}?onglet=publication")
+    a.get_by_role("button", name="Publier les modifications").click()
+    a.wait_for_url(re.compile(r"publiee="), timeout=20000)
+    vis = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True).new_page()
+    vis.goto(f"{BASE}/mark-alice-2027")
+    if vis.locator("#code").count():
+        vis.fill("#code", "jardin2027")
+        vis.get_by_role("button", name="Ouvrir l'invitation").click()
+        vis.wait_for_timeout(1500)
+    vis.get_by_role("button", name="Ouvrir l'invitation").first.click()
+    vis.wait_for_timeout(2500)
+    expect(vis.locator('[data-section="program"] [data-layer]')).to_have_count(2)
+    expect(vis.locator('[data-section="hero"] [data-layer]').filter(has_text="Save the date")).to_have_count(1)
+    expect(vis.get_by_text("Notre histoire")).to_be_visible()
+    vis.locator('[data-section="program"]').scroll_into_view_if_needed()
+    vis.wait_for_timeout(2500)
+    vis.screenshot(path=SHOTS / "30-invitation-avec-calques.png")
+    assert vis.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "défilement horizontal"
+    assert vis.evaluate("getComputedStyle(document.querySelector('[data-layer]')).pointerEvents") == "none"
+    vis.context.close()
+    ok("publication : décors, texte libre et nouvelle section visibles en ligne, sans débordement")
+
+    # Modèle : l'éditeur visuel enregistre une nouvelle version
+    garden = api("GET", "/rest/v1/templates?slug=eq.the-garden&select=id,current_version_id")[0]
+    a.goto(f"{BASE}/admin/modeles/{garden['id']}/editeur")
+    left.get_by_role("button", name=re.compile(r"^Invitation principale")).click()
+    left.get_by_role("button", name="+ Texte").click()
+    welcome = f"Bienvenue au jardin {int(time.time())}"
+    props.get_by_label("Texte", exact=True).fill(welcome)
+    a.get_by_role("button", name="Enregistrer une nouvelle version").click()
+    expect(a.get_by_role("status").filter(has_text="Version enregistrée")).to_be_visible(timeout=10000)
+    g2t = api("GET", "/rest/v1/templates?slug=eq.the-garden&select=current_version_id")[0]
+    assert g2t["current_version_id"] != garden["current_version_id"]
+    tv = api("GET", f"/rest/v1/template_versions?id=eq.{g2t['current_version_id']}&select=definition")[0]
+    hero = [x for x in tv["definition"]["sample"]["sections"] if x["type"] == "hero"][0]
+    assert any(l["text"] == welcome for l in hero["layers"]), hero
+    page.goto(f"{BASE}/demo/the-garden")
+    expect(page.get_by_text(welcome)).to_have_count(1)
+    ok("modèles : décors ajoutés dans l'éditeur visuel → nouvelle version, visible sur la démo")
+
     # ── Scénario 7 : un couple ne voit que son invitation ────────────
     client = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True)
     c = client.new_page()

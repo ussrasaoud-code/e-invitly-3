@@ -230,3 +230,53 @@
   background-size: 16px 16px;
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
 }
+
+/* ── Calques des invitations (phase 6) ──────────────────────────────── */
+.inv-frame {
+  container-type: inline-size;
+  overflow-x: clip;
+}
+/* Le fond teinté d'une section passe sur le cadre, pour que les calques « derrière » restent visibles */
+.inv-frame:has(> section[data-tone="tinted"]) { background-color: var(--inv-surface); }
+.inv-frame > section[data-tone="tinted"] { background-color: transparent !important; }
+
+.inv-frame-edit { outline: 1px dashed transparent; outline-offset: -1px; }
+.inv-frame-edit:hover { outline-color: rgba(79, 107, 82, 0.35); }
+.inv-frame-selected, .inv-frame-selected:hover { outline: 1.5px solid rgba(79, 107, 82, 0.7); }
+.inv-frame-edit .inv-layer { touch-action: none; user-select: none; }
+/* Dans l'éditeur, le contenu de la section laisse passer les clics vers les calques placés derrière lui */
+.inv-frame-edit > :not(.inv-layer) { pointer-events: none; }
+.inv-frame-edit .inv-layer:hover { outline: 1px dashed rgba(79, 107, 82, 0.8); }
+.inv-layer-selected, .inv-layer-selected:hover { outline: 1.5px solid #4f6b52 !important; }
+.inv-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid #4f6b52;
+  background: #fff;
+  border-radius: 999px;
+  touch-action: none;
+  z-index: 5;
+}
+.inv-handle-resize { right: -8px; bottom: -8px; cursor: nwse-resize; }
+.inv-handle-rotate { left: 50%; top: -26px; margin-left: -7px; cursor: grab; }
+.inv-handle-rotate::after { content: ""; position: absolute; left: 5px; top: 12px; width: 1.5px; height: 12px; background: #4f6b52; }
+
+@keyframes inv-in-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes inv-in-rise { from { opacity: 0; transform: translateY(14%); } to { opacity: 1; transform: none; } }
+@keyframes inv-in-zoom { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: none; } }
+@keyframes inv-in-slide-left { from { opacity: 0; transform: translateX(-30%); } to { opacity: 1; transform: none; } }
+@keyframes inv-in-slide-right { from { opacity: 0; transform: translateX(30%); } to { opacity: 1; transform: none; } }
+@keyframes inv-in-draw {
+  from { opacity: 0; transform: scale(0.7) rotate(-6deg); clip-path: inset(100% 0 0 0); }
+  60% { opacity: 1; }
+  to { opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+}
+@keyframes inv-loop-sway { from { transform: rotate(-2.5deg); } to { transform: rotate(2.5deg); } }
+@keyframes inv-loop-float { from { transform: translateY(-3%); } to { transform: translateY(3%); } }
+@keyframes inv-loop-breathe { from { transform: scale(1); } to { transform: scale(1.04); } }
+.inv-layer > div > div { transform-origin: 50% 90%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .inv-layer, .inv-layer * { animation: none !important; opacity: 1; }
+}

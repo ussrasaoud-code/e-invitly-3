@@ -11,7 +11,7 @@ import type { InvitationContentInput, InvitationSection, RendererKey } from "./s
 
 const sections = (titles: Partial<Record<InvitationSection["type"], string>> = {}): InvitationSection[] =>
   (["hero", "program", "countdown", "dresscode", "venues", "rsvp", "contacts", "closing"] as const).map(
-    (type) => ({ id: `s-${type}`, type, visible: true, title: titles[type] ?? "" }),
+    (type) => ({ id: `s-${type}`, type, visible: true, title: titles[type] ?? "", body: "", height: 60, animation: "inherit", layers: [] }),
   );
 
 const sharedDemo = {

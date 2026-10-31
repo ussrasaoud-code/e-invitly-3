@@ -308,6 +308,18 @@ await test("médias : visibles et modifiables uniquement par l'équipe", async (
   await assert.rejects(as("authenticated", mark.id, () => rows(`insert into public.media_assets (name, kind, path, mime_type, size_bytes) values ('x', 'image', 'x.png', 'image/png', 1)`)));
 });
 
+await test("historique du brouillon : réservé à l'équipe, 60 points maximum par invitation", async () => {
+  for (let i = 0; i < 63; i++) {
+    await db.query(`insert into public.invitation_draft_history (invitation_id, content, kind, created_at) values ($1, '{"n":${i}}'::jsonb, 'auto', now() - make_interval(mins => $2))`, [markAlice, 100 - i]);
+  }
+  const kept = await as("authenticated", admin.id, () => rows(`select content from public.invitation_draft_history where invitation_id = $1 order by created_at`, [markAlice]));
+  assert.equal(kept.length, 60);
+  assert.equal(kept[0].content.n, 3);
+  assert.equal((await as("authenticated", mark.id, () => rows(`select * from public.invitation_draft_history`))).length, 0);
+  assert.equal((await as("anon", null, () => rows(`select * from public.invitation_draft_history`))).length, 0);
+  await assert.rejects(as("authenticated", mark.id, () => rows(`insert into public.invitation_draft_history (invitation_id, content) values ($1, '{}')`, [markAlice])));
+});
+
 await test("deux invitations ne peuvent pas partager un slug (insensible à la casse)", async () => {
   await assert.rejects(
     db.query(

@@ -32,8 +32,9 @@ export async function saveInvitationDraft(invitationId: string, input: Invitatio
   }
   const content = parsed.data;
   const supabase = (await createClient())!;
-  const { data: before } = await supabase.from("invitations").select("draft_updated_at, title").eq("id", invitationId).maybeSingle();
+  const { data: before } = await supabase.from("invitations").select("draft_updated_at, title, draft_content").eq("id", invitationId).maybeSingle();
   if (!before) return { ok: false, message: "Invitation introuvable." };
+  await snapshotBeforeSession(supabase, invitationId, before.draft_content, user.id);
 
   const now = new Date().toISOString();
   const eventAt = content.eventAt ? zonedToUtc(content.eventAt, content.timezone)?.toISOString() ?? null : null;
@@ -214,6 +215,10 @@ export async function restoreVersionToDraft(form: FormData) {
   const invitationId = uuid.parse(form.get("id"));
   const version = z.coerce.number().int().positive().parse(form.get("version"));
   const supabase = (await createClient())!;
+  const { data: current } = await supabase.from("invitations").select("draft_content").eq("id", invitationId).single();
+  if (current) {
+    await supabase.from("invitation_draft_history").insert({ invitation_id: invitationId, content: current.draft_content, kind: "restore", label: `Avant la recopie de la version publiée ${version}`, created_by: user.id });
+  }
   const { data: v } = await supabase.from("invitation_versions").select("content").eq("invitation_id", invitationId).eq("version", version).single();
   if (!v) throw new Error("Version introuvable.");
   const { error } = await supabase
@@ -342,4 +347,23 @@ export async function deleteInvitation(form: FormData) {
   await logActivity({ actorId: user.id, action: "invitation.deleted", resourceType: "invitation", resourceId: null, summary: `Invitation ${inv.title} (${inv.slug}) supprimée définitivement`, details: { invitationId } });
   revalidatePath("/admin/invitations");
   redirect("/admin/invitations");
+}
+
+type Db = NonNullable<Awaited<ReturnType<typeof createClient>>>;
+
+/**
+ * Point de restauration automatique : au début de chaque séance de travail
+ * (aucun point depuis 10 minutes), on garde l'état du brouillon AVANT les
+ * nouvelles modifications.
+ */
+async function snapshotBeforeSession(supabase: Db, invitationId: string, previous: unknown, userId: string) {
+  const { data: last } = await supabase
+    .from("invitation_draft_history")
+    .select("created_at")
+    .eq("invitation_id", invitationId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (last && Date.now() - new Date(last.created_at).getTime() < 10 * 60_000) return;
+  await supabase.from("invitation_draft_history").insert({ invitation_id: invitationId, content: previous, kind: "auto", created_by: userId });
 }

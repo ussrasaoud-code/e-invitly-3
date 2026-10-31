@@ -14,6 +14,7 @@ import {
   type InvitationContent,
   type InvitationEvent,
   type RendererKey,
+  newSection,
 } from "@/lib/invitation/schema";
 import type { SaveResult } from "@/lib/save-result";
 import type { InvitationContentInput } from "@/lib/invitation/schema";
@@ -405,7 +406,7 @@ export function InvitationEditor({
               ))}
             </ol>
             {SECTION_TYPES.filter((t) => !c.sections.some((s) => s.type === t)).map((t) => (
-              <button key={t} type="button" className="btn btn-ghost btn-sm" onClick={() => set("sections", [...c.sections, { id: `s-${t}`, type: t, visible: true, title: "" }])}>
+              <button key={t} type="button" className="btn btn-ghost btn-sm" onClick={() => set("sections", [...c.sections, newSection(t)])}>
                 + {SECTION_LABELS[t]}
               </button>
             ))}

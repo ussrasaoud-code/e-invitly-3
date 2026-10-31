@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/brand/Logo";
 
-const ITEMS = [
+const ITEMS: { href: string; label: string; exact?: boolean }[] = [
   { href: "/admin", label: "Vue d'ensemble", exact: true },
   { href: "/admin/demandes", label: "Demandes clients" },
   { href: "/admin/invitations", label: "Invitations" },
   { href: "/admin/modeles", label: "Modèles" },
-  { href: "/admin/editeur", label: "Éditeur", soon: "Phase 6" },
+  { href: "/admin/editeur", label: "Éditeur" },
   { href: "/admin/rsvp", label: "RSVP" },
   { href: "/admin/medias", label: "Médias" },
   { href: "/admin/parametres", label: "Paramètres" },
@@ -40,8 +40,6 @@ export function AdminNav({ email, role, newRequests }: { email: string; role: st
                   <span className="rounded-full bg-forest px-2 text-[0.7rem] text-ivory" aria-label={`${newRequests} nouvelles demandes`}>
                     {newRequests}
                   </span>
-                ) : it.soon ? (
-                  <span className="text-[0.62rem] uppercase tracking-wider text-stone/80">{it.soon}</span>
                 ) : null}
               </Link>
             </li>

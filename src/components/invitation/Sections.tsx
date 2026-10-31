@@ -22,12 +22,30 @@ export type SectionProps = {
 /** false quand le thème désactive les animations */
 export const AnimationContext = createContext(true);
 
+/** Animation d'apparition propre à la section ("inherit" = montée douce du thème) */
+export const SectionAnimationContext = createContext<string>("inherit");
+
+const HIDDEN_STATE: Record<string, string> = {
+  inherit: "translateY(18px)",
+  rise: "translateY(18px)",
+  fade: "none",
+  zoom: "scale(0.94)",
+  "slide-left": "translateX(-28px)",
+  "slide-right": "translateX(28px)",
+  draw: "translateY(18px)",
+};
+
 export function Reveal({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
-  const enabled = useContext(AnimationContext);
+  const themeEnabled = useContext(AnimationContext);
+  const kind = useContext(SectionAnimationContext);
+  const enabled = themeEnabled && kind !== "none";
   const ref = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState(!enabled);
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setShown(true);
+      return;
+    }
     const el = ref.current;
     if (!el) return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
@@ -50,7 +68,7 @@ export function Reveal({ children, delay = 0 }: { children: ReactNode; delay?: n
     <div
       ref={ref}
       className="transition-[opacity,transform] duration-1000 ease-out"
-      style={{ opacity: shown ? 1 : 0, transform: shown ? "none" : "translateY(18px)", transitionDelay: `${delay}ms` }}
+      style={{ opacity: shown ? 1 : 0, transform: shown ? "none" : HIDDEN_STATE[kind] ?? HIDDEN_STATE.inherit, transitionDelay: `${delay}ms` }}
     >
       {children}
     </div>
@@ -84,6 +102,7 @@ function Shell({ children, renderer, tone = "plain" }: { children: ReactNode; re
       className="relative px-7 py-16"
       style={{ backgroundColor: tone === "tinted" ? "var(--inv-surface)" : "transparent" }}
       data-renderer={renderer}
+      data-tone={tone}
     >
       <Reveal>{children}</Reveal>
     </section>
@@ -517,4 +536,24 @@ export function ClosingSection({ content, renderer }: SectionProps) {
       </Reveal>
     </section>
   );
+}
+
+/* ── Texte libre ───────────────────────────────────────────────────── */
+export function TextSection({ renderer, title, body }: SectionProps & { body: string }) {
+  if (!title && !body) return null;
+  return (
+    <Shell renderer={renderer}>
+      <SectionTitle renderer={renderer}>{title}</SectionTitle>
+      {body ? (
+        <p className="mx-auto max-w-[330px] whitespace-pre-line text-center leading-relaxed" style={{ color: "var(--inv-ink)" }}>
+          {body}
+        </p>
+      ) : null}
+    </Shell>
+  );
+}
+
+/* ── Bande décorative : un espace qui n'accueille que des calques ──── */
+export function DecorSection({ height }: { height: number }) {
+  return <div aria-hidden="true" style={{ paddingTop: `${height}%` }} />;
 }

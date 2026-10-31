@@ -19,16 +19,16 @@ au DNS ou au déploiement.
 | 3b — Médias | Import multiple (glisser-déposer), collections, filtres, recherche, fiche et mots-clés, choix depuis l'éditeur et les modèles, SVG contrôlés, suppression bloquée si le fichier est utilisé | ✅ fait et testé |
 | 4 — Publication | Page publique `/[adresse]`, aperçu privé (7 jours), publier / dépublier, historique, redirections, code d'accès, noindex | ✅ fait et testé |
 | 5 — RSVP | Formulaire réel dans l'invitation, réglages par invitation, questions personnalisées, invités nominatifs avec codes, statistiques par moment, corrections tracées, exports Excel/CSV, espace couple, notifications | ✅ fait et testé |
-| 6 — Éditeur visuel libre | Calques déplaçables façon Canva | ⏳ |
+| 6 — Éditeur visuel | Éditeur 3 colonnes (invitations et modèles) : calques d'illustrations et de textes libres déplaçables, redimensionnables, pivotables, opacité, miroir, devant/derrière, teinte, verrouillage, copier-coller ; animations par élément ; sections texte libre et bande décorative, dupliquer / supprimer ; historique du brouillon avec restauration | ✅ fait et testé |
 | 7 — Finalisation | Anglais/arabe du site, audit accessibilité, mise en ligne | ⏳ |
 
 Les fonctions pas encore disponibles sont signalées comme telles dans l'administration : aucun bouton
 factice.
 
-**Tests réalisés** : 25 tests de sécurité de la base, 30 tests unitaires (adresses, fuseaux horaires,
-conversion demande → invitation, règles RSVP, médias), 43 vérifications de bout en bout dans un vrai
+**Tests réalisés** : 26 tests de sécurité de la base, 33 tests unitaires (adresses, fuseaux horaires,
+conversion demande → invitation, règles RSVP, médias, calques), 50 vérifications de bout en bout dans un vrai
 navigateur (demande, connexion, conversion, éditeur, aperçu, publication, code d'accès, réponses RSVP,
-codes invités, corrections, exports, espace couple, médias, accès refusés).
+codes invités, corrections, exports, espace couple, médias, éditeur visuel, historique, accès refusés).
 
 ---
 
@@ -46,7 +46,7 @@ Comptez environ une heure. Vous aurez besoin de quatre comptes gratuits : **GitH
 2. Ouvrez **SQL Editor** → *New query*. Copiez-collez tout le contenu du fichier
    `supabase/migrations/20261026000001_init.sql`, puis cliquez sur **Run**. Faites de même, dans
    l'ordre, avec chaque fichier suivant du dossier `supabase/migrations`
-   (`20261031000001_publication.sql`, `20261101000001_rsvp.sql`, `20261102000001_media.sql`…). Chaque fichier ne s'exécute qu'une seule fois.
+   (`20261031000001_publication.sql`, `20261101000001_rsvp.sql`, `20261102000001_media.sql`, `20261103000001_editor.sql`…). Chaque fichier ne s'exécute qu'une seule fois.
 3. Nouvelle requête : copiez-collez `supabase/seed.sql`, puis **Run**. Les modèles *The Garden* et
    *Province* sont créés.
 4. **Authentication → Sign In / Providers** : laissez *Email* activé et **désactivez « Allow new
