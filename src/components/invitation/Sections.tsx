@@ -663,6 +663,7 @@ export function DecorSection({ height }: { height: number }) {
 /* ── Programme v2 : frise végétale et fleur qui suit le défilement ── */
 export function ProgramV2Section({ section }: SectionProps & { section: InvitationSection }) {
   const { kicker, title, items, marker } = section;
+  const stemUrl = `url(/decor/tiges/${section.stem ?? "feuilles"}.svg)`;
   // Colonnes en % de la largeur de l'invitation : heure | tige | texte
   const cols = "grid-cols-[24cqw_12cqw_minmax(0,1fr)]";
   return (
@@ -687,8 +688,8 @@ export function ProgramV2Section({ section }: SectionProps & { section: Invitati
               className="h-full w-full"
               style={{
                 backgroundColor: "var(--inv-accent)",
-                WebkitMaskImage: "url(/decor/tige.svg)",
-                maskImage: "url(/decor/tige.svg)",
+                WebkitMaskImage: stemUrl,
+                maskImage: stemUrl,
                 WebkitMaskRepeat: "repeat-y",
                 maskRepeat: "repeat-y",
                 WebkitMaskSize: "100% auto",

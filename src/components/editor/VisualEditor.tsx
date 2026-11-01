@@ -19,6 +19,8 @@ import {
   SCROLL_MOTION_LABELS,
   SHAPE_LABELS,
   SHAPE_TYPES,
+  STEM_LABELS,
+  STEM_STYLES,
   cloneSection,
   layerSchema,
   newLayer,
@@ -1779,6 +1781,39 @@ function ProgramV2Editor({ section: s, onChange }: { section: InvitationSection;
       <Field label="Surtitre">
         <input aria-label="Surtitre" className={inputCls} maxLength={120} value={s.kicker} onChange={(e) => onChange({ kicker: e.target.value })} />
       </Field>
+      <fieldset className="min-w-0">
+        <legend className="mb-1 block text-[0.7rem] uppercase tracking-wider text-stone">Style de la tige</legend>
+        <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Style de la tige">
+          {STEM_STYLES.map((k) => (
+            <button
+              key={k}
+              type="button"
+              role="radio"
+              aria-checked={s.stem === k}
+              aria-label={`Tige ${STEM_LABELS[k]}`}
+              title={STEM_LABELS[k]}
+              onClick={() => onChange({ stem: k })}
+              className={`flex flex-col items-center gap-1 rounded-sm border bg-white px-1 pb-1 pt-2 ${s.stem === k ? "border-forest ring-2 ring-forest/30" : "border-line hover:border-forest"}`}
+            >
+              <span
+                aria-hidden="true"
+                className="block h-16 w-6"
+                style={{
+                  backgroundColor: "#586c60",
+                  WebkitMaskImage: `url(/decor/tiges/${k}.svg)`,
+                  maskImage: `url(/decor/tiges/${k}.svg)`,
+                  WebkitMaskRepeat: "repeat-y",
+                  maskRepeat: "repeat-y",
+                  WebkitMaskSize: "100% auto",
+                  maskSize: "100% auto",
+                }}
+              />
+              <span className="text-[0.6rem] leading-tight">{STEM_LABELS[k]}</span>
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[0.7rem] text-stone">Sa couleur suit celle du thème ; changez-la en cliquant sur la tige dans le téléphone (« Couleur »).</p>
+      </fieldset>
       <Field label="Fleur qui descend le long de la tige" hint="Elle suit le défilement de l'écran. Choisissez une autre illustration dans la bibliothèque si vous le souhaitez.">
         <MediaUrlField kinds={["image", "svg"]} className={inputCls} label="Fleur qui suit le défilement" value={s.marker} onChange={(v) => onChange({ marker: v })} />
       </Field>

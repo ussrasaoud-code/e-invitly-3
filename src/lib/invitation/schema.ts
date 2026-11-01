@@ -139,6 +139,19 @@ export const SCROLL_MOTION_LABELS: Record<ScrollMotion, string> = {
   zoom: "Grandit en défilant",
 };
 
+/** Tiges de la frise du programme v2 (public/decor/tiges/<clé>.svg) */
+export const STEM_STYLES = ["feuilles", "coeurs", "saule", "eucalyptus", "vrille", "brindille", "pointilles"] as const;
+export type StemStyle = (typeof STEM_STYLES)[number];
+export const STEM_LABELS: Record<StemStyle, string> = {
+  feuilles: "Feuillage",
+  coeurs: "Cœurs",
+  saule: "Saule",
+  eucalyptus: "Eucalyptus",
+  vrille: "Vrilles",
+  brindille: "Brindille",
+  pointilles: "Ligne et points",
+};
+
 export const SHAPE_TYPES = ["rect", "rounded", "circle", "arch", "double", "line", "diamond", "heart", "leafdivider", "diamonddivider"] as const;
 export type ShapeType = (typeof SHAPE_TYPES)[number];
 export const SHAPE_LABELS: Record<ShapeType, string> = {
@@ -282,6 +295,7 @@ export const sectionSchema = z.object({
     .max(20)
     .default([]),
   marker: cssUrl,
+  stem: z.enum(STEM_STYLES).default("feuilles"),
   /** Animation d'apparition du contenu ("inherit" = réglage du thème) */
   animation: z.enum(["inherit", ...ENTER_ANIMATIONS]).default("inherit"),
   layers: z.array(layerSchema).max(40).default([]),
@@ -296,7 +310,7 @@ const shortId = (prefix: string) => `${prefix}-${Math.random().toString(36).slic
 
 export function newSection(type: SectionType): InvitationSection {
   if (type === "program2") return programV2Section();
-  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], marker: "" };
+  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], marker: "", stem: "feuilles" };
 }
 
 export function newLayer(kind: InvitationLayer["kind"], patch: Partial<InvitationLayer> = {}): InvitationLayer {
@@ -448,6 +462,7 @@ export function programV2Section(): InvitationSection {
     kicker: "Le fil de notre journée",
     items: items.map(([time, title, detail], i) => ({ id: `m${i + 1}`, time, title, detail })),
     marker: "/decor/rose.svg",
+    stem: "feuilles",
     layers: [
       newLayer("image", { src: "/decor/papillon.svg", name: "Papillon", x: 88, y: 9, width: 11, rotation: 12, placement: "front", enter: { type: "fade", delay: 300, duration: 1600 }, loop: "float" }),
     ],

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { EmptyState, PageHeader } from "@/components/admin/PageHeader";
 import { MediaThumb } from "@/components/media/MediaThumb";
 import { MediaUploader } from "@/components/media/MediaUploader";
+import { BUILTIN_MEDIA, BUILTIN_COLLECTION_PREFIX } from "@/lib/builtin-media";
 import { requireStaff } from "@/lib/auth";
 import { DEFAULT_COLLECTIONS, KIND_LABELS, formatBytes, type MediaItem, type MediaKind } from "@/lib/media";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -110,6 +111,25 @@ export default async function MediaPage({ searchParams }: { searchParams: Search
           )}
         </section>
       </div>
+      <section className="mt-12" aria-labelledby="builtin-title">
+        <h2 id="builtin-title" className="font-serif text-2xl">Illustrations fournies avec E-Invitly</h2>
+        <p className="mt-1 max-w-2xl text-sm text-stone">
+          Tiges minimalistes, guirlandes, rose, papillon… Elles apparaissent dans le bouton « Bibliothèque » de l&apos;éditeur et se recolorent avec l&apos;option « Teinte ».
+        </p>
+        <ul className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5 xl:grid-cols-8">
+          {BUILTIN_MEDIA.map((m) => (
+            <li key={m.id} className="overflow-hidden rounded-sm border border-line bg-white">
+              <div className="checker aspect-square">
+                <MediaThumb item={m} />
+              </div>
+              <div className="border-t border-line px-2 py-1.5">
+                <p className="truncate text-xs">{m.name}</p>
+                <p className="truncate text-[0.65rem] text-stone">{m.collection.replace(BUILTIN_COLLECTION_PREFIX, "")}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
     </>
   );
 }

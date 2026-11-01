@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listMediaForPicker } from "@/app/admin/medias/actions";
 import { KIND_LABELS, formatBytes, type MediaItem, type MediaKind } from "@/lib/media";
+import { builtinFor } from "@/lib/builtin-media";
 import { MediaThumb } from "./MediaThumb";
 
 /** Fenêtre de choix d'un fichier dans la bibliothèque de médias. */
@@ -23,10 +24,11 @@ export function MediaPicker({ kinds, open, onClose, onSelect, title = "Choisir d
   async function load() {
     setFailed(false);
     try {
-      setItems(await listMediaForPicker(kindsKey.split(",") as MediaKind[]));
+      const kinds = kindsKey.split(",") as MediaKind[];
+      setItems([...(await listMediaForPicker(kinds)), ...builtinFor(kinds)]);
     } catch {
       setFailed(true);
-      setItems([]);
+      setItems(builtinFor(kindsKey.split(",") as MediaKind[]));
     }
   }
 
@@ -92,7 +94,7 @@ export function MediaPicker({ kinds, open, onClose, onSelect, title = "Choisir d
                     <div className="checker aspect-square"><MediaThumb item={m} /></div>
                     <div className="border-t border-line px-2 py-1.5">
                       <p className="truncate text-xs group-hover:text-forest">{m.name}</p>
-                      <p className="truncate text-[0.65rem] text-stone">{m.collection} · {formatBytes(m.size_bytes)}</p>
+                      <p className="truncate text-[0.65rem] text-stone">{m.size_bytes ? `${m.collection} · ${formatBytes(m.size_bytes)}` : m.collection}</p>
                     </div>
                   </button>
                 </li>

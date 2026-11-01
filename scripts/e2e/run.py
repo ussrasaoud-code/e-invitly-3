@@ -506,6 +506,7 @@ with sync_playwright() as p:
     a.goto(f"{BASE}/admin/medias?q=pivoine")
     expect(a.get_by_role("link", name=re.compile("pivoine rose"))).to_be_visible()
     expect(a.get_by_role("link", name=re.compile("branche"))).to_have_count(0)
+    expect(a.get_by_role("heading", name="Illustrations fournies avec E-Invitly")).to_be_visible()
     ok("médias : filtres par type et recherche")
 
     # Utilisation dans une invitation → suppression bloquée
@@ -786,6 +787,13 @@ with sync_playwright() as p:
     props.get_by_label("Heure du moment 1").fill("14h45")
     d = wait_draft(lambda d: sec(d, "program2")[0]["items"][0]["time"] == "14h45", "heure du programme v2")
     expect(a.locator('[data-section="program2"] li')).to_have_count(6)
+    props.get_by_role("radio", name="Tige Cœurs").click()
+    d = wait_draft(lambda d: sec(d, "program2")[0]["stem"] == "coeurs", "style de tige")
+    assert "coeurs" in a.locator('[data-section="program2"] [data-el="stem"] > div').evaluate("e => e.style.maskImage || e.style.webkitMaskImage")
+    props.locator("span.flex").filter(has=a.get_by_label("Fleur qui suit le défilement")).get_by_role("button", name="Bibliothèque").click()
+    pick = a.get_by_role("dialog", name="Choisir dans la bibliothèque")
+    expect(pick.get_by_role("button", name=re.compile("Tige de saule"))).to_be_visible(timeout=10000)
+    pick.get_by_role("button", name=re.compile("^Rose")).click()
     left.get_by_title("Maj+clic pour sélectionner plusieurs calques").filter(has_text="Papillon").click()
     props.get_by_label("Au défilement de l'écran").select_option("move")
     d = wait_draft(lambda d: sec(d, "program2")[0]["layers"][0]["scroll"]["type"] == "move", "mouvement au défilement")
@@ -800,7 +808,7 @@ with sync_playwright() as p:
     assert pos[0][1] < pos[1][1] < pos[2][1], pos
     assert pos[0][2] < pos[2][2], pos
     a.get_by_role("button", name="Arrêter l'aperçu animé").click()
-    ok("programme v2 prêt à l'emploi ; la fleur et un calque suivent le défilement")
+    ok("programme v2 prêt à l'emploi ; style de tige ; illustrations fournies ; la fleur et un calque suivent le défilement")
 
     # Écran d'ouverture (enveloppe) visible et réglable dans l'éditeur
     left.get_by_role("button", name=re.compile("Ouverture de l'invitation")).click()
