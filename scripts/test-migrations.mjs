@@ -320,6 +320,18 @@ await test("historique du brouillon : réservé à l'équipe, 60 points maximum 
   await assert.rejects(as("authenticated", mark.id, () => rows(`insert into public.invitation_draft_history (invitation_id, content) values ($1, '{}')`, [markAlice])));
 });
 
+await test("brouillon automatique des modèles : un seul par modèle, réservé à l'équipe", async () => {
+  await as("authenticated", admin.id, () => rows(`insert into public.template_drafts (template_id, definition) values ($1, '{"n":1}')`, [tpl.id]));
+  await as("authenticated", admin.id, () => rows(`insert into public.template_drafts (template_id, definition) values ($1, '{"n":2}') on conflict (template_id) do update set definition = excluded.definition, updated_at = now()`, [tpl.id]));
+  const d = await as("authenticated", admin.id, () => rows(`select definition from public.template_drafts where template_id = $1`, [tpl.id]));
+  assert.equal(d.length, 1);
+  assert.equal(d[0].definition.n, 2);
+  assert.equal((await as("authenticated", mark.id, () => rows(`select * from public.template_drafts`))).length, 0);
+  assert.equal((await as("anon", null, () => rows(`select * from public.template_drafts`))).length, 0);
+  await assert.rejects(as("authenticated", mark.id, () => rows(`insert into public.template_drafts (template_id, definition) values ($1, '{}')`, [tpl.id])));
+  await as("authenticated", admin.id, () => rows(`delete from public.template_drafts where template_id = $1`, [tpl.id]));
+});
+
 await test("deux invitations ne peuvent pas partager un slug (insensible à la casse)", async () => {
   await assert.rejects(
     db.query(

@@ -11,7 +11,7 @@ import { templateDefinitionSchema } from "@/lib/invitation/schema";
 import { TEMPLATE_STATUS } from "@/lib/status";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/time";
-import { duplicateTemplate, restoreTemplateVersion, saveTemplateVersion, setTemplateStatus, updateTemplateMeta } from "../actions";
+import { duplicateTemplate, publishTemplateDraft, restoreTemplateVersion, saveTemplateDraft, setTemplateStatus, updateTemplateMeta } from "../actions";
 
 export const metadata = { title: "Modèle" };
 
@@ -29,7 +29,10 @@ export default async function TemplatePage({ params, searchParams }: Props) {
   ]);
   if (!t) notFound();
   const current = versions?.find((v) => v.id === t.current_version_id) ?? null;
-  const def = current ? templateDefinitionSchema.safeParse(current.definition) : null;
+  // Brouillon enregistré automatiquement, plus récent que la version courante ?
+  const { data: draft } = await supabase.from("template_drafts").select("definition, updated_at").eq("template_id", id).maybeSingle();
+  const useDraft = !!draft && !!current && new Date(draft.updated_at).getTime() > new Date(current.created_at).getTime();
+  const def = current ? templateDefinitionSchema.safeParse(useDraft ? draft!.definition : current.definition) : null;
   const st = TEMPLATE_STATUS[t.status as keyof typeof TEMPLATE_STATUS];
 
   const tabs = [
@@ -132,19 +135,20 @@ export default async function TemplatePage({ params, searchParams }: Props) {
         def?.success ? (
           <>
             <p className="mb-4 max-w-3xl text-sm text-stone">
-              Ces réglages forment la base de chaque nouvelle invitation créée avec ce modèle. Les prénoms, lieux et contacts
+              Ces réglages forment la base de chaque nouvelle invitation créée avec ce modèle. Vos changements sont enregistrés automatiquement comme brouillon ; « Enregistrer une nouvelle version » les applique aux nouvelles invitations. Les prénoms, lieux et contacts
               servent uniquement à la démo : ils sont remplacés par ceux du client lors de la conversion d&apos;une demande.
             </p>
             <p className="mb-4">
               <Link href={`/admin/modeles/${t.id}/editeur`} className="btn btn-secondary btn-sm">Ouvrir l&apos;éditeur visuel (décors, textes libres, animations)</Link>
             </p>
             <InvitationEditor
-              save={saveTemplateVersion.bind(null, t.id)}
-              autosave={false}
+              save={saveTemplateDraft.bind(null, t.id)}
+              publish={publishTemplateDraft.bind(null, t.id)}
+              backupKey={`ei-backup:modele:${t.id}`}
               initial={def.data.sample}
               renderer={def.data.renderer}
-              initialSavedAt={current!.created_at}
-              savedLabel={`Version ${current!.version} enregistrée`}
+              initialSavedAt={useDraft ? draft!.updated_at : current!.created_at}
+              savedLabel="Brouillon enregistré"
               previewNote="Aperçu de la démo du modèle"
             />
           </>

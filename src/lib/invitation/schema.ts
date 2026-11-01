@@ -180,7 +180,8 @@ const num = (min: number, max: number, def: number) => z.number().finite().min(m
 export const layerSchema = z.object({
   id: z.string().min(1).max(40),
   kind: z.enum(["image", "text", "shape"]),
-  name: optionalText(60),
+  // Nom interne du calque (souvent le nom du fichier importé) : raccourci plutôt que refusé
+  name: z.preprocess((v) => (typeof v === "string" ? v.trim().slice(0, 60) : v), optionalText(60)),
   /** Image : adresse du fichier (bibliothèque de médias) */
   src: cssUrl,
   /** Texte libre (jamais du HTML) */

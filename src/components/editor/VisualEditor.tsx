@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { InvitationView } from "@/components/invitation/InvitationView";
 import { LayerEditorContext, type LayerEditor } from "@/components/invitation/Layers";
@@ -192,7 +193,13 @@ export function VisualEditor({
   backLabel,
   formHref,
   history,
+  publish,
+  backupKey,
 }: {
+  /** Modèles : crée une version à partir du brouillon enregistré automatiquement */
+  publish?: (content: InvitationContentInput) => Promise<SaveResult>;
+  /** Identifiant de la copie de secours locale */
+  backupKey?: string;
   initial: InvitationContent;
   renderer: RendererKey;
   save: (content: InvitationContentInput) => Promise<SaveResult>;
@@ -207,7 +214,14 @@ export function VisualEditor({
   /** Historique des brouillons (invitations seulement) */
   history?: HistoryApi;
 }) {
-  const ed = useEditorState({ initial, initialSavedAt, save, autosave });
+  const ed = useEditorState({ initial, initialSavedAt, save, autosave, backupKey });
+  const router = useRouter();
+  const [publishing, setPublishing] = useState(false);
+  /** Quitter l'éditeur : on enregistre d'abord ce qui reste */
+  const leave = async (href: string) => {
+    await ed.flush();
+    router.push(href);
+  };
   const { content: c, update } = ed;
   const [sel, setSel] = useState<Selection>(null);
   /** Écran d'ouverture (enveloppe ou vidéo) affiché dans le téléphone */
@@ -605,15 +619,27 @@ export function VisualEditor({
   return (
     <UsedColorsContext.Provider value={{ used: usedColors, recent: recentColors.recent, remember: recentColors.remember }}>
     <ThemeFontsContext.Provider value={c.theme.fonts}>
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#efece5] text-charcoal">
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-[#efece5] text-charcoal"
+      onClickCapture={(e) => {
+        // Lien interne (retour, formulaire…) : on enregistre avant de quitter l'éditeur
+        const a = (e.target as HTMLElement).closest("a");
+        const href = a?.getAttribute("href");
+        if (!a || !href || !href.startsWith("/") || a.target === "_blank" || e.metaKey || e.ctrlKey) return;
+        if (ed.save.kind !== "dirty" && ed.save.kind !== "saving") return;
+        e.preventDefault();
+        e.stopPropagation();
+        void leave(href);
+      }}
+    >
       <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-4 bg-ivory p-8 text-center lg:hidden">
         <p className="font-serif text-2xl">L&apos;éditeur visuel s&apos;utilise sur ordinateur</p>
         <p className="max-w-sm text-sm text-stone">Il a besoin d&apos;un écran d&apos;au moins 1024 pixels de large pour afficher les sections, le téléphone et les réglages côte à côte.</p>
-        <Link href={backHref} className="btn btn-secondary btn-sm">← {backLabel}</Link>
+        <Link href={backHref} className="btn btn-secondary btn-sm" onClick={(e) => { e.preventDefault(); void leave(backHref); }}>← {backLabel}</Link>
       </div>
       {/* Barre du haut */}
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-ivory px-4 py-2">
-        <Link href={backHref} className="text-sm text-stone hover:text-forest">← {backLabel}</Link>
+        <Link href={backHref} className="text-sm text-stone hover:text-forest" onClick={(e) => { e.preventDefault(); void leave(backHref); }}>← {backLabel}</Link>
         <h1 className="font-serif text-xl">{title}</h1>
         <p role="status" aria-live="polite" className={`text-xs ${ed.save.kind === "error" ? "text-danger" : "text-stone"}`}>
           <span aria-hidden="true" className={`mr-1.5 inline-block h-2 w-2 rounded-full ${ed.save.kind === "saved" ? "bg-success" : ed.save.kind === "error" ? "bg-danger" : "bg-warning"}`} />
@@ -623,6 +649,24 @@ export function VisualEditor({
           {!autosave ? (
             <button type="button" className="btn btn-primary btn-sm" onClick={ed.runSave} disabled={ed.save.kind !== "dirty" && ed.save.kind !== "error"}>
               Enregistrer une nouvelle version
+            </button>
+          ) : null}
+          {publish ? (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={publishing}
+              title="Le brouillon est enregistré automatiquement ; une version est ce que reçoivent les nouvelles invitations"
+              onClick={async () => {
+                setPublishing(true);
+                const snapshot = c;
+                const res = await publish(snapshot).catch(() => ({ ok: false as const, message: "Connexion perdue." }));
+                setPublishing(false);
+                if (res.ok) ed.markSaved(snapshot, res.savedAt);
+                flash(res.ok ? "Nouvelle version du modèle enregistrée." : `Version non enregistrée : ${res.message}`);
+              }}
+            >
+              {publishing ? "Enregistrement…" : "Enregistrer une nouvelle version"}
             </button>
           ) : null}
           <button type="button" className="btn btn-secondary btn-sm" onClick={ed.undo} disabled={!ed.canUndo} title="Ctrl+Z">Annuler</button>
@@ -647,6 +691,16 @@ export function VisualEditor({
           ) : null}
         </div>
       </header>
+      {ed.recovered ? (
+        <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-warning/40 bg-[#fbf3e2] px-4 py-2 text-sm">
+          <span>
+            Des modifications non enregistrées ont été retrouvées sur cet ordinateur (
+            {new Date(ed.recovered.at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}).
+          </span>
+          <button type="button" className="btn btn-primary btn-sm" onClick={ed.restoreBackup}>Les récupérer</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={ed.dismissBackup}>Ignorer</button>
+        </div>
+      ) : null}
       {ed.save.kind === "error" ? (
         <div role="alert" className="border-b border-danger/30 bg-danger-soft px-4 py-2 text-sm text-danger">
           {ed.save.message}
@@ -980,8 +1034,8 @@ export function VisualEditor({
         title={picker === "replace" ? "Remplacer l'image" : "Ajouter une illustration"}
         onClose={() => setPicker(null)}
         onSelect={(m) => {
-          if (picker === "replace" && section && layer) patchLayer(section.id, layer.id, { src: m.url, name: m.name });
-          else addLayer(newLayer("image", { src: m.url, name: m.name }));
+          if (picker === "replace" && section && layer) patchLayer(section.id, layer.id, { src: m.url, name: m.name.slice(0, 60) });
+          else addLayer(newLayer("image", { src: m.url, name: m.name.slice(0, 60) }));
         }}
       />
       {history && showHistory ? (

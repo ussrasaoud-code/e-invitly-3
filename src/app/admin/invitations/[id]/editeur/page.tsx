@@ -29,6 +29,7 @@ export default async function InvitationVisualEditorPage({ params }: { params: P
       backHref={`/admin/invitations/${inv.id}`}
       backLabel="Fiche de l'invitation"
       formHref={`/admin/invitations/${inv.id}?onglet=contenu`}
+      backupKey={`ei-backup:invitation:${inv.id}`}
       history={{
         list: listDraftHistory.bind(null, inv.id),
         checkpoint: createDraftCheckpoint.bind(null, inv.id),

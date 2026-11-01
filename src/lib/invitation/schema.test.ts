@@ -17,6 +17,9 @@ describe("calques et sections (phase 6)", () => {
     expect(layerSchema.safeParse({ ...newLayer("image"), src: "javascript:alert(1)" }).success).toBe(false);
     expect(layerSchema.safeParse({ ...newLayer("text"), color: "red" }).success).toBe(false);
     expect(layerSchema.safeParse(newLayer("text")).success).toBe(true);
+    // Nom de fichier très long (bibliothèque de médias) : raccourci, pas refusé
+    const long = layerSchema.safeParse({ ...newLayer("image"), name: "x".repeat(120) + ".png" });
+    expect(long.success && long.data.name.length).toBe(60);
   });
 
   it("dupliquer une section donne de nouveaux identifiants sans toucher l'original", () => {

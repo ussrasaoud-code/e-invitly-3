@@ -25,8 +25,8 @@ au DNS ou au déploiement.
 Les fonctions pas encore disponibles sont signalées comme telles dans l'administration : aucun bouton
 factice.
 
-**Tests réalisés** : 26 tests de sécurité de la base, 38 tests unitaires (adresses, fuseaux horaires,
-conversion demande → invitation, règles RSVP, médias, calques, formes, alignement, programme v2), 62 vérifications de bout en bout dans un vrai
+**Tests réalisés** : 27 tests de sécurité de la base, 38 tests unitaires (adresses, fuseaux horaires,
+conversion demande → invitation, règles RSVP, médias, calques, formes, alignement, programme v2), 63 vérifications de bout en bout dans un vrai
 navigateur (demande, connexion, conversion, éditeur, aperçu, publication, code d'accès, réponses RSVP,
 codes invités, corrections, exports, espace couple, médias, éditeur visuel, historique, accès refusés).
 
@@ -46,7 +46,7 @@ Comptez environ une heure. Vous aurez besoin de quatre comptes gratuits : **GitH
 2. Ouvrez **SQL Editor** → *New query*. Copiez-collez tout le contenu du fichier
    `supabase/migrations/20261026000001_init.sql`, puis cliquez sur **Run**. Faites de même, dans
    l'ordre, avec chaque fichier suivant du dossier `supabase/migrations`
-   (`20261031000001_publication.sql`, `20261101000001_rsvp.sql`, `20261102000001_media.sql`, `20261103000001_editor.sql`…). Chaque fichier ne s'exécute qu'une seule fois.
+   (`20261031000001_publication.sql`, `20261101000001_rsvp.sql`, `20261102000001_media.sql`, `20261103000001_editor.sql`, `20261104000001_template_drafts.sql`…). Chaque fichier ne s'exécute qu'une seule fois.
 3. Nouvelle requête : copiez-collez `supabase/seed.sql`, puis **Run**. Les modèles *The Garden* et
    *Province* sont créés.
 4. **Authentication → Sign In / Providers** : laissez *Email* activé et **désactivez « Allow new

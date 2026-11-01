@@ -2,7 +2,7 @@
 
 import { MediaUrlField } from "@/components/media/MediaUrlField";
 import { FONTS } from "@/lib/fonts";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { InvitationView } from "@/components/invitation/InvitationView";
 import { PhoneFrame } from "@/components/site/PhoneFrame";
 import {
@@ -18,6 +18,7 @@ import {
   newSection,
 } from "@/lib/invitation/schema";
 import type { SaveResult } from "@/lib/save-result";
+import { useEditorState } from "@/components/editor/useEditorState";
 import type { InvitationContentInput } from "@/lib/invitation/schema";
 
 /**
@@ -43,7 +44,6 @@ const COLOR_LABELS: Record<keyof InvitationContent["theme"]["colors"], string> =
   accentSoft: "Accent doux",
 };
 
-type SaveState = { kind: "idle" | "dirty" | "saving" | "saved" | "error"; at?: string; message?: string; issues?: string[] };
 
 const inputCls = "field min-h-10 py-1.5 text-sm";
 
@@ -97,7 +97,13 @@ export function InvitationEditor({
   readOnlyNotice,
   savedLabel = "Brouillon enregistré",
   previewNote = "Aperçu du brouillon — non visible par les invités",
+  publish,
+  backupKey,
 }: {
+  /** Publie le contenu comme nouvelle version (modèles : le brouillon s'enregistre automatiquement) */
+  publish?: (content: InvitationContentInput) => Promise<SaveResult>;
+  /** Copie de secours locale (récupérable après une fermeture accidentelle) */
+  backupKey?: string;
   /** Action serveur liée à l'élément édité (brouillon d'invitation ou nouvelle version de modèle) */
   save: (content: InvitationContentInput) => Promise<SaveResult>;
   /** true : sauvegarde automatique ; false : bouton « Enregistrer » */
@@ -109,95 +115,12 @@ export function InvitationEditor({
   savedLabel?: string;
   previewNote?: string;
 }) {
-  const [content, setContent] = useState(initial);
-  const [past, setPast] = useState<InvitationContent[]>([]);
-  const [future, setFuture] = useState<InvitationContent[]>([]);
-  const [save, setSave] = useState<SaveState>({ kind: "saved", at: initialSavedAt });
+  const ed = useEditorState({ initial, initialSavedAt, save: saveAction, autosave, backupKey });
+  const { content, update, undo, redo, save, runSave } = ed;
   const [previewKey, setPreviewKey] = useState(0);
   const [showEnvelope, setShowEnvelope] = useState(false);
-  const lastPush = useRef(0);
-  /** Dernier contenu enregistré : on ne sauvegarde que si le contenu a réellement changé */
-  const savedJson = useRef(JSON.stringify(initial));
-  const savedAtRef = useRef(initialSavedAt);
-  const [resave, setResave] = useState(0);
-  const latest = useRef(content);
-  latest.current = content;
-
-  const update = useCallback((fn: (c: InvitationContent) => InvitationContent) => {
-    setContent((prev) => {
-      const next = fn(prev);
-      if (next === prev) return prev;
-      // Regroupe les frappes rapprochées en une seule étape d'annulation
-      if (Date.now() - lastPush.current > 800) {
-        setPast((p) => [...p.slice(-49), prev]);
-        lastPush.current = Date.now();
-      }
-      setFuture([]);
-      return next;
-    });
-  }, []);
-
-  const undo = () => {
-    setPast((p) => {
-      if (!p.length) return p;
-      const prev = p[p.length - 1];
-      setFuture((f) => [latest.current, ...f]);
-      setContent(prev);
-      return p.slice(0, -1);
-    });
-    lastPush.current = 0;
-  };
-  const redo = () => {
-    setFuture((f) => {
-      if (!f.length) return f;
-      const [next, ...rest] = f;
-      setPast((p) => [...p, latest.current]);
-      setContent(next);
-      return rest;
-    });
-    lastPush.current = 0;
-  };
-
-  const runSave = useCallback(async () => {
-    setSave({ kind: "saving" });
-    try {
-      const snapshot = latest.current;
-      const res = await saveAction(snapshot);
-      if (res.ok) {
-        savedJson.current = JSON.stringify(snapshot);
-        savedAtRef.current = res.savedAt;
-        if (JSON.stringify(latest.current) !== savedJson.current) {
-          setSave({ kind: "dirty" });
-          setResave((n) => n + 1);
-          return;
-        }
-      }
-      setSave(res.ok ? { kind: "saved", at: res.savedAt } : { kind: "error", message: res.message, issues: res.issues });
-    } catch {
-      setSave({ kind: "error", message: "Connexion perdue : rien n'a été enregistré. Réessayez." });
-    }
-  }, [saveAction]);
-
-  // Sauvegarde automatique (1,5 s après la dernière modification)
-  useEffect(() => {
-    if (JSON.stringify(content) === savedJson.current) {
-      setSave((s) => (s.kind === "dirty" ? { kind: "saved", at: savedAtRef.current } : s));
-      return;
-    }
-    setSave({ kind: "dirty" });
-    if (!autosave) return;
-    const t = window.setTimeout(runSave, 1500);
-    return () => window.clearTimeout(t);
-  }, [content, autosave, runSave, resave]);
-
-  // Avertit avant de quitter avec des modifications non enregistrées
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (save.kind === "dirty" || save.kind === "saving") e.preventDefault();
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [save.kind]);
+  const [publishing, setPublishing] = useState(false);
+  const [notice, setNotice] = useState("");
 
   // Raccourcis Ctrl/Cmd+Z et Ctrl/Cmd+Maj+Z hors champs de saisie
   useEffect(() => {
@@ -248,14 +171,43 @@ export function InvitationEditor({
                 Enregistrer une nouvelle version
               </button>
             ) : null}
-            <button type="button" className="btn btn-secondary btn-sm" onClick={undo} disabled={!past.length}>
+            {publish ? (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                disabled={publishing}
+                onClick={async () => {
+                  setPublishing(true);
+                  const snapshot = content;
+                  const res = await publish(snapshot).catch(() => ({ ok: false as const, message: "Connexion perdue." }));
+                  setPublishing(false);
+                  if (res.ok) ed.markSaved(snapshot, res.savedAt);
+                  setNotice(res.ok ? "Nouvelle version du modèle enregistrée." : `Version non enregistrée : ${res.message}`);
+                  window.setTimeout(() => setNotice(""), 4000);
+                }}
+              >
+                {publishing ? "Enregistrement…" : "Enregistrer une nouvelle version"}
+              </button>
+            ) : null}
+            <button type="button" className="btn btn-secondary btn-sm" onClick={undo} disabled={!ed.canUndo}>
               Annuler
             </button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={redo} disabled={!future.length}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={redo} disabled={!ed.canRedo}>
               Rétablir
             </button>
           </div>
         </div>
+        {notice ? <p role="status" className="mb-4 border border-line bg-white px-4 py-2 text-sm">{notice}</p> : null}
+        {ed.recovered ? (
+          <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 border border-warning/40 bg-[#fbf3e2] px-4 py-2 text-sm">
+            <span>
+              Des modifications non enregistrées ont été retrouvées sur cet ordinateur (
+              {new Date(ed.recovered.at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}).
+            </span>
+            <button type="button" className="btn btn-primary btn-sm" onClick={ed.restoreBackup}>Les récupérer</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={ed.dismissBackup}>Ignorer</button>
+          </div>
+        ) : null}
         {save.kind === "error" ? (
           <div role="alert" className="mb-4 border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
             {save.message}

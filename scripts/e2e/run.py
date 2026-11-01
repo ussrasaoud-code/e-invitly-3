@@ -889,8 +889,20 @@ with sync_playwright() as p:
     left.get_by_role("button", name="+ Texte").click()
     welcome = f"Bienvenue au jardin {int(time.time())}"
     props.get_by_label("Texte", exact=True).fill(welcome)
+    # Sortie sans enregistrer : le brouillon est sauvegardé avant de quitter
+    a.get_by_role("link", name=re.compile("Fiche du modèle")).first.click()
+    a.wait_for_url(re.compile(r"/admin/modeles/[0-9a-f-]+\?onglet=design"), timeout=20000)
+    dr = api("GET", f"/rest/v1/template_drafts?template_id=eq.{garden['id']}&select=definition")
+    assert dr and any(l["text"] == welcome for x in dr[0]["definition"]["sample"]["sections"] for l in x["layers"]), dr
+    g1 = api("GET", "/rest/v1/templates?slug=eq.the-garden&select=current_version_id")[0]
+    assert g1["current_version_id"] == garden["current_version_id"], "le brouillon ne doit pas créer de version"
+    a.goto(f"{BASE}/admin/modeles/{garden['id']}/editeur")
+    expect(a.get_by_role("status").filter(has_text="Brouillon enregistré")).to_be_visible(timeout=10000)
+    expect(a.locator('[data-section="hero"] [data-layer]').filter(has_text=welcome)).to_have_count(1)
+    ok("modèles : quitter l'éditeur sans enregistrer → brouillon conservé et rouvert")
     a.get_by_role("button", name="Enregistrer une nouvelle version").click()
-    expect(a.get_by_role("status").filter(has_text="Version enregistrée")).to_be_visible(timeout=10000)
+    expect(a.get_by_text("Nouvelle version du modèle enregistrée.")).to_be_visible(timeout=10000)
+    assert api("GET", f"/rest/v1/template_drafts?template_id=eq.{garden['id']}&select=template_id") == []
     g2t = api("GET", "/rest/v1/templates?slug=eq.the-garden&select=current_version_id")[0]
     assert g2t["current_version_id"] != garden["current_version_id"]
     tv = api("GET", f"/rest/v1/template_versions?id=eq.{g2t['current_version_id']}&select=definition")[0]
@@ -960,7 +972,7 @@ with sync_playwright() as p:
     assert max(centers) - min(centers) < 2, centers
     a.screenshot(path=SHOTS / "36-alignement.png")
     a.get_by_role("button", name="Enregistrer une nouvelle version").click()
-    expect(a.get_by_role("status").filter(has_text="Version enregistrée")).to_be_visible(timeout=10000)
+    expect(a.get_by_text("Nouvelle version du modèle enregistrée.")).to_be_visible(timeout=10000)
     bt = api("GET", f"/rest/v1/templates?name=eq.{urllib.parse.quote(blank_name)}&select=status,current_version_id")[0]
     assert bt["status"] == "draft"
     bv = api("GET", f"/rest/v1/template_versions?id=eq.{bt['current_version_id']}&select=renderer,definition")[0]

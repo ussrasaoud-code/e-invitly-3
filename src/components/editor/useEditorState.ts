@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { InvitationContent, InvitationContentInput } from "@/lib/invitation/schema";
+import { invitationContentSchema, type InvitationContent, type InvitationContentInput } from "@/lib/invitation/schema";
 import type { SaveResult } from "@/lib/save-result";
 
 export type SaveState =
@@ -16,11 +16,14 @@ export function useEditorState({
   initialSavedAt,
   save: saveAction,
   autosave,
+  backupKey,
 }: {
   initial: InvitationContent;
   initialSavedAt: string;
   save: (content: InvitationContentInput) => Promise<SaveResult>;
   autosave: boolean;
+  /** Copie de secours dans le navigateur (récupérable après une fermeture accidentelle) */
+  backupKey?: string;
 }) {
   const [content, setContent] = useState(initial);
   // Piles d'annulation tenues dans des refs : aucune mise à jour d'état imbriquée
@@ -82,6 +85,7 @@ export function useEditorState({
       if (res.ok) {
         savedJson.current = JSON.stringify(snapshot);
         savedAt.current = res.savedAt;
+        if (JSON.stringify(latest.current) === savedJson.current) dropBackup(backupKey);
         // Modifié pendant l'enregistrement (ex. annuler juste après) : on réenregistre la dernière version
         if (JSON.stringify(latest.current) !== savedJson.current) {
           setSave({ kind: "dirty" });
@@ -93,7 +97,7 @@ export function useEditorState({
     } catch {
       setSave({ kind: "error", message: "Connexion perdue : rien n'a été enregistré. Réessayez." });
     }
-  }, [saveAction]);
+  }, [saveAction, backupKey]);
 
   /** Remplace le contenu par une version déjà enregistrée côté serveur (restauration). */
   const reset = useCallback(
@@ -108,6 +112,80 @@ export function useEditorState({
     },
     [commit],
   );
+
+  // Copie de secours locale à chaque modification non enregistrée
+  useEffect(() => {
+    if (!backupKey) return;
+    const json = JSON.stringify(content);
+    if (json === savedJson.current) return;
+    try {
+      window.localStorage.setItem(backupKey, JSON.stringify({ at: Date.now(), content }));
+    } catch {
+      /* stockage plein ou indisponible : la sauvegarde serveur reste la référence */
+    }
+  }, [content, backupKey]);
+
+  // Au chargement : une copie de secours plus récente que la dernière sauvegarde ?
+  const [recovered, setRecovered] = useState<{ at: number; content: InvitationContent } | null>(null);
+  useEffect(() => {
+    if (!backupKey) return;
+    try {
+      const raw = window.localStorage.getItem(backupKey);
+      if (!raw) return;
+      const b = JSON.parse(raw) as { at: number; content: unknown };
+      const parsed = invitationContentSchema.safeParse(b?.content);
+      if (parsed.success && typeof b.at === "number" && b.at > Date.parse(initialSavedAt) && JSON.stringify(parsed.data) !== JSON.stringify(initial))
+        setRecovered({ at: b.at, content: parsed.data });
+      else dropBackup(backupKey);
+    } catch {
+      dropBackup(backupKey);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backupKey]);
+  const restoreBackup = useCallback(() => {
+    if (!recovered) return;
+    lastPush.current = 0;
+    past.current = [...past.current, latest.current];
+    future.current = [];
+    commit(recovered.content);
+    setRecovered(null);
+  }, [recovered, commit]);
+  const dismissBackup = useCallback(() => {
+    setRecovered(null);
+    dropBackup(backupKey);
+  }, [backupKey]);
+
+  // Page masquée ou fermée : on enregistre tout de suite ce qui ne l'est pas encore
+  const runSaveRef = useRef(runSave);
+  runSaveRef.current = runSave;
+  useEffect(() => {
+    if (!autosave) return;
+    const flushNow = () => {
+      if (JSON.stringify(latest.current) !== savedJson.current) void runSaveRef.current();
+    };
+    const onVisibility = () => document.visibilityState === "hidden" && flushNow();
+    window.addEventListener("pagehide", flushNow);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flushNow);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [autosave]);
+
+  /** Le contenu courant vient d'être enregistré ailleurs (ex. publication d'une version). */
+  const markSaved = useCallback((snapshot: InvitationContent, at: string) => {
+    savedJson.current = JSON.stringify(snapshot);
+    savedAt.current = at;
+    if (JSON.stringify(latest.current) === savedJson.current) {
+      dropBackup(backupKey);
+      setSave({ kind: "saved", at });
+    }
+  }, [backupKey]);
+
+  /** Enregistre immédiatement s'il reste des modifications (avant de quitter l'éditeur). */
+  const flush = useCallback(async () => {
+    if (JSON.stringify(latest.current) !== savedJson.current) await runSaveRef.current();
+  }, []);
 
   useEffect(() => {
     if (JSON.stringify(content) === savedJson.current) {
@@ -129,6 +207,18 @@ export function useEditorState({
     return () => window.removeEventListener("beforeunload", handler);
   }, [save.kind]);
 
-  return { content, update, undo, redo, canUndo: past.current.length > 0, canRedo: future.current.length > 0, save, runSave, reset };
+  return {
+    content, update, undo, redo, canUndo: past.current.length > 0, canRedo: future.current.length > 0, save, runSave, reset,
+    flush, markSaved, recovered, restoreBackup, dismissBackup,
+  };
+}
+
+function dropBackup(key?: string) {
+  if (!key) return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    /* ignoré */
+  }
 }
 

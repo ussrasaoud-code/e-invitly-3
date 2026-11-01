@@ -156,6 +156,40 @@ export async function saveTemplateVersion(templateId: string, sample: Invitation
   return { ok: true, savedAt: v.created_at };
 }
 
+/**
+ * Brouillon automatique du modèle (enregistré à chaque modification).
+ * Les invitations et le catalogue n'en voient rien tant qu'une version n'est pas créée.
+ */
+export async function saveTemplateDraft(templateId: string, sample: InvitationContentInput): Promise<SaveResult> {
+  const user = await requireStaff();
+  if (!uuid.safeParse(templateId).success) return { ok: false, message: "Modèle inconnu." };
+  const parsed = invitationContentSchema.safeParse(sample);
+  if (!parsed.success) {
+    return { ok: false, message: "Valeurs invalides : brouillon non enregistré.", issues: parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(" › ")} : ${i.message}`) };
+  }
+  const supabase = (await createClient())!;
+  const { data: cur } = await supabase.from("templates").select("current:template_versions!templates_current_version_fk(renderer)").eq("id", templateId).maybeSingle();
+  if (!cur) return { ok: false, message: "Modèle introuvable." };
+  const renderer = z.enum(RENDERERS).parse((cur.current as { renderer?: string } | null)?.renderer ?? "the-garden");
+  const definition = templateDefinitionSchema.parse({ renderer, sample: parsed.data });
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("template_drafts")
+    .upsert({ template_id: templateId, definition, updated_by: user.id, updated_at: now }, { onConflict: "template_id" });
+  if (error) return { ok: false, message: `Brouillon non enregistré : ${error.message}` };
+  return { ok: true, savedAt: now };
+}
+
+/** Enregistre une nouvelle version à partir du contenu affiché, puis vide le brouillon. */
+export async function publishTemplateDraft(templateId: string, sample: InvitationContentInput): Promise<SaveResult> {
+  const res = await saveTemplateVersion(templateId, sample);
+  if (res.ok) {
+    const supabase = (await createClient())!;
+    await supabase.from("template_drafts").delete().eq("template_id", templateId);
+  }
+  return res;
+}
+
 export async function restoreTemplateVersion(form: FormData) {
   const user = await requireStaff();
   const id = uuid.parse(form.get("id"));
@@ -164,6 +198,7 @@ export async function restoreTemplateVersion(form: FormData) {
   const { data: v } = await supabase.from("template_versions").select("version, template_id").eq("id", versionId).single();
   if (!v || v.template_id !== id) throw new Error("Version introuvable.");
   await supabase.from("templates").update({ current_version_id: versionId }).eq("id", id);
+  await supabase.from("template_drafts").delete().eq("template_id", id);
   await logActivity({ actorId: user.id, action: "template.restored", resourceType: "template", resourceId: id, summary: `Version ${v.version} du modèle rétablie` });
   refreshCatalog(id);
 }
