@@ -869,6 +869,31 @@ with sync_playwright() as p:
     a.mouse.move(hbx["x"] + 7, hbx["y"] + 60, steps=5)
     a.mouse.up()
     a.screenshot(path=SHOTS / "35-forme-reglages.png")
+    # Sélection multiple et alignements
+    left.get_by_role("button", name="+ Texte").click()
+    props.get_by_label("Texte", exact=True).fill("Samedi 12 juin")
+    left.get_by_role("button", name="+ Texte").click()
+    props.get_by_label("Texte", exact=True).fill("Domaine des Oliviers")
+    left.get_by_role("button", name="Tout sélectionner").click()
+    expect(props.get_by_role("heading", name="3 calques")).to_be_visible()
+    props.get_by_role("radio", name="Sur la section").click()
+    props.get_by_role("button", name="Aligner à gauche").click()
+    props.get_by_role("radio", name="Entre eux").click()
+    props.get_by_role("button", name="Répartir verticalement").click()
+    a.wait_for_timeout(300)
+    boxes = a.evaluate("""() => {
+      const f = document.querySelector('[data-section="hero"]').getBoundingClientRect();
+      return [...document.querySelectorAll('[data-section="hero"] [data-layer]')].map(e => { const r = e.getBoundingClientRect(); return { l: r.left - f.left, t: r.top, b: r.bottom }; });
+    }""")
+    assert all(abs(b["l"]) < 2 for b in boxes), boxes
+    bs = sorted(boxes, key=lambda b: b["t"])
+    gaps = [bs[i + 1]["t"] - bs[i]["b"] for i in range(len(bs) - 1)]
+    assert abs(gaps[0] - gaps[1]) < 2, gaps
+    props.get_by_role("button", name="Centrer horizontalement").click()
+    a.wait_for_timeout(300)
+    centers = a.evaluate("""() => [...document.querySelectorAll('[data-section="hero"] [data-layer]')].map(e => { const r = e.getBoundingClientRect(); return r.left + r.width / 2; })""")
+    assert max(centers) - min(centers) < 2, centers
+    a.screenshot(path=SHOTS / "36-alignement.png")
     a.get_by_role("button", name="Enregistrer une nouvelle version").click()
     expect(a.get_by_role("status").filter(has_text="Version enregistrée")).to_be_visible(timeout=10000)
     bt = api("GET", f"/rest/v1/templates?name=eq.{urllib.parse.quote(blank_name)}&select=status,current_version_id")[0]
@@ -880,6 +905,7 @@ with sync_playwright() as p:
     a.screenshot(path=SHOTS / "32-modele-vierge.png")
     ok("modèle vierge : créé depuis l'éditeur, sans ornement, composé puis enregistré (hors catalogue)")
     ok("formes : format prêt à l'emploi, épaisseur, couleurs, remplissage, opacité et hauteur à la souris")
+    ok("alignement : tout sélectionner, aligner à gauche sur la section, répartir, centrer entre eux")
 
     # ── Scénario 7 : un couple ne voit que son invitation ────────────
     client = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True)

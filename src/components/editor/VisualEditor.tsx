@@ -37,6 +37,77 @@ import { HistoryDrawer, type HistoryApi } from "./HistoryDrawer";
 import { useEditorState } from "./useEditorState";
 
 const CLIPBOARD_KEY = "ei-layer-clipboard";
+
+type AlignMode = "left" | "center" | "right" | "top" | "middle" | "bottom" | "distribute-h" | "distribute-v";
+
+/* Icônes d'alignement (traits = repère, rectangles = calques) */
+const ALIGN_ICONS: Record<AlignMode, ReactNode> = {
+  left: <><path d="M3 2v16" /><rect x="5" y="4" width="10" height="4" /><rect x="5" y="11" width="6" height="4" /></>,
+  center: <><path d="M10 2v16" /><rect x="4" y="4" width="12" height="4" /><rect x="6.5" y="11" width="7" height="4" /></>,
+  right: <><path d="M17 2v16" /><rect x="5" y="4" width="10" height="4" /><rect x="9" y="11" width="6" height="4" /></>,
+  top: <><path d="M2 3h16" /><rect x="4" y="5" width="4" height="10" /><rect x="11" y="5" width="4" height="6" /></>,
+  middle: <><path d="M2 10h16" /><rect x="4" y="4" width="4" height="12" /><rect x="11" y="6.5" width="4" height="7" /></>,
+  bottom: <><path d="M2 17h16" /><rect x="4" y="5" width="4" height="10" /><rect x="11" y="9" width="4" height="6" /></>,
+  "distribute-h": <><path d="M2 3v14M18 3v14" /><rect x="4.5" y="6" width="3" height="8" /><rect x="12.5" y="6" width="3" height="8" /></>,
+  "distribute-v": <><path d="M3 2h14M3 18h14" /><rect x="6" y="4.5" width="8" height="3" /><rect x="6" y="12.5" width="8" height="3" /></>,
+};
+const ALIGN_LABELS: Record<AlignMode, string> = {
+  left: "Aligner à gauche",
+  center: "Centrer horizontalement",
+  right: "Aligner à droite",
+  top: "Aligner en haut",
+  middle: "Centrer verticalement",
+  bottom: "Aligner en bas",
+  "distribute-h": "Répartir horizontalement",
+  "distribute-v": "Répartir verticalement",
+};
+
+function AlignBar({ onAlign, distribute = false }: { onAlign: (mode: AlignMode) => void; distribute?: boolean }) {
+  const modes: AlignMode[] = ["left", "center", "right", "top", "middle", "bottom", ...(distribute ? (["distribute-h", "distribute-v"] as AlignMode[]) : [])];
+  return (
+    <div className="flex flex-wrap gap-1" role="group" aria-label="Alignement">
+      {modes.map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => onAlign(m)}
+          title={ALIGN_LABELS[m]}
+          aria-label={ALIGN_LABELS[m]}
+          className={`flex h-9 w-9 items-center justify-center rounded-sm border border-line bg-white text-charcoal hover:border-forest hover:text-forest ${m === "top" || m === "distribute-h" ? "ml-2" : ""}`}
+        >
+          <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+            {ALIGN_ICONS[m]}
+          </svg>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MultiAlign({ count, onAlign }: { count: number; onAlign: (mode: AlignMode, relativeTo: "selection" | "section") => void }) {
+  const [rel, setRel] = useState<"selection" | "section">("selection");
+  return (
+    <div className="space-y-2 border-t border-line pt-3">
+      <p className="text-[0.7rem] uppercase tracking-wider text-stone">Alignement</p>
+      <div className="flex gap-1 text-xs" role="radiogroup" aria-label="Aligner par rapport à">
+        {(["selection", "section"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="radio"
+            aria-checked={rel === v}
+            onClick={() => setRel(v)}
+            className={`rounded-full border px-3 py-1 ${rel === v ? "border-forest bg-forest text-ivory" : "border-line bg-white"}`}
+          >
+            {v === "selection" ? "Entre eux" : "Sur la section"}
+          </button>
+        ))}
+      </div>
+      <AlignBar onAlign={(m) => onAlign(m, rel)} distribute={count >= 3} />
+      <p className="text-[0.7rem] text-stone">« Répartir » espace les calques de façon régulière (3 calques ou plus).</p>
+    </div>
+  );
+}
 const WIDTHS = [360, 390, 430] as const;
 const inputCls = "field min-h-9 py-1 text-sm";
 
@@ -204,6 +275,68 @@ export function VisualEditor({
     if (layer) setSel({ sectionId: section.id, layerId: layer.id });
     flash("Calques dégroupés.");
   };
+  /**
+   * Alignement des calques : mesure leur boîte réelle dans le téléphone puis
+   * recalcule leur centre (x, y en % de la section). « selection » aligne sur
+   * l'ensemble sélectionné, « section » sur la section entière.
+   */
+  const alignLayers = (mode: AlignMode, relativeTo: "selection" | "section") => {
+    if (!section) return;
+    const frame = canvasRef.current?.querySelector<HTMLElement>(`[data-section-id="${section.id}"]`);
+    if (!frame) return;
+    const f = frame.getBoundingClientRect();
+    if (!f.width || !f.height) return;
+    const targets = (multi.length ? multi : layer ? [layer] : []).filter((l) => !l.locked);
+    const boxes = targets
+      .map((l) => {
+        const el = frame.querySelector<HTMLElement>(`[data-layer="${l.id}"]`);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return {
+          id: l.id,
+          left: ((r.left - f.left) / f.width) * 100,
+          right: ((r.right - f.left) / f.width) * 100,
+          top: ((r.top - f.top) / f.height) * 100,
+          bottom: ((r.bottom - f.top) / f.height) * 100,
+          w: (r.width / f.width) * 100,
+          h: (r.height / f.height) * 100,
+        };
+      })
+      .filter((b): b is NonNullable<typeof b> => !!b);
+    if (!boxes.length) return;
+    const all = relativeTo === "section" || boxes.length < 2;
+    const minL = all ? 0 : Math.min(...boxes.map((b) => b.left));
+    const maxR = all ? 100 : Math.max(...boxes.map((b) => b.right));
+    const minT = all ? 0 : Math.min(...boxes.map((b) => b.top));
+    const maxB = all ? 100 : Math.max(...boxes.map((b) => b.bottom));
+    const r1 = (n: number) => Math.round(Math.min(160, Math.max(-60, n)) * 10) / 10;
+    const patches: Record<string, Partial<InvitationLayer>> = {};
+    if (mode === "distribute-h" || mode === "distribute-v") {
+      if (boxes.length < 3) return flash("Sélectionnez au moins 3 calques pour les répartir.");
+      const horiz = mode === "distribute-h";
+      const sorted = [...boxes].sort((a, b) => (horiz ? a.left - b.left : a.top - b.top));
+      const start = horiz ? sorted[0].left : sorted[0].top;
+      const end = horiz ? Math.max(...sorted.map((b) => b.right)) : Math.max(...sorted.map((b) => b.bottom));
+      const total = sorted.reduce((t, b) => t + (horiz ? b.w : b.h), 0);
+      const gap = (end - start - total) / (sorted.length - 1);
+      let cursor = start;
+      for (const b of sorted) {
+        const size = horiz ? b.w : b.h;
+        patches[b.id] = horiz ? { x: r1(cursor + size / 2) } : { y: r1(cursor + size / 2) };
+        cursor += size + gap;
+      }
+    } else {
+      for (const b of boxes) {
+        if (mode === "left") patches[b.id] = { x: r1(minL + b.w / 2) };
+        if (mode === "center") patches[b.id] = { x: r1((minL + maxR) / 2) };
+        if (mode === "right") patches[b.id] = { x: r1(maxR - b.w / 2) };
+        if (mode === "top") patches[b.id] = { y: r1(minT + b.h / 2) };
+        if (mode === "middle") patches[b.id] = { y: r1((minT + maxB) / 2) };
+        if (mode === "bottom") patches[b.id] = { y: r1(maxB - b.h / 2) };
+      }
+    }
+    patchLayers(section.id, (ls) => ls.map((l) => (patches[l.id] ? { ...l, ...patches[l.id] } : l)));
+  };
   const patchMany = (patch: Partial<InvitationLayer>) => {
     if (!section) return;
     const ids = multi.map((l) => l.id);
@@ -361,6 +494,10 @@ export function VisualEditor({
         const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
         const ids = multi.length ? multi.filter((l) => !l.locked).map((l) => l.id) : [layer.id];
         patchLayers(section.id, (ls) => ls.map((l) => (ids.includes(l.id) ? { ...l, x: Math.round((l.x + dx) * 10) / 10, y: Math.round((l.y + dy) * 10) / 10 } : l)));
+      } else if (mod && k === "a" && section && section.layers.length) {
+        e.preventDefault();
+        const ids = section.layers.filter((l) => !l.hidden).map((l) => l.id);
+        if (ids.length) setSel({ sectionId: section.id, layerId: ids[0], layerIds: ids });
       } else if (mod && k === "g" && section) {
         e.preventDefault();
         if (e.shiftKey) ungroupSelected();
@@ -511,6 +648,19 @@ export function VisualEditor({
                         <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => addLayer(newLayer("text", { y: 30 }))}>+ Texte</button>
                         <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => setShapeMenu(true)}>+ Forme</button>
                         {clipboard ? <button type="button" className="btn btn-ghost btn-sm !px-2 !text-[0.65rem]" onClick={pasteLayer}>Coller</button> : null}
+                        {s.layers.length > 1 ? (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm !px-2 !text-[0.65rem]"
+                            title="Ctrl+A"
+                            onClick={() => {
+                              const ids = s.layers.filter((l) => !l.hidden).map((l) => l.id);
+                              if (ids.length) setSel({ sectionId: s.id, layerId: ids[0], layerIds: ids });
+                            }}
+                          >
+                            Tout sélectionner
+                          </button>
+                        ) : null}
                       </div>
                       {elementsFor(s.type, renderer, c).length ? (
                         <>
@@ -598,6 +748,7 @@ export function VisualEditor({
               onUngroup={ungroupSelected}
               onPatch={patchMany}
               onDelete={deleteLayer}
+              onAlign={alignLayers}
             />
           ) : element && section ? (
             <ElementPanel
@@ -621,6 +772,7 @@ export function VisualEditor({
               onDuplicate={duplicateLayer}
               onCopy={copyLayer}
               onMove={moveLayer}
+              onAlign={(mode) => alignLayers(mode, "section")}
               onReplay={() => {
                 setAnimate(true);
                 setReplay((r) => r + 1);
@@ -658,6 +810,8 @@ export function VisualEditor({
                   <li>Flèches : déplacer (Maj : plus vite)</li>
                   <li>Ctrl+C / Ctrl+V : copier / coller un calque</li>
                   <li>Ctrl+D : dupliquer · Suppr : supprimer</li>
+                  <li>Maj+clic : sélection multiple · Ctrl+A : tous les calques de la section</li>
+                  <li>Ctrl+G / Ctrl+Maj+G : grouper / dégrouper</li>
                   <li>Ctrl+Z / Ctrl+Maj+Z : annuler / rétablir</li>
                   <li>Échap : désélectionner</li>
                 </ul>
@@ -756,7 +910,8 @@ export function VisualEditor({
 }
 
 /* ── Panneau d'un calque ──────────────────────────────────────────── */
-function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCopy, onMove, onReplay }: {
+function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCopy, onMove, onReplay, onAlign }: {
+  onAlign: (mode: AlignMode) => void;
   layer: InvitationLayer;
   onChange: (patch: Partial<InvitationLayer>) => void;
   onReplace: () => void;
@@ -802,6 +957,10 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
         <input aria-label="Nom du calque" className={inputCls} maxLength={60} value={l.name} onChange={(e) => onChange({ name: e.target.value })} placeholder="ex. Pivoine en haut à gauche" />
       </Field>
 
+      <div className="border-t border-line pt-3">
+        <p className="mb-1.5 text-[0.7rem] uppercase tracking-wider text-stone">Aligner dans la section</p>
+        <AlignBar onAlign={onAlign} />
+      </div>
       <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="sr-only">Position et taille</legend>
         <div className="space-y-3">
@@ -1051,7 +1210,8 @@ function FontSelect({ value, onChange, themeOptions = false, label = "Police" }:
 }
 
 /* ── Plusieurs calques sélectionnés ───────────────────────────────── */
-function MultiLayerPanel({ layers, onGroup, onUngroup, onPatch, onDelete }: {
+function MultiLayerPanel({ layers, onGroup, onUngroup, onPatch, onDelete, onAlign }: {
+  onAlign: (mode: AlignMode, relativeTo: "selection" | "section") => void;
   layers: InvitationLayer[];
   onGroup: () => void;
   onUngroup: () => void;
@@ -1075,6 +1235,7 @@ function MultiLayerPanel({ layers, onGroup, onUngroup, onPatch, onDelete }: {
         )}
         <button type="button" className="btn btn-danger btn-sm" onClick={onDelete}>Supprimer les {layers.length} calques</button>
       </div>
+      <MultiAlign count={layers.length} onAlign={onAlign} />
       {texts.length ? (
         <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
           <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Les {texts.length} texte(s)</legend>
