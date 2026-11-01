@@ -125,7 +125,7 @@ export const ENTER_ANIMATION_LABELS: Record<EnterAnimation, string> = {
   "slide-right": "Glissement depuis la droite",
   draw: "Éclosion (fleurs)",
 };
-export const SHAPE_TYPES = ["rect", "rounded", "circle", "arch", "double", "line", "diamond", "heart"] as const;
+export const SHAPE_TYPES = ["rect", "rounded", "circle", "arch", "double", "line", "diamond", "heart", "leafdivider", "diamonddivider"] as const;
 export type ShapeType = (typeof SHAPE_TYPES)[number];
 export const SHAPE_LABELS: Record<ShapeType, string> = {
   rect: "Rectangle / cadre",
@@ -136,6 +136,8 @@ export const SHAPE_LABELS: Record<ShapeType, string> = {
   line: "Ligne",
   diamond: "Losange",
   heart: "Cœur",
+  leafdivider: "Séparateur feuillage",
+  diamonddivider: "Séparateur losange",
 };
 export const LOOP_ANIMATIONS = ["none", "sway", "float", "breathe"] as const;
 export type LoopAnimation = (typeof LOOP_ANIMATIONS)[number];
@@ -183,6 +185,9 @@ export const layerSchema = z.object({
   loop: z.enum(LOOP_ANIMATIONS).default("none"),
   /** Calques groupés : même identifiant de groupe, déplacés ensemble */
   group: z.string().max(40).default(""),
+  bold: z.boolean().default(false),
+  italic: z.boolean().default(false),
+  align: z.enum(["left", "center", "right"]).default("center"),
   /* ── Formes (cadres, rectangles, cercles…) ── */
   shape: z.enum(SHAPE_TYPES).default("rect"),
   /** Hauteur de la forme = largeur × ratio */
@@ -216,6 +221,16 @@ export const elementStyleSchema = z.object({
   text: optionalText(80),
   /** Groupe dégroupé : ses parties se sélectionnent une à une */
   ungrouped: z.boolean().default(false),
+  /** Taille du texte (×), qui fait aussi suivre la mise en page */
+  zoom: num(0.3, 4, 1),
+  /** "" = comme le modèle */
+  weight: z.enum(["", "normal", "bold"]).default(""),
+  style: z.enum(["", "normal", "italic"]).default(""),
+  align: z.enum(["", "left", "center", "right"]).default(""),
+  enter: z
+    .object({ type: z.enum(ENTER_ANIMATIONS).default("none"), delay: num(0, 6000, 0), duration: num(200, 6000, 1200) })
+    .default({ type: "none", delay: 0, duration: 1200 }),
+  loop: z.enum(LOOP_ANIMATIONS).default("none"),
 });
 export type ElementStyle = z.infer<typeof elementStyleSchema>;
 
@@ -280,6 +295,9 @@ export function newLayer(kind: InvitationLayer["kind"], patch: Partial<Invitatio
     enter: { type: "fade", delay: 0, duration: 1400 },
     loop: "none",
     group: "",
+    bold: false,
+    italic: false,
+    align: "center",
     shape: "rect",
     ratio: 1,
     radius: 10,

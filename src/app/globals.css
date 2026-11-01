@@ -312,3 +312,16 @@
 @media (prefers-reduced-motion: reduce) {
   .inv-layer, .inv-layer * { animation: none !important; opacity: 1; }
 }
+
+/* Réglages de texte des éléments du modèle (ils l'emportent sur le style d'origine) */
+.inv-el[data-weight="bold"], .inv-el[data-weight="bold"] * { font-weight: 700 !important; }
+.inv-el[data-weight="normal"], .inv-el[data-weight="normal"] * { font-weight: 400 !important; }
+.inv-el[data-fstyle="italic"], .inv-el[data-fstyle="italic"] * { font-style: italic !important; }
+.inv-el[data-fstyle="normal"], .inv-el[data-fstyle="normal"] * { font-style: normal !important; }
+.inv-el[data-align="left"], .inv-el[data-align="left"] * { text-align: left !important; }
+.inv-el[data-align="right"], .inv-el[data-align="right"] * { text-align: right !important; }
+.inv-el[data-align="center"], .inv-el[data-align="center"] * { text-align: center !important; }
+.inv-el[data-align="left"] > *:not(.inv-el) { margin-left: 0 !important; margin-right: auto !important; }
+.inv-el[data-align="right"] > *:not(.inv-el) { margin-left: auto !important; margin-right: 0 !important; }
+.inv-el[data-align="left"] .justify-center, .inv-el[data-align="left"].justify-center { justify-content: flex-start !important; }
+.inv-el[data-align="right"] .justify-center, .inv-el[data-align="right"].justify-center { justify-content: flex-end !important; }

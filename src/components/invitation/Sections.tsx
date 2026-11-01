@@ -21,7 +21,8 @@ export type SectionProps = {
 
 /* ── Apparition au défilement ─────────────────────────────────────── */
 /** false quand le thème désactive les animations */
-export const AnimationContext = createContext(true);
+export { AnimationContext } from "./editor-context";
+import { AnimationContext } from "./editor-context";
 
 /** Animation d'apparition propre à la section ("inherit" = montée douce du thème) */
 export const SectionAnimationContext = createContext<string>("inherit");

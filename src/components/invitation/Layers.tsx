@@ -165,8 +165,16 @@ function LayerView({ layer: l, section, frame, play, animate }: {
   if (l.kind === "text") {
     body = (
       <p
-        className="m-0 whitespace-pre-line text-center leading-[1.1]"
-        style={{ fontFamily: fontFamily(l.font), fontSize: `${l.fontSize}cqw`, color: l.color || "var(--inv-accent)", transform: l.flip ? "scaleX(-1)" : undefined }}
+        className="m-0 whitespace-pre-line leading-[1.1]"
+        style={{
+          fontFamily: fontFamily(l.font),
+          fontSize: `${l.fontSize}cqw`,
+          fontWeight: l.bold ? 700 : 400,
+          fontStyle: l.italic ? "italic" : "normal",
+          textAlign: l.align,
+          color: l.color || "var(--inv-accent)",
+          transform: l.flip ? "scaleX(-1)" : undefined,
+        }}
       >
         {l.text}
       </p>

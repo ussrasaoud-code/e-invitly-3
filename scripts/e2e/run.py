@@ -695,6 +695,27 @@ with sync_playwright() as p:
     expect(props.get_by_role("heading", name="Prénoms")).to_be_visible()
     ok("éléments : police d'un groupe, dégrouper, modifier et retirer une partie, regrouper")
 
+    # Élément du modèle : mêmes réglages qu'un texte libre
+    a.locator('[data-section="hero"] [data-el="kicker"]').click()
+    expect(props.get_by_role("heading", name="Accroche")).to_be_visible()
+    expect(props.get_by_label("Police", exact=True).locator("option").first).to_contain_text("police d'origine")
+    assert "Jost" in props.get_by_label("Police", exact=True).locator("option").first.inner_text()
+    props.get_by_role("button", name="Gras").click()
+    props.get_by_role("button", name="Texte aligné à gauche").click()
+    props.get_by_label("Taille du texte (valeur)").fill("150")
+    props.get_by_label("Apparition", exact=True).select_option("fade")
+    d = wait_draft(lambda d: (lambda e: e.get("weight") == "bold" and e.get("align") == "left" and e.get("zoom") == 1.5 and e["enter"]["type"] == "fade")(sec(d, "hero")[0]["elements"].get("kicker", {})), "style de l'élément")
+    assert a.locator('[data-section="hero"] [data-el="kicker"] p').evaluate("e => getComputedStyle(e).fontWeight") == "700"
+    n_layers = len(sec(d, "hero")[0]["layers"])
+    props.get_by_role("button", name="Transformer en texte libre").click()
+    expect(props.get_by_role("heading", name="Texte libre")).to_be_visible()
+    d = wait_draft(lambda d: len(sec(d, "hero")[0]["layers"]) == n_layers + 1 and sec(d, "hero")[0]["elements"]["kicker"]["hidden"], "élément transformé")
+    newl = sec(d, "hero")[0]["layers"][-1]
+    assert "FAMILLES" in newl["text"].upper() and newl["bold"] and newl["font"] == "jost", newl
+    a.keyboard.press("Control+z")
+    d = wait_draft(lambda d: not sec(d, "hero")[0]["elements"]["kicker"]["hidden"] and len(sec(d, "hero")[0]["layers"]) == n_layers, "annuler la transformation")
+    ok("éléments du modèle : police réelle affichée, gras, alignement, taille, animation, transformer en texte libre")
+
     # Liste du programme : dégrouper jusqu'à l'heure d'un moment
     left.get_by_role("button", name=re.compile(r"^Le programme")).click()
     left.get_by_role("button", name=re.compile(r"^Liste des moments")).click()
@@ -742,11 +763,20 @@ with sync_playwright() as p:
     # Fond d'une section
     left.get_by_role("button", name=re.compile(r"^Le programme")).click()
     expect(props.get_by_role("heading", name="Programme")).to_be_visible()
-    props.get_by_label("Couleur du fond de la section").fill("#336699")
+    props.get_by_label("Couleur du fond de la section").click()
+    a.get_by_role("dialog", name="Choisir une couleur").get_by_label("Code couleur").fill("#336699")
     d = wait_draft(lambda d: sec(d, "program")[0]["background"]["color"] == "#336699", "fond de section")
+    a.keyboard.press("Escape")
+    # La couleur utilisée est proposée ailleurs, sans retaper le code
+    left.get_by_role("button", name=re.compile(r"^Plus que")).click()
+    props.get_by_label("Couleur du fond de la section").click()
+    a.get_by_role("dialog", name="Choisir une couleur").get_by_role("button", name="Couleur #336699").click()
+    d = wait_draft(lambda d: sec(d, "countdown")[0]["background"]["color"] == "#336699", "couleur réutilisée")
+    a.keyboard.press("Escape")
+    left.get_by_role("button", name=re.compile(r"^Le programme")).click()
     bg = a.locator('[data-section="program"]').evaluate("e => getComputedStyle(e).backgroundColor")
     assert bg == "rgb(51, 102, 153)", bg
-    ok("éditeur visuel : couleur de fond d'une section")
+    ok("éditeur visuel : couleur de fond d'une section ; couleurs déjà utilisées proposées")
 
     # Écran d'ouverture (enveloppe) visible et réglable dans l'éditeur
     left.get_by_role("button", name=re.compile("Ouverture de l'invitation")).click()
@@ -859,7 +889,9 @@ with sync_playwright() as p:
     expect(props.get_by_role("heading", name="Forme")).to_be_visible()
     props.get_by_label("Épaisseur du trait (valeur)").fill("3")
     props.get_by_label("Remplir la forme").check()
-    props.get_by_label("Couleur du contour").fill("#aa3355")
+    props.get_by_label("Couleur du contour").click()
+    a.get_by_role("dialog", name="Choisir une couleur").get_by_label("Code couleur").fill("#aa3355")
+    a.keyboard.press("Escape")
     props.get_by_label("Opacité du remplissage (valeur)").fill("40")
     hh = a.locator('[data-section="hero"] .inv-handle-height')
     hh.scroll_into_view_if_needed()
@@ -869,6 +901,31 @@ with sync_playwright() as p:
     a.mouse.move(hbx["x"] + 7, hbx["y"] + 60, steps=5)
     a.mouse.up()
     a.screenshot(path=SHOTS / "35-forme-reglages.png")
+    # Sélection multiple et alignements
+    left.get_by_role("button", name="+ Texte").click()
+    props.get_by_label("Texte", exact=True).fill("Samedi 12 juin")
+    left.get_by_role("button", name="+ Texte").click()
+    props.get_by_label("Texte", exact=True).fill("Domaine des Oliviers")
+    left.get_by_role("button", name="Tout sélectionner").click()
+    expect(props.get_by_role("heading", name="3 calques")).to_be_visible()
+    props.get_by_role("radio", name="Sur la section").click()
+    props.get_by_role("button", name="Aligner à gauche").click()
+    props.get_by_role("radio", name="Entre eux").click()
+    props.get_by_role("button", name="Répartir verticalement").click()
+    a.wait_for_timeout(300)
+    boxes = a.evaluate("""() => {
+      const f = document.querySelector('[data-section="hero"]').getBoundingClientRect();
+      return [...document.querySelectorAll('[data-section="hero"] [data-layer]')].map(e => { const r = e.getBoundingClientRect(); return { l: r.left - f.left, t: r.top, b: r.bottom }; });
+    }""")
+    assert all(abs(b["l"]) < 2 for b in boxes), boxes
+    bs = sorted(boxes, key=lambda b: b["t"])
+    gaps = [bs[i + 1]["t"] - bs[i]["b"] for i in range(len(bs) - 1)]
+    assert abs(gaps[0] - gaps[1]) < 2, gaps
+    props.get_by_role("button", name="Centrer horizontalement").click()
+    a.wait_for_timeout(300)
+    centers = a.evaluate("""() => [...document.querySelectorAll('[data-section="hero"] [data-layer]')].map(e => { const r = e.getBoundingClientRect(); return r.left + r.width / 2; })""")
+    assert max(centers) - min(centers) < 2, centers
+    a.screenshot(path=SHOTS / "36-alignement.png")
     a.get_by_role("button", name="Enregistrer une nouvelle version").click()
     expect(a.get_by_role("status").filter(has_text="Version enregistrée")).to_be_visible(timeout=10000)
     bt = api("GET", f"/rest/v1/templates?name=eq.{urllib.parse.quote(blank_name)}&select=status,current_version_id")[0]
@@ -880,6 +937,7 @@ with sync_playwright() as p:
     a.screenshot(path=SHOTS / "32-modele-vierge.png")
     ok("modèle vierge : créé depuis l'éditeur, sans ornement, composé puis enregistré (hors catalogue)")
     ok("formes : format prêt à l'emploi, épaisseur, couleurs, remplissage, opacité et hauteur à la souris")
+    ok("alignement : tout sélectionner, aligner à gauche sur la section, répartir, centrer entre eux")
 
     # ── Scénario 7 : un couple ne voit que son invitation ────────────
     client = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True)

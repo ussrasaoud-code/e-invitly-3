@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { InvitationView } from "@/components/invitation/InvitationView";
 import { LayerEditorContext, type LayerEditor } from "@/components/invitation/Layers";
 import { MediaPicker } from "@/components/media/MediaPicker";
@@ -22,6 +22,7 @@ import {
   newLayer,
   newSection,
   type ElementStyle,
+  type FontKey,
   type InvitationContent,
   type InvitationContentInput,
   type InvitationLayer,
@@ -33,10 +34,86 @@ import { elementsFor, flattenElements, type ElementDef } from "@/lib/invitation/
 import { FONTS, FONT_GROUPS } from "@/lib/fonts";
 import { ShapeSvg } from "@/components/invitation/Shape";
 import { shapePresets } from "@/lib/invitation/shape-presets";
+import { ColorInput, UsedColorsContext, collectColors, useRecentColors } from "./ColorInput";
 import { HistoryDrawer, type HistoryApi } from "./HistoryDrawer";
 import { useEditorState } from "./useEditorState";
 
 const CLIPBOARD_KEY = "ei-layer-clipboard";
+const DEFAULT_ELEMENT_STYLE: ElementStyle = {
+  hidden: false, dx: 0, dy: 0, scale: 1, rotation: 0, opacity: 1, color: "", font: "", text: "", ungrouped: false,
+  zoom: 1, weight: "", style: "", align: "", enter: { type: "none", delay: 0, duration: 1200 }, loop: "none",
+};
+
+type AlignMode = "left" | "center" | "right" | "top" | "middle" | "bottom" | "distribute-h" | "distribute-v";
+
+/* Icônes d'alignement (traits = repère, rectangles = calques) */
+const ALIGN_ICONS: Record<AlignMode, ReactNode> = {
+  left: <><path d="M3 2v16" /><rect x="5" y="4" width="10" height="4" /><rect x="5" y="11" width="6" height="4" /></>,
+  center: <><path d="M10 2v16" /><rect x="4" y="4" width="12" height="4" /><rect x="6.5" y="11" width="7" height="4" /></>,
+  right: <><path d="M17 2v16" /><rect x="5" y="4" width="10" height="4" /><rect x="9" y="11" width="6" height="4" /></>,
+  top: <><path d="M2 3h16" /><rect x="4" y="5" width="4" height="10" /><rect x="11" y="5" width="4" height="6" /></>,
+  middle: <><path d="M2 10h16" /><rect x="4" y="4" width="4" height="12" /><rect x="11" y="6.5" width="4" height="7" /></>,
+  bottom: <><path d="M2 17h16" /><rect x="4" y="5" width="4" height="10" /><rect x="11" y="9" width="4" height="6" /></>,
+  "distribute-h": <><path d="M2 3v14M18 3v14" /><rect x="4.5" y="6" width="3" height="8" /><rect x="12.5" y="6" width="3" height="8" /></>,
+  "distribute-v": <><path d="M3 2h14M3 18h14" /><rect x="6" y="4.5" width="8" height="3" /><rect x="6" y="12.5" width="8" height="3" /></>,
+};
+const ALIGN_LABELS: Record<AlignMode, string> = {
+  left: "Aligner à gauche",
+  center: "Centrer horizontalement",
+  right: "Aligner à droite",
+  top: "Aligner en haut",
+  middle: "Centrer verticalement",
+  bottom: "Aligner en bas",
+  "distribute-h": "Répartir horizontalement",
+  "distribute-v": "Répartir verticalement",
+};
+
+function AlignBar({ onAlign, distribute = false }: { onAlign: (mode: AlignMode) => void; distribute?: boolean }) {
+  const modes: AlignMode[] = ["left", "center", "right", "top", "middle", "bottom", ...(distribute ? (["distribute-h", "distribute-v"] as AlignMode[]) : [])];
+  return (
+    <div className="flex flex-wrap gap-1" role="group" aria-label="Alignement">
+      {modes.map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => onAlign(m)}
+          title={ALIGN_LABELS[m]}
+          aria-label={ALIGN_LABELS[m]}
+          className={`flex h-9 w-9 items-center justify-center rounded-sm border border-line bg-white text-charcoal hover:border-forest hover:text-forest ${m === "top" || m === "distribute-h" ? "ml-2" : ""}`}
+        >
+          <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+            {ALIGN_ICONS[m]}
+          </svg>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MultiAlign({ count, onAlign }: { count: number; onAlign: (mode: AlignMode, relativeTo: "selection" | "section") => void }) {
+  const [rel, setRel] = useState<"selection" | "section">("selection");
+  return (
+    <div className="space-y-2 border-t border-line pt-3">
+      <p className="text-[0.7rem] uppercase tracking-wider text-stone">Alignement</p>
+      <div className="flex gap-1 text-xs" role="radiogroup" aria-label="Aligner par rapport à">
+        {(["selection", "section"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="radio"
+            aria-checked={rel === v}
+            onClick={() => setRel(v)}
+            className={`rounded-full border px-3 py-1 ${rel === v ? "border-forest bg-forest text-ivory" : "border-line bg-white"}`}
+          >
+            {v === "selection" ? "Entre eux" : "Sur la section"}
+          </button>
+        ))}
+      </div>
+      <AlignBar onAlign={(m) => onAlign(m, rel)} distribute={count >= 3} />
+      <p className="text-[0.7rem] text-stone">« Répartir » espace les calques de façon régulière (3 calques ou plus).</p>
+    </div>
+  );
+}
 const WIDTHS = [360, 390, 430] as const;
 const inputCls = "field min-h-9 py-1 text-sm";
 
@@ -144,6 +221,8 @@ export function VisualEditor({
   const [clipboard, setClipboard] = useState<InvitationLayer | null>(null);
   const [notice, setNotice] = useState("");
   const canvasRef = useRef<HTMLDivElement>(null);
+  const recentColors = useRecentColors();
+  const usedColors = useMemo(() => collectColors(c), [c]);
 
   const section = sel ? c.sections.find((s) => s.id === sel.sectionId) ?? null : null;
   const layer = section && sel?.layerId ? section.layers.find((l) => l.id === sel.layerId) ?? null : null;
@@ -204,6 +283,139 @@ export function VisualEditor({
     if (layer) setSel({ sectionId: section.id, layerId: layer.id });
     flash("Calques dégroupés.");
   };
+  /**
+   * Alignement des calques : mesure leur boîte réelle dans le téléphone puis
+   * recalcule leur centre (x, y en % de la section). « selection » aligne sur
+   * l'ensemble sélectionné, « section » sur la section entière.
+   */
+  const alignLayers = (mode: AlignMode, relativeTo: "selection" | "section") => {
+    if (!section) return;
+    const frame = canvasRef.current?.querySelector<HTMLElement>(`[data-section-id="${section.id}"]`);
+    if (!frame) return;
+    const f = frame.getBoundingClientRect();
+    if (!f.width || !f.height) return;
+    const targets = (multi.length ? multi : layer ? [layer] : []).filter((l) => !l.locked);
+    const boxes = targets
+      .map((l) => {
+        const el = frame.querySelector<HTMLElement>(`[data-layer="${l.id}"]`);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return {
+          id: l.id,
+          left: ((r.left - f.left) / f.width) * 100,
+          right: ((r.right - f.left) / f.width) * 100,
+          top: ((r.top - f.top) / f.height) * 100,
+          bottom: ((r.bottom - f.top) / f.height) * 100,
+          w: (r.width / f.width) * 100,
+          h: (r.height / f.height) * 100,
+        };
+      })
+      .filter((b): b is NonNullable<typeof b> => !!b);
+    if (!boxes.length) return;
+    const all = relativeTo === "section" || boxes.length < 2;
+    const minL = all ? 0 : Math.min(...boxes.map((b) => b.left));
+    const maxR = all ? 100 : Math.max(...boxes.map((b) => b.right));
+    const minT = all ? 0 : Math.min(...boxes.map((b) => b.top));
+    const maxB = all ? 100 : Math.max(...boxes.map((b) => b.bottom));
+    const r1 = (n: number) => Math.round(Math.min(160, Math.max(-60, n)) * 10) / 10;
+    const patches: Record<string, Partial<InvitationLayer>> = {};
+    if (mode === "distribute-h" || mode === "distribute-v") {
+      if (boxes.length < 3) return flash("Sélectionnez au moins 3 calques pour les répartir.");
+      const horiz = mode === "distribute-h";
+      const sorted = [...boxes].sort((a, b) => (horiz ? a.left - b.left : a.top - b.top));
+      const start = horiz ? sorted[0].left : sorted[0].top;
+      const end = horiz ? Math.max(...sorted.map((b) => b.right)) : Math.max(...sorted.map((b) => b.bottom));
+      const total = sorted.reduce((t, b) => t + (horiz ? b.w : b.h), 0);
+      const gap = (end - start - total) / (sorted.length - 1);
+      let cursor = start;
+      for (const b of sorted) {
+        const size = horiz ? b.w : b.h;
+        patches[b.id] = horiz ? { x: r1(cursor + size / 2) } : { y: r1(cursor + size / 2) };
+        cursor += size + gap;
+      }
+    } else {
+      for (const b of boxes) {
+        if (mode === "left") patches[b.id] = { x: r1(minL + b.w / 2) };
+        if (mode === "center") patches[b.id] = { x: r1((minL + maxR) / 2) };
+        if (mode === "right") patches[b.id] = { x: r1(maxR - b.w / 2) };
+        if (mode === "top") patches[b.id] = { y: r1(minT + b.h / 2) };
+        if (mode === "middle") patches[b.id] = { y: r1((minT + maxB) / 2) };
+        if (mode === "bottom") patches[b.id] = { y: r1(maxB - b.h / 2) };
+      }
+    }
+    patchLayers(section.id, (ls) => ls.map((l) => (patches[l.id] ? { ...l, ...patches[l.id] } : l)));
+  };
+  /* ── Éléments du modèle : lecture de leur style réel dans le téléphone ── */
+  const elementNode = (sectionId: string, elementId: string) =>
+    canvasRef.current?.querySelector<HTMLElement>(`[data-section-id="${sectionId}"] [data-el="${CSS.escape(elementId)}"]`) ?? null;
+  const textHolder = (el: HTMLElement): HTMLElement => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.textContent?.trim()) return n.parentElement ?? el;
+    return el;
+  };
+  const readComputed = (el: HTMLElement): ElementComputed => {
+    const cs = getComputedStyle(textHolder(el));
+    const family = cs.fontFamily.split(",")[0].replace(/["']/g, "").trim().toLowerCase();
+    const font = (Object.keys(FONTS) as FontKey[]).find((k) => FONTS[k].stack.split(",")[0].replace(/["']/g, "").trim().toLowerCase() === family) ?? null;
+    const a = cs.textAlign;
+    return { font, bold: Number(cs.fontWeight) >= 600, italic: cs.fontStyle === "italic", align: a === "left" || a === "start" ? "left" : a === "right" || a === "end" ? "right" : "center" };
+  };
+  const [elComputed, setElComputed] = useState<ElementComputed | null>(null);
+  useEffect(() => {
+    if (!section || !element) return setElComputed(null);
+    const t = window.setTimeout(() => {
+      const el = elementNode(section.id, element.id);
+      setElComputed(el ? readComputed(el) : null);
+    }, 30);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section?.id, element?.id, c]);
+
+  /** Copie un élément du modèle en texte libre (mêmes police, taille, couleur et place). */
+  const duplicateElement = (convert: boolean) => {
+    if (!section || !element) return;
+    const el = elementNode(section.id, element.id);
+    const frame = canvasRef.current?.querySelector<HTMLElement>(`[data-section-id="${section.id}"]`);
+    if (!el || !frame) return;
+    const f = frame.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const holder = textHolder(el);
+    const cs = getComputedStyle(holder);
+    const info = readComputed(el);
+    const st = section.elements[element.id];
+    const rgb = cs.color.match(/\d+/g)?.slice(0, 3).map(Number) ?? [0, 0, 0];
+    const hex = `#${rgb.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+    const text = (el.innerText || "").replace(/\n{2,}/g, "\n").trim().slice(0, 240);
+    if (!text) return flash("Cet élément ne contient pas de texte à copier.");
+    const px = parseFloat(cs.fontSize) * (st?.zoom ?? 1);
+    const layer = newLayer("text", {
+      text,
+      name: element.label,
+      font: st?.font || info.font || "body",
+      fontSize: Math.round(Math.min(30, Math.max(2, (px / f.width) * 100)) * 10) / 10,
+      color: hex,
+      bold: info.bold,
+      italic: info.italic,
+      align: info.align,
+      x: Math.round((((r.left + r.width / 2 - f.left) / f.width) * 100 + (convert ? 0 : 4)) * 10) / 10,
+      y: Math.round((((r.top + r.height / 2 - f.top) / f.height) * 100 + (convert ? 0 : 4)) * 10) / 10,
+      width: Math.round(Math.min(220, Math.max(10, (r.width / f.width) * 100 + 4)) * 10) / 10,
+      placement: "front",
+      enter: { type: "none", delay: 0, duration: 1400 },
+    });
+    setSections((ss) =>
+      ss.map((x) => {
+        if (x.id !== section.id) return x;
+        const elements = convert
+          ? { ...x.elements, [element.id]: { ...(x.elements[element.id] ?? DEFAULT_ELEMENT_STYLE), hidden: true } }
+          : x.elements;
+        return { ...x, elements: elements as InvitationSection["elements"], layers: [...x.layers, layer] };
+      }),
+    );
+    setSel({ sectionId: section.id, layerId: layer.id });
+    flash(convert ? "Élément transformé en texte libre : tous les réglages sont disponibles." : "Copie créée en texte libre.");
+  };
+
   const patchMany = (patch: Partial<InvitationLayer>) => {
     if (!section) return;
     const ids = multi.map((l) => l.id);
@@ -282,7 +494,7 @@ export function VisualEditor({
       setSections((ss) =>
         ss.map((s) => {
           if (s.id !== sectionId) return s;
-          const current = s.elements[elementId] ?? { hidden: false, dx: 0, dy: 0, scale: 1, rotation: 0, opacity: 1, color: "" };
+          const current = s.elements[elementId] ?? DEFAULT_ELEMENT_STYLE;
           return { ...s, elements: { ...s.elements, [elementId]: { ...current, ...patch } } };
         }),
       ),
@@ -361,6 +573,10 @@ export function VisualEditor({
         const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
         const ids = multi.length ? multi.filter((l) => !l.locked).map((l) => l.id) : [layer.id];
         patchLayers(section.id, (ls) => ls.map((l) => (ids.includes(l.id) ? { ...l, x: Math.round((l.x + dx) * 10) / 10, y: Math.round((l.y + dy) * 10) / 10 } : l)));
+      } else if (mod && k === "a" && section && section.layers.length) {
+        e.preventDefault();
+        const ids = section.layers.filter((l) => !l.hidden).map((l) => l.id);
+        if (ids.length) setSel({ sectionId: section.id, layerId: ids[0], layerIds: ids });
       } else if (mod && k === "g" && section) {
         e.preventDefault();
         if (e.shiftKey) ungroupSelected();
@@ -383,6 +599,8 @@ export function VisualEditor({
   const addable = SECTION_TYPES.filter((t) => REPEATABLE_SECTIONS.includes(t) || !c.sections.some((s) => s.type === t));
 
   return (
+    <UsedColorsContext.Provider value={{ used: usedColors, recent: recentColors.recent, remember: recentColors.remember }}>
+    <ThemeFontsContext.Provider value={c.theme.fonts}>
     <div className="fixed inset-0 z-50 flex flex-col bg-[#efece5] text-charcoal">
       <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-4 bg-ivory p-8 text-center lg:hidden">
         <p className="font-serif text-2xl">L&apos;éditeur visuel s&apos;utilise sur ordinateur</p>
@@ -511,6 +729,19 @@ export function VisualEditor({
                         <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => addLayer(newLayer("text", { y: 30 }))}>+ Texte</button>
                         <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => setShapeMenu(true)}>+ Forme</button>
                         {clipboard ? <button type="button" className="btn btn-ghost btn-sm !px-2 !text-[0.65rem]" onClick={pasteLayer}>Coller</button> : null}
+                        {s.layers.length > 1 ? (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm !px-2 !text-[0.65rem]"
+                            title="Ctrl+A"
+                            onClick={() => {
+                              const ids = s.layers.filter((l) => !l.hidden).map((l) => l.id);
+                              if (ids.length) setSel({ sectionId: s.id, layerId: ids[0], layerIds: ids });
+                            }}
+                          >
+                            Tout sélectionner
+                          </button>
+                        ) : null}
                       </div>
                       {elementsFor(s.type, renderer, c).length ? (
                         <>
@@ -598,6 +829,7 @@ export function VisualEditor({
               onUngroup={ungroupSelected}
               onPatch={patchMany}
               onDelete={deleteLayer}
+              onAlign={alignLayers}
             />
           ) : element && section ? (
             <ElementPanel
@@ -610,6 +842,12 @@ export function VisualEditor({
               onStyle={(patch) => patchElement(section.id, element.id, patch)}
               onReset={() => resetElement(section.id, element.id)}
               onContent={(fn) => update(fn)}
+              computed={elComputed}
+              onDuplicate={duplicateElement}
+              onReplay={() => {
+                setAnimate(true);
+                setReplay((r) => r + 1);
+              }}
             />
           ) : layer && section ? (
             <LayerPanel
@@ -621,6 +859,7 @@ export function VisualEditor({
               onDuplicate={duplicateLayer}
               onCopy={copyLayer}
               onMove={moveLayer}
+              onAlign={(mode) => alignLayers(mode, "section")}
               onReplay={() => {
                 setAnimate(true);
                 setReplay((r) => r + 1);
@@ -658,13 +897,15 @@ export function VisualEditor({
                   <li>Flèches : déplacer (Maj : plus vite)</li>
                   <li>Ctrl+C / Ctrl+V : copier / coller un calque</li>
                   <li>Ctrl+D : dupliquer · Suppr : supprimer</li>
+                  <li>Maj+clic : sélection multiple · Ctrl+A : tous les calques de la section</li>
+                  <li>Ctrl+G / Ctrl+Maj+G : grouper / dégrouper</li>
                   <li>Ctrl+Z / Ctrl+Maj+Z : annuler / rétablir</li>
                   <li>Échap : désélectionner</li>
                 </ul>
               </div>
               <Field label="Fond de l'invitation (couleur du thème)">
-                <input
-                  type="color"
+                <ColorInput
+                  
                   value={c.theme.colors.background}
                   onChange={(e) => update((x) => ({ ...x, theme: { ...x.theme, colors: { ...x.theme.colors, background: e.target.value } } }))}
                   className="h-10 w-12 cursor-pointer rounded-sm border border-line"
@@ -752,11 +993,14 @@ export function VisualEditor({
         />
       ) : null}
     </div>
+    </ThemeFontsContext.Provider>
+    </UsedColorsContext.Provider>
   );
 }
 
 /* ── Panneau d'un calque ──────────────────────────────────────────── */
-function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCopy, onMove, onReplay }: {
+function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCopy, onMove, onReplay, onAlign }: {
+  onAlign: (mode: AlignMode) => void;
   layer: InvitationLayer;
   onChange: (patch: Partial<InvitationLayer>) => void;
   onReplace: () => void;
@@ -787,10 +1031,11 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
           <Field label="Police">
             <FontSelect value={l.font} onChange={(v) => onChange({ font: v as InvitationLayer["font"] })} themeOptions />
           </Field>
+          <TextStyleBar bold={l.bold} italic={l.italic} align={l.align} onBold={() => onChange({ bold: !l.bold })} onItalic={() => onChange({ italic: !l.italic })} onAlign={(a) => onChange({ align: a })} />
           <div className="grid grid-cols-2 gap-2">
             <Field label="Couleur">
               <span className="flex items-center gap-2">
-                <input type="color" value={l.color || "#7a6a52"} onChange={(e) => onChange({ color: e.target.value })} className="h-9 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur du texte" />
+                <ColorInput value={l.color || "#7a6a52"} onChange={(e) => onChange({ color: e.target.value })} className="h-9 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur du texte" />
                 {l.color ? <button type="button" className="text-xs text-stone underline" onClick={() => onChange({ color: "" })}>Thème</button> : <span className="text-xs text-stone">thème</span>}
               </span>
             </Field>
@@ -802,6 +1047,10 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
         <input aria-label="Nom du calque" className={inputCls} maxLength={60} value={l.name} onChange={(e) => onChange({ name: e.target.value })} placeholder="ex. Pivoine en haut à gauche" />
       </Field>
 
+      <div className="border-t border-line pt-3">
+        <p className="mb-1.5 text-[0.7rem] uppercase tracking-wider text-stone">Aligner dans la section</p>
+        <AlignBar onAlign={onAlign} />
+      </div>
       <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="sr-only">Position et taille</legend>
         <div className="space-y-3">
@@ -830,7 +1079,7 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
           <Field label="Teinte" hint="Recolore la silhouette (idéal pour les SVG et PNG détourés d'une seule couleur).">
             <span className="flex items-center gap-2">
               <input type="checkbox" checked={!!l.color} onChange={(e) => onChange({ color: e.target.checked ? "#a8956b" : "" })} className="h-4 w-4 accent-forest" aria-label="Recolorer l'image" />
-              {l.color ? <input type="color" value={l.color} onChange={(e) => onChange({ color: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur de la teinte" /> : <span className="text-xs text-stone">couleurs d&apos;origine</span>}
+              {l.color ? <ColorInput value={l.color} onChange={(e) => onChange({ color: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur de la teinte" /> : <span className="text-xs text-stone">couleurs d&apos;origine</span>}
             </span>
           </Field>
         ) : null}
@@ -929,8 +1178,8 @@ function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHre
       <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="mb-1 font-serif text-lg">Fond de la section</legend>
         <div className="flex items-center gap-3">
-          <input
-            type="color"
+          <ColorInput
+            
             value={s.background.color || themeColors.background}
             onChange={(e) => onChange({ background: { ...s.background, color: e.target.value } })}
             className="h-10 w-12 cursor-pointer rounded-sm border border-line"
@@ -1026,18 +1275,31 @@ function ElementTree({ defs, section, selectedId, onSelect, onToggle, depth = 0 
   );
 }
 
-/** Choix de police : polices du thème puis toutes les polices par famille */
-function FontSelect({ value, onChange, themeOptions = false, label = "Police" }: { value: string; onChange: (v: string) => void; themeOptions?: boolean; label?: string }) {
+/** Polices du thème de l'invitation (pour afficher leur vrai nom) */
+const ThemeFontsContext = createContext<InvitationContent["theme"]["fonts"] | null>(null);
+
+/** Choix de police : polices du thème (avec leur nom) puis toutes les polices par famille */
+function FontSelect({ value, onChange, themeOptions = false, label = "Police", originFont }: {
+  value: string;
+  onChange: (v: string) => void;
+  themeOptions?: boolean;
+  label?: string;
+  /** Élément du modèle : police réellement utilisée quand aucune n'est imposée */
+  originFont?: FontKey | null;
+}) {
+  const theme = useContext(ThemeFontsContext);
+  const shown = value in FONTS ? (value as FontKey) : value === "" ? originFont ?? null : theme && (value === "display" || value === "script" || value === "body") ? theme[value] : null;
+  const name = (k: FontKey) => FONTS[k].label.split(" — ")[0];
   return (
-    <select aria-label={label} className={inputCls} value={value} onChange={(e) => onChange(e.target.value)} style={value && value in FONTS ? { fontFamily: FONTS[value as keyof typeof FONTS].stack } : undefined}>
+    <select aria-label={label} className={inputCls} value={value} onChange={(e) => onChange(e.target.value)} style={shown ? { fontFamily: FONTS[shown].stack } : undefined}>
       {themeOptions ? (
         <optgroup label="Polices du thème">
-          <option value="script">Manuscrite du thème</option>
-          <option value="display">Titres du thème</option>
-          <option value="body">Texte du thème</option>
+          <option value="script">{theme ? `${name(theme.script)} — manuscrite du thème` : "Manuscrite du thème"}</option>
+          <option value="display">{theme ? `${name(theme.display)} — titres du thème` : "Titres du thème"}</option>
+          <option value="body">{theme ? `${name(theme.body)} — texte du thème` : "Texte du thème"}</option>
         </optgroup>
       ) : (
-        <option value="">Police d&apos;origine (thème)</option>
+        <option value="">{originFont ? `${name(originFont)} (police d'origine)` : "Police d'origine"}</option>
       )}
       {FONT_GROUPS.map((g) => (
         <optgroup key={g.kind} label={g.kind}>
@@ -1050,8 +1312,34 @@ function FontSelect({ value, onChange, themeOptions = false, label = "Police" }:
   );
 }
 
+/** Gras, italique et alignement du texte */
+function TextStyleBar({ bold, italic, align, onBold, onItalic, onAlign }: {
+  bold: boolean;
+  italic: boolean;
+  align: "left" | "center" | "right";
+  onBold: () => void;
+  onItalic: () => void;
+  onAlign: (a: "left" | "center" | "right") => void;
+}) {
+  const btn = (active: boolean) => `flex h-9 w-9 items-center justify-center rounded-sm border text-sm ${active ? "border-forest bg-forest text-ivory" : "border-line bg-white hover:border-forest"}`;
+  const lines: Record<"left" | "center" | "right", string> = { left: "M3 5h14M3 9h9M3 13h14M3 17h9", center: "M3 5h14M5.5 9h9M3 13h14M5.5 17h9", right: "M3 5h14M8 9h9M3 13h14M8 17h9" };
+  return (
+    <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Style du texte">
+      <button type="button" className={btn(bold)} aria-pressed={bold} aria-label="Gras" title="Gras" onClick={onBold}><b>B</b></button>
+      <button type="button" className={btn(italic)} aria-pressed={italic} aria-label="Italique" title="Italique" onClick={onItalic}><i className="font-serif">I</i></button>
+      <span className="mx-1 h-6 w-px bg-line" aria-hidden="true" />
+      {(["left", "center", "right"] as const).map((a) => (
+        <button key={a} type="button" className={btn(align === a)} aria-pressed={align === a} aria-label={a === "left" ? "Texte aligné à gauche" : a === "center" ? "Texte centré" : "Texte aligné à droite"} onClick={() => onAlign(a)}>
+          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d={lines[a]} /></svg>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ── Plusieurs calques sélectionnés ───────────────────────────────── */
-function MultiLayerPanel({ layers, onGroup, onUngroup, onPatch, onDelete }: {
+function MultiLayerPanel({ layers, onGroup, onUngroup, onPatch, onDelete, onAlign }: {
+  onAlign: (mode: AlignMode, relativeTo: "selection" | "section") => void;
   layers: InvitationLayer[];
   onGroup: () => void;
   onUngroup: () => void;
@@ -1075,14 +1363,23 @@ function MultiLayerPanel({ layers, onGroup, onUngroup, onPatch, onDelete }: {
         )}
         <button type="button" className="btn btn-danger btn-sm" onClick={onDelete}>Supprimer les {layers.length} calques</button>
       </div>
+      <MultiAlign count={layers.length} onAlign={onAlign} />
       {texts.length ? (
         <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
           <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Les {texts.length} texte(s)</legend>
           <Field label="Police">
             <FontSelect value={texts.every((t) => t.font === texts[0].font) ? texts[0].font : "script"} onChange={(v) => onPatch({ font: v as InvitationLayer["font"] })} themeOptions label="Police des textes sélectionnés" />
           </Field>
+          <TextStyleBar
+            bold={texts.every((t) => t.bold)}
+            italic={texts.every((t) => t.italic)}
+            align={texts.every((t) => t.align === texts[0].align) ? texts[0].align : "center"}
+            onBold={() => onPatch({ bold: !texts.every((t) => t.bold) })}
+            onItalic={() => onPatch({ italic: !texts.every((t) => t.italic) })}
+            onAlign={(a) => onPatch({ align: a })}
+          />
           <label className="flex items-center gap-2 text-xs">
-            <input type="color" value={texts[0].color || "#7a6a52"} onChange={(e) => onPatch({ color: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur des textes sélectionnés" />
+            <ColorInput value={texts[0].color || "#7a6a52"} onChange={(e) => onPatch({ color: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur des textes sélectionnés" />
             Couleur
           </label>
         </fieldset>
@@ -1093,7 +1390,12 @@ function MultiLayerPanel({ layers, onGroup, onUngroup, onPatch, onDelete }: {
 }
 
 /* ── Panneau d'un élément intégré au modèle ───────────────────────── */
-function ElementPanel({ def, section, content: c, formHref, style, onStyle, onReset, onContent }: {
+export type ElementComputed = { font: FontKey | null; bold: boolean; italic: boolean; align: "left" | "center" | "right" };
+
+function ElementPanel({ def, section, content: c, formHref, style, onStyle, onReset, onContent, computed, onDuplicate, onReplay }: {
+  computed: ElementComputed | null;
+  onDuplicate: (convert: boolean) => void;
+  onReplay: () => void;
   def: ElementDef & { parent?: ElementDef };
   section: InvitationSection;
   content: InvitationContent;
@@ -1103,7 +1405,11 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
   onReset: () => void;
   onContent: (fn: (c: InvitationContent) => InvitationContent) => void;
 }) {
-  const st = style ?? { hidden: false, dx: 0, dy: 0, scale: 1, rotation: 0, opacity: 1, color: "", font: "" as const, text: "", ungrouped: false };
+  const st: ElementStyle = { ...DEFAULT_ELEMENT_STYLE, ...style };
+  const isText = def.kind !== "ornament";
+  const bold = st.weight ? st.weight === "bold" : !!computed?.bold;
+  const italic = st.style ? st.style === "italic" : !!computed?.italic;
+  const align = st.align || computed?.align || "center";
   const patchSection = (patch: Partial<InvitationSection>) =>
     onContent((x) => ({ ...x, sections: x.sections.map((s) => (s.id === section.id ? { ...s, ...patch } : s)) }));
   const isGroup = !!def.children?.length;
@@ -1233,10 +1539,21 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
           {def.hideable === false ? " ; sa logique est verrouillée." : "."}
         </p>
       ) : null}
-      {def.kind !== "ornament" ? (
-        <Field label={isGroup ? "Police de tout le groupe" : "Police"}>
-          <FontSelect value={st.font} onChange={(v) => onStyle({ font: v as ElementStyle["font"] })} label={isGroup ? "Police de tout le groupe" : "Police"} />
-        </Field>
+      {isText ? (
+        <>
+          <Field label={isGroup ? "Police de tout le groupe" : "Police"}>
+            <FontSelect value={st.font} onChange={(v) => onStyle({ font: v as ElementStyle["font"] })} label={isGroup ? "Police de tout le groupe" : "Police"} originFont={computed?.font ?? null} />
+          </Field>
+          <TextStyleBar
+            bold={bold}
+            italic={italic}
+            align={align}
+            onBold={() => onStyle({ weight: bold ? "normal" : "bold" })}
+            onItalic={() => onStyle({ style: italic ? "normal" : "italic" })}
+            onAlign={(a) => onStyle({ align: a })}
+          />
+          <NumberSlider label="Taille du texte" value={Math.round(st.zoom * 100)} min={30} max={400} unit="%" onChange={(v) => onStyle({ zoom: v / 100 })} />
+        </>
       ) : null}
       <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="sr-only">Apparence</legend>
@@ -1244,16 +1561,47 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
           <NumberSlider label="Décalage horizontal" value={st.dx} min={-100} max={100} step={0.5} unit="%" onChange={(v) => onStyle({ dx: v })} />
           <NumberSlider label="Décalage vertical" value={st.dy} min={-300} max={300} step={0.5} unit="%" onChange={(v) => onStyle({ dy: v })} />
         </div>
-        <NumberSlider label="Taille" value={Math.round(st.scale * 100)} min={30} max={300} unit="%" onChange={(v) => onStyle({ scale: v / 100 })} />
+        <NumberSlider label={isText ? "Échelle (sans décaler le reste)" : "Taille"} value={Math.round(st.scale * 100)} min={30} max={300} unit="%" onChange={(v) => onStyle({ scale: v / 100 })} />
         <NumberSlider label="Rotation" value={st.rotation} min={-180} max={180} unit="°" onChange={(v) => onStyle({ rotation: v })} />
         <NumberSlider label="Opacité" value={Math.round(st.opacity * 100)} min={0} max={100} unit="%" onChange={(v) => onStyle({ opacity: v / 100 })} />
         <Field label="Couleur">
           <span className="flex items-center gap-2">
             <input type="checkbox" checked={!!st.color} onChange={(e) => onStyle({ color: e.target.checked ? c.theme.colors.accent : "" })} className="h-4 w-4 accent-forest" aria-label="Imposer une couleur" />
-            {st.color ? <input type="color" value={st.color} onChange={(e) => onStyle({ color: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur de l'élément" /> : <span className="text-xs text-stone">couleurs du thème</span>}
+            {st.color ? <ColorInput value={st.color} onChange={(e) => onStyle({ color: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur de l'élément" /> : <span className="text-xs text-stone">couleurs du thème</span>}
           </span>
         </Field>
       </fieldset>
+      <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
+        <legend className="mb-1 font-serif text-lg">Animation</legend>
+        <Field label="Apparition">
+          <select aria-label="Apparition" className={inputCls} value={st.enter.type} onChange={(e) => onStyle({ enter: { ...st.enter, type: e.target.value as ElementStyle["enter"]["type"] } })}>
+            {ENTER_ANIMATIONS.map((a) => <option key={a} value={a}>{a === "none" ? "Comme la section" : ENTER_ANIMATION_LABELS[a]}</option>)}
+          </select>
+        </Field>
+        {st.enter.type !== "none" ? (
+          <>
+            <NumberSlider label="Délai" value={st.enter.delay / 1000} min={0} max={6} step={0.1} unit="s" onChange={(v) => onStyle({ enter: { ...st.enter, delay: Math.round(v * 1000) } })} />
+            <NumberSlider label="Durée" value={st.enter.duration / 1000} min={0.2} max={6} step={0.1} unit="s" onChange={(v) => onStyle({ enter: { ...st.enter, duration: Math.round(v * 1000) } })} />
+          </>
+        ) : null}
+        <Field label="Mouvement continu">
+          <select aria-label="Mouvement continu" className={inputCls} value={st.loop} onChange={(e) => onStyle({ loop: e.target.value as ElementStyle["loop"] })}>
+            {LOOP_ANIMATIONS.map((a) => <option key={a} value={a}>{LOOP_ANIMATION_LABELS[a]}</option>)}
+          </select>
+        </Field>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onReplay}>▶ Voir l&apos;animation</button>
+      </fieldset>
+      {isText ? (
+        <div className="space-y-2 border-t border-line pt-3">
+          <p className="text-xs text-stone">Besoin d&apos;une copie libre de ce texte (à placer n&apos;importe où, à grouper, à aligner) ?</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onDuplicate(false)}>Dupliquer</button>
+            {def.hideable !== false ? (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => onDuplicate(true)}>Transformer en texte libre</button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2 border-t border-line pt-3">
         {def.hideable !== false ? (
           st.hidden ? (
@@ -1279,7 +1627,7 @@ function EnvelopePanel({ content: c, onEnvelope, onMusic, onColors, onReplay }: 
   const env = c.envelope;
   const color = (key: keyof InvitationContent["theme"]["colors"], label: string) => (
     <label className="flex items-center gap-2 text-xs">
-      <input type="color" value={c.theme.colors[key]} onChange={(e) => onColors({ [key]: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label={label} />
+      <ColorInput value={c.theme.colors[key]} onChange={(e) => onColors({ [key]: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label={label} />
       {label}
     </label>
   );
@@ -1360,7 +1708,7 @@ function ShapeControls({ layer: l, onChange }: { layer: InvitationLayer; onChang
         {l.strokeWidth > 0 ? (
           <>
             <span className="flex items-center gap-2 text-xs">
-              <input type="color" value={l.stroke || "#586c60"} onChange={(e) => onChange({ stroke: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur du contour" />
+              <ColorInput value={l.stroke || "#586c60"} onChange={(e) => onChange({ stroke: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur du contour" />
               {l.stroke ? <button type="button" className="underline" onClick={() => onChange({ stroke: "" })}>couleur du thème</button> : "couleur du thème"}
             </span>
             <select aria-label="Style du trait" className={inputCls} value={l.dash} onChange={(e) => onChange({ dash: e.target.value as InvitationLayer["dash"] })}>
@@ -1376,7 +1724,7 @@ function ShapeControls({ layer: l, onChange }: { layer: InvitationLayer; onChang
           <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Remplissage</legend>
           <span className="flex items-center gap-2 text-xs">
             <input type="checkbox" checked={!!l.fill} onChange={(e) => onChange({ fill: e.target.checked ? "#e3e8df" : "" })} className="h-4 w-4 accent-forest" aria-label="Remplir la forme" />
-            {l.fill ? <input type="color" value={l.fill} onChange={(e) => onChange({ fill: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur de remplissage" /> : "transparent"}
+            {l.fill ? <ColorInput value={l.fill} onChange={(e) => onChange({ fill: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur de remplissage" /> : "transparent"}
           </span>
           {l.fill ? <NumberSlider label="Opacité du remplissage" value={Math.round(l.fillOpacity * 100)} min={0} max={100} unit="%" onChange={(v) => onChange({ fillOpacity: v / 100 })} /> : null}
         </fieldset>

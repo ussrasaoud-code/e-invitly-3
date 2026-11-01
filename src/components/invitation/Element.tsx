@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useContext, type CSSProperties, type ElementType, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ElementType, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { FONTS } from "@/lib/fonts";
 import type { ElementStyle } from "@/lib/invitation/schema";
-import { LayerEditorContext, SectionContext, type LayerEditor } from "./editor-context";
+import { AnimationContext, LayerEditorContext, SectionContext, type LayerEditor } from "./editor-context";
 export { elKey } from "@/lib/invitation/elements";
 
 /** Élément parent le plus proche (pour les groupes : prénoms, listes…) */
@@ -24,7 +24,29 @@ export function El({ id, children, className = "", style, as: Tag = "div" }: { i
   const section = useContext(SectionContext);
   const editor = useContext(LayerEditorContext);
   const parent = useContext(ParentElContext);
+  const animate = useContext(AnimationContext);
   const st = section?.elements?.[id];
+  const ref = useRef<HTMLElement>(null);
+  const entering = animate && !!st?.enter && st.enter.type !== "none" && !st.hidden;
+  const [play, setPlay] = useState(false);
+  useEffect(() => {
+    if (!entering) return;
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setPlay(true);
+      return;
+    }
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) {
+        setPlay(true);
+        io.disconnect();
+      }
+    }, { threshold: 0.1 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [entering]);
+
   // Élément retiré : absent de l'invitation comme de l'éditeur (il se remet depuis la liste de gauche)
   if (st?.hidden) return null;
 
@@ -34,22 +56,33 @@ export function El({ id, children, className = "", style, as: Tag = "div" }: { i
 
   const css: CSSProperties = { ...style };
   if (st) {
-    const t: string[] = [];
-    if (st.dx || st.dy) t.push(`translate(${st.dx}cqw, ${st.dy}cqw)`);
-    if (st.rotation) t.push(`rotate(${st.rotation}deg)`);
-    if (st.scale !== 1) t.push(`scale(${st.scale})`);
-    if (t.length) css.transform = [style?.transform, ...t].filter(Boolean).join(" ");
+    // Propriétés individuelles (translate / rotate / scale) : elles se combinent
+    // avec les animations, qui agissent sur « transform »
+    if (st.dx || st.dy) css.translate = `${st.dx}cqw ${st.dy}cqw`;
+    if (st.rotation) css.rotate = `${st.rotation}deg`;
+    if (st.scale !== 1) css.scale = String(st.scale);
+    if (st.zoom && st.zoom !== 1) css.zoom = st.zoom;
     if (st.opacity !== 1) css.opacity = st.opacity;
     if (st.color) Object.assign(css, { "--inv-ink": st.color, "--inv-accent": st.color, "--inv-muted": st.color, "--inv-soft": st.color });
     if (st.font) {
       const stack = FONTS[st.font].stack;
       Object.assign(css, { "--inv-display": stack, "--inv-script": stack, "--inv-body": stack, fontFamily: stack });
     }
+    if (entering) {
+      if (play) css.animation = `inv-in-${st.enter.type} ${st.enter.duration}ms cubic-bezier(.22,.61,.36,1) ${st.enter.delay}ms both`;
+      else css.opacity = 0;
+    } else if (animate && st.loop && st.loop !== "none") {
+      css.animation = `inv-loop-${st.loop} ${st.loop === "sway" ? 6 : st.loop === "float" ? 7 : 5}s ease-in-out infinite alternate`;
+    }
   }
 
   return (
     <Tag
+      ref={ref}
       data-el={id}
+      data-weight={st?.weight || undefined}
+      data-fstyle={st?.style || undefined}
+      data-align={st?.align || undefined}
       className={`inv-el ${interactive ? "inv-el-active" : ""} ${className} ${selected ? "inv-el-selected" : ""} ${editor && st?.ungrouped ? "inv-el-ungrouped" : ""}`}
       style={css}
       onPointerDown={interactive ? (e: ReactPointerEvent<HTMLElement>) => startElementMove(e, section!.id, id, st, editor!) : undefined}

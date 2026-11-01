@@ -28,3 +28,6 @@ export const LayerEditorContext = createContext<LayerEditor | null>(null);
 
 /** Section en cours de rendu (pour les éléments intégrés du modèle) */
 export const SectionContext = createContext<Pick<InvitationSection, "id" | "elements"> | null>(null);
+
+/** false quand le thème (ou l'éditeur) désactive les animations */
+export const AnimationContext = createContext(true);

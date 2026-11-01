@@ -19,14 +19,14 @@ au DNS ou au déploiement.
 | 3b — Médias | Import multiple (glisser-déposer), collections, filtres, recherche, fiche et mots-clés, choix depuis l'éditeur et les modèles, SVG contrôlés, suppression bloquée si le fichier est utilisé | ✅ fait et testé |
 | 4 — Publication | Page publique `/[adresse]`, aperçu privé (7 jours), publier / dépublier, historique, redirections, code d'accès, noindex | ✅ fait et testé |
 | 5 — RSVP | Formulaire réel dans l'invitation, réglages par invitation, questions personnalisées, invités nominatifs avec codes, statistiques par moment, corrections tracées, exports Excel/CSV, espace couple, notifications | ✅ fait et testé |
-| 6 — Éditeur visuel | Éditeur 3 colonnes (invitations et modèles) : éléments du modèle sélectionnables (titres, prénoms, ornements : modifier, déplacer, recolorer, retirer), calques d'illustrations et de textes libres déplaçables, redimensionnables, pivotables, opacité, miroir, devant/derrière, teinte, verrouillage, copier-coller ; animations par élément ; sections texte libre et bande décorative, dupliquer / supprimer ; historique du brouillon avec restauration ; modèle vierge « page blanche » ; 12 polices au choix par texte ; sections agrandies à la souris ; éléments dégroupables (prénoms, listes) et calques groupables ; formes (cadres, arches, cercles, lignes…) avec 16 formats prêts à l'emploi | ✅ fait et testé |
+| 6 — Éditeur visuel | Éditeur 3 colonnes (invitations et modèles) : éléments du modèle sélectionnables (titres, prénoms, ornements : modifier, déplacer, recolorer, retirer), calques d'illustrations et de textes libres déplaçables, redimensionnables, pivotables, opacité, miroir, devant/derrière, teinte, verrouillage, copier-coller ; animations par élément ; sections texte libre et bande décorative, dupliquer / supprimer ; historique du brouillon avec restauration ; modèle vierge « page blanche » ; 12 polices au choix par texte ; sections agrandies à la souris ; éléments dégroupables (prénoms, listes) et calques groupables ; formes (cadres, arches, cercles, lignes…) avec 18 formats prêts à l'emploi | ✅ fait et testé |
 | 7 — Finalisation | Anglais/arabe du site, audit accessibilité, mise en ligne | ⏳ |
 
 Les fonctions pas encore disponibles sont signalées comme telles dans l'administration : aucun bouton
 factice.
 
 **Tests réalisés** : 26 tests de sécurité de la base, 38 tests unitaires (adresses, fuseaux horaires,
-conversion demande → invitation, règles RSVP, médias, calques, formes), 59 vérifications de bout en bout dans un vrai
+conversion demande → invitation, règles RSVP, médias, calques, formes, alignement), 61 vérifications de bout en bout dans un vrai
 navigateur (demande, connexion, conversion, éditeur, aperçu, publication, code d'accès, réponses RSVP,
 codes invités, corrections, exports, espace couple, médias, éditeur visuel, historique, accès refusés).
 

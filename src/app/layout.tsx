@@ -13,6 +13,21 @@ import "@fontsource/montserrat/latin-400.css";
 import "@fontsource/great-vibes/latin-400.css";
 import "@fontsource/pinyon-script/latin-400.css";
 import "@fontsource/parisienne/latin-400.css";
+// Gras et italique (les polices calligraphiques n'en ont pas : le navigateur les simule)
+import "@fontsource-variable/jost/wght-italic.css";
+import "@fontsource/dancing-script/latin-700.css";
+import "@fontsource/cormorant-garamond/latin-700.css";
+import "@fontsource/cormorant-garamond/latin-700-italic.css";
+import "@fontsource/playfair-display/latin-700.css";
+import "@fontsource/playfair-display/latin-700-italic.css";
+import "@fontsource/montserrat/latin-700.css";
+import "@fontsource/montserrat/latin-400-italic.css";
+import "@fontsource/montserrat/latin-700-italic.css";
+import "@fontsource/lora/latin-700.css";
+import "@fontsource/lora/latin-400-italic.css";
+import "@fontsource/lora/latin-700-italic.css";
+import "@fontsource/amiri/400.css";
+import "@fontsource/amiri/700.css";
 import "./globals.css";
 import { env } from "@/lib/env";
 
