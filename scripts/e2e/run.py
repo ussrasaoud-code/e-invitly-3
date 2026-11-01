@@ -973,13 +973,32 @@ with sync_playwright() as p:
     a.screenshot(path=SHOTS / "36-alignement.png")
     a.get_by_role("button", name="Enregistrer une nouvelle version").click()
     expect(a.get_by_text("Nouvelle version du modèle enregistrée.")).to_be_visible(timeout=10000)
-    bt = api("GET", f"/rest/v1/templates?name=eq.{urllib.parse.quote(blank_name)}&select=status,current_version_id")[0]
+    bt = api("GET", f"/rest/v1/templates?name=eq.{urllib.parse.quote(blank_name)}&select=id,status,current_version_id")[0]
+    bt_id = bt["id"]
     assert bt["status"] == "draft"
     bv = api("GET", f"/rest/v1/template_versions?id=eq.{bt['current_version_id']}&select=renderer,definition")[0]
     assert bv["renderer"] == "blank" and [x["type"] for x in bv["definition"]["sample"]["sections"]] == ["hero", "text"], bv["definition"]["sample"]["sections"]
     shp = [l for l in bv["definition"]["sample"]["sections"][0]["layers"] if l["kind"] == "shape"][0]
     assert shp["shape"] == "double" and shp["strokeWidth"] == 3 and shp["fill"] and shp["stroke"] == "#aa3355" and shp["fillOpacity"] == 0.4 and shp["ratio"] > 1.3, shp
     a.screenshot(path=SHOTS / "32-modele-vierge.png")
+    # Publier et mettre en avant depuis la fiche du modèle
+    a.goto(f"{BASE}/admin/modeles/{bt_id}")
+    expect(a.get_by_text("n'est pas visible sur le site")).to_be_visible()
+    a.get_by_role("button", name="☆ Mettre en avant").click()
+    expect(a.get_by_role("button", name="★ Mis en avant")).to_be_visible(timeout=10000)
+    a.get_by_role("button", name="Publier dans le catalogue").click()
+    expect(a.get_by_role("button", name="Retirer du catalogue")).to_be_visible(timeout=10000)
+    page.goto(f"{BASE}/invitations")
+    first = page.locator("article").first
+    expect(first.get_by_role("heading", name=blank_name)).to_be_visible()
+    expect(first.get_by_text("Coup de cœur")).to_be_visible()
+    page.goto(f"{BASE}/")
+    expect(page.locator("article").first.get_by_role("heading", name=blank_name)).to_be_visible()
+    a.get_by_role("button", name="★ Mis en avant").click()
+    expect(a.get_by_role("button", name="☆ Mettre en avant")).to_be_visible(timeout=10000)
+    a.get_by_role("button", name="Retirer du catalogue").click()
+    expect(a.get_by_role("button", name="Publier dans le catalogue")).to_be_visible(timeout=10000)
+    ok("catalogue : modèle publié et mis en avant depuis sa fiche → en tête du site avec « Coup de cœur »")
     ok("modèle vierge : créé depuis l'éditeur, sans ornement, composé puis enregistré (hors catalogue)")
     ok("formes : format prêt à l'emploi, épaisseur, couleurs, remplissage, opacité et hauteur à la souris")
     ok("alignement : tout sélectionner, aligner à gauche sur la section, répartir, centrer entre eux")

@@ -17,7 +17,10 @@ const uuid = z.string().uuid();
 
 function refreshCatalog(id?: string) {
   revalidatePath("/admin/modeles");
-  if (id) revalidatePath(`/admin/modeles/${id}`);
+  if (id) {
+    revalidatePath(`/admin/modeles/${id}`);
+    revalidatePath(`/admin/modeles/${id}/editeur`);
+  }
   revalidatePath("/");
   revalidatePath("/invitations");
 }
@@ -43,7 +46,14 @@ export async function toggleFeatured(form: FormData) {
   const id = uuid.parse(form.get("id"));
   const supabase = (await createClient())!;
   const { data } = await supabase.from("templates").select("is_featured").eq("id", id).single();
-  await supabase.from("templates").update({ is_featured: !data?.is_featured }).eq("id", id);
+  const featured = !data?.is_featured;
+  const patch: { is_featured: boolean; sort_order?: number } = { is_featured: featured };
+  if (featured) {
+    // Mis en avant : passe en tête du catalogue (devant les autres modèles mis en avant)
+    const { data: first } = await supabase.from("templates").select("sort_order").neq("id", id).order("sort_order").limit(1).maybeSingle();
+    patch.sort_order = (first?.sort_order ?? 10) - 10;
+  }
+  await supabase.from("templates").update(patch).eq("id", id);
   refreshCatalog(id);
 }
 

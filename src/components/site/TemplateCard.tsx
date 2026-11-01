@@ -21,6 +21,9 @@ export function TemplateCard({ template, priority = false }: { template: Catalog
             {template.name.toUpperCase()}
           </div>
         )}
+        {template.is_featured ? (
+          <span className="absolute left-3 top-3 bg-ivory/95 px-2.5 py-1 text-[0.65rem] uppercase tracking-[0.2em] text-forest">Coup de cœur</span>
+        ) : null}
       </Link>
       <div className="flex flex-1 flex-col pt-5">
         <p className="eyebrow">{template.styles.map(styleLabel).join(" · ")}</p>

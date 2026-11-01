@@ -11,7 +11,7 @@ import { templateDefinitionSchema } from "@/lib/invitation/schema";
 import { TEMPLATE_STATUS } from "@/lib/status";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/time";
-import { duplicateTemplate, publishTemplateDraft, restoreTemplateVersion, saveTemplateDraft, setTemplateStatus, updateTemplateMeta } from "../actions";
+import { duplicateTemplate, publishTemplateDraft, restoreTemplateVersion, saveTemplateDraft, setTemplateStatus, toggleFeatured, updateTemplateMeta } from "../actions";
 
 export const metadata = { title: "Modèle" };
 
@@ -51,6 +51,21 @@ export default async function TemplatePage({ params, searchParams }: Props) {
           <>
             <StatusBadge {...st} />
             {t.status === "published" ? <Link href={`/demo/${t.slug}`} target="_blank" className="btn btn-ghost btn-sm">Voir la démo ↗</Link> : null}
+            {t.status !== "archived" ? (
+              <>
+                <form action={setTemplateStatus}>
+                  <input type="hidden" name="id" value={t.id} />
+                  <input type="hidden" name="status" value={t.status === "published" ? "draft" : "published"} />
+                  <SubmitButton className={`btn btn-sm ${t.status === "published" ? "btn-ghost" : "btn-primary"}`} pendingLabel="…">
+                    {t.status === "published" ? "Retirer du catalogue" : "Publier dans le catalogue"}
+                  </SubmitButton>
+                </form>
+                <form action={toggleFeatured}>
+                  <input type="hidden" name="id" value={t.id} />
+                  <SubmitButton className="btn btn-ghost btn-sm" pendingLabel="…">{t.is_featured ? "★ Mis en avant" : "☆ Mettre en avant"}</SubmitButton>
+                </form>
+              </>
+            ) : null}
             <form action={duplicateTemplate}>
               <input type="hidden" name="id" value={t.id} />
               <SubmitButton className="btn btn-secondary btn-sm" pendingLabel="Duplication…">Dupliquer</SubmitButton>
@@ -63,6 +78,16 @@ export default async function TemplatePage({ params, searchParams }: Props) {
           </>
         }
       />
+      {t.status !== "published" ? (
+        <p className="mb-4 max-w-3xl border border-warning/40 bg-[#fbf3e2] px-4 py-2 text-sm">
+          Ce modèle n&apos;est pas visible sur le site. Cliquez sur « Publier dans le catalogue » pour l&apos;afficher
+          {t.is_featured ? " (il est déjà marqué « mis en avant » : il apparaîtra en premier)" : ""}.
+        </p>
+      ) : !t.cover_image ? (
+        <p className="mb-4 max-w-3xl border border-line bg-white px-4 py-2 text-sm text-stone">
+          Conseil : ajoutez une image de couverture (onglet « Fiche catalogue ») pour que la carte du catalogue montre un aperçu.
+        </p>
+      ) : null}
       <nav aria-label="Onglets" className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
         {tabs.map((tab) => (
           <Link key={tab.value} href={`/admin/modeles/${t.id}?onglet=${tab.value}`} aria-current={onglet === tab.value ? "page" : undefined} className={`whitespace-nowrap border-b-2 px-4 py-2.5 text-sm ${onglet === tab.value ? "border-forest text-forest" : "border-transparent text-stone hover:text-charcoal"}`}>

@@ -31,6 +31,8 @@ export async function listPublishedTemplates(): Promise<QueryResult<CatalogTempl
     .from("templates")
     .select(CATALOG_COLUMNS)
     .eq("status", "published")
+    // Modèles mis en avant en premier, puis l'ordre choisi dans l'administration
+    .order("is_featured", { ascending: false })
     .order("sort_order")
     .order("name");
   if (error) console.error("[templates]", error.message);

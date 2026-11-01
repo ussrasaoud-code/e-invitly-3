@@ -192,6 +192,7 @@ export function VisualEditor({
   backHref,
   backLabel,
   formHref,
+  headerExtra,
   history,
   publish,
   backupKey,
@@ -209,6 +210,8 @@ export function VisualEditor({
   title: string;
   backHref: string;
   backLabel: string;
+  /** Contenu ajouté dans la barre du haut (ex. statut catalogue d'un modèle) */
+  headerExtra?: ReactNode;
   /** Lien vers le formulaire classique (textes, dates, lieux) */
   formHref: string;
   /** Historique des brouillons (invitations seulement) */
@@ -645,6 +648,7 @@ export function VisualEditor({
           <span aria-hidden="true" className={`mr-1.5 inline-block h-2 w-2 rounded-full ${ed.save.kind === "saved" ? "bg-success" : ed.save.kind === "error" ? "bg-danger" : "bg-warning"}`} />
           {statusText}
         </p>
+        {headerExtra}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {!autosave ? (
             <button type="button" className="btn btn-primary btn-sm" onClick={ed.runSave} disabled={ed.save.kind !== "dirty" && ed.save.kind !== "error"}>
