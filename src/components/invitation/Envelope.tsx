@@ -62,7 +62,9 @@ export function Envelope({ envelope, colors, labels, scope, onOpened }: Props) {
 
   if (envelope.mode === "video" && envelope.videoUrl) {
     return (
-      <div className={`${pos} inset-0 z-40 flex items-center justify-center bg-black`}>
+      // Format téléphone sur grand écran aussi : colonne de la largeur de l'invitation, centrée
+      <div className={`${pos} inset-0 z-40 flex justify-center`} style={{ background: colors.background }}>
+        <div className="relative h-full w-full max-w-[480px] overflow-hidden bg-black shadow-[0_0_60px_-20px_rgb(0_0_0/0.35)]">
         <video
           ref={videoRef}
           className="h-full w-full object-cover"
@@ -85,6 +87,7 @@ export function Envelope({ envelope, colors, labels, scope, onOpened }: Props) {
               {labels.skip}
             </button>
           )}
+        </div>
         </div>
       </div>
     );
