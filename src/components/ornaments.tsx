@@ -5,7 +5,7 @@
  */
 import type { CSSProperties } from "react";
 
-export const LEAF = "M0 0 C 7 -9, 21 -11, 30 0 C 21 11, 7 9, 0 0 Z";
+const LEAF = "M0 0 C 7 -9, 21 -11, 30 0 C 21 11, 7 9, 0 0 Z";
 
 type OrnamentProps = {
   className?: string;

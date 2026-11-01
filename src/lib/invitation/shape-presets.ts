@@ -18,8 +18,6 @@ export function shapePresets(c: Colors): ShapePreset[] {
     { id: "bandeau", label: "Bandeau", patch: { shape: "rect", width: 100, ratio: 0.16, strokeWidth: 0, fill: c.accentSoft, fillOpacity: 0.45 } },
     { id: "etiquette", label: "Étiquette", patch: { shape: "rounded", width: 60, ratio: 0.28, radius: 50, strokeWidth: 1 } },
     { id: "ligne", label: "Ligne fine", patch: { shape: "line", width: 40, ratio: 0.04, strokeWidth: 1 } },
-    { id: "separateur-feuillage", label: "Séparateur feuillage", patch: { shape: "leafdivider", width: 70, ratio: 0.1, strokeWidth: 1, stroke: c.accentSoft } },
-    { id: "separateur-losange", label: "Séparateur losange", patch: { shape: "diamonddivider", width: 60, ratio: 0.1, strokeWidth: 1 } },
     { id: "pointilles", label: "Ligne pointillée", patch: { shape: "line", width: 44, ratio: 0.04, strokeWidth: 2, dash: "dotted" } },
     { id: "losange", label: "Losange", patch: { shape: "diamond", width: 10, ratio: 1, strokeWidth: 0, fill: c.accent } },
     { id: "coeur", label: "Cœur", patch: { shape: "heart", width: 16, ratio: 0.92, strokeWidth: 0, fill: c.accent, fillOpacity: 0.85 } },

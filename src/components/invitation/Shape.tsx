@@ -1,4 +1,3 @@
-import { LEAF } from "@/components/ornaments";
 import type { InvitationLayer } from "@/lib/invitation/schema";
 
 type ShapeProps = Pick<InvitationLayer, "shape" | "ratio" | "radius" | "fill" | "fillOpacity" | "stroke" | "strokeWidth" | "dash">;
@@ -60,32 +59,6 @@ export function ShapeSvg({ shape, ratio, radius, fill, fillOpacity, stroke, stro
           d={`M50 ${92 * k} C ${20 * 1} ${70 * k} 0 ${50 * k} 0 ${30 * k} C 0 ${12 * k} 14 0 28 0 C 40 0 47 ${8 * k} 50 ${16 * k} C 53 ${8 * k} 60 0 72 0 C 86 0 100 ${12 * k} 100 ${30 * k} C 100 ${50 * k} 80 ${70 * k} 50 ${92 * k} Z`}
           {...common}
         />
-      );
-      break;
-    }
-    case "leafdivider":
-    case "diamonddivider": {
-      // Deux traits et un motif central, dessinés dans un cadre 240 × 24 centré
-      const line = { stroke: common.stroke, strokeWidth: sw, vectorEffect: common.vectorEffect, strokeDasharray: common.strokeDasharray, strokeLinecap: common.strokeLinecap };
-      const motif = { fill: fill || "none", fillOpacity, stroke: common.stroke, strokeWidth: sw, vectorEffect: common.vectorEffect };
-      body = (
-        <svg x="0" y="0" width="100" height={H} viewBox="0 0 240 24" preserveAspectRatio="xMidYMid meet" overflow="visible">
-          <path d="M8 12 H 100" {...line} fill="none" />
-          <path d="M140 12 H 232" {...line} fill="none" />
-          {shape === "leafdivider" ? (
-            <>
-              <path d={LEAF} transform="translate(120 12) rotate(-150) scale(0.55)" {...motif} />
-              <path d={LEAF} transform="translate(120 12) rotate(-30) scale(0.55)" {...motif} />
-              <circle cx="120" cy="12" r="1.6" fill={stroke || "var(--inv-accent)"} />
-            </>
-          ) : (
-            <>
-              <polygon points="120,5 127,12 120,19 113,12" {...motif} />
-              <circle cx="106" cy="12" r="1.3" fill={stroke || "var(--inv-accent)"} />
-              <circle cx="134" cy="12" r="1.3" fill={stroke || "var(--inv-accent)"} />
-            </>
-          )}
-        </svg>
       );
       break;
     }

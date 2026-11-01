@@ -125,7 +125,7 @@ export const ENTER_ANIMATION_LABELS: Record<EnterAnimation, string> = {
   "slide-right": "Glissement depuis la droite",
   draw: "Éclosion (fleurs)",
 };
-export const SHAPE_TYPES = ["rect", "rounded", "circle", "arch", "double", "line", "diamond", "heart", "leafdivider", "diamonddivider"] as const;
+export const SHAPE_TYPES = ["rect", "rounded", "circle", "arch", "double", "line", "diamond", "heart"] as const;
 export type ShapeType = (typeof SHAPE_TYPES)[number];
 export const SHAPE_LABELS: Record<ShapeType, string> = {
   rect: "Rectangle / cadre",
@@ -136,8 +136,6 @@ export const SHAPE_LABELS: Record<ShapeType, string> = {
   line: "Ligne",
   diamond: "Losange",
   heart: "Cœur",
-  leafdivider: "Séparateur feuillage",
-  diamonddivider: "Séparateur losange",
 };
 export const LOOP_ANIMATIONS = ["none", "sway", "float", "breathe"] as const;
 export type LoopAnimation = (typeof LOOP_ANIMATIONS)[number];
