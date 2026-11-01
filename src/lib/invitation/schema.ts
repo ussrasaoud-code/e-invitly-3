@@ -125,6 +125,18 @@ export const ENTER_ANIMATION_LABELS: Record<EnterAnimation, string> = {
   "slide-right": "Glissement depuis la droite",
   draw: "Éclosion (fleurs)",
 };
+export const SHAPE_TYPES = ["rect", "rounded", "circle", "arch", "double", "line", "diamond", "heart"] as const;
+export type ShapeType = (typeof SHAPE_TYPES)[number];
+export const SHAPE_LABELS: Record<ShapeType, string> = {
+  rect: "Rectangle / cadre",
+  rounded: "Rectangle arrondi",
+  circle: "Cercle / ovale",
+  arch: "Arche",
+  double: "Double cadre",
+  line: "Ligne",
+  diamond: "Losange",
+  heart: "Cœur",
+};
 export const LOOP_ANIMATIONS = ["none", "sway", "float", "breathe"] as const;
 export type LoopAnimation = (typeof LOOP_ANIMATIONS)[number];
 export const LOOP_ANIMATION_LABELS: Record<LoopAnimation, string> = {
@@ -138,7 +150,7 @@ const num = (min: number, max: number, def: number) => z.number().finite().min(m
 
 export const layerSchema = z.object({
   id: z.string().min(1).max(40),
-  kind: z.enum(["image", "text"]),
+  kind: z.enum(["image", "text", "shape"]),
   name: optionalText(60),
   /** Image : adresse du fichier (bibliothèque de médias) */
   src: cssUrl,
@@ -171,6 +183,19 @@ export const layerSchema = z.object({
   loop: z.enum(LOOP_ANIMATIONS).default("none"),
   /** Calques groupés : même identifiant de groupe, déplacés ensemble */
   group: z.string().max(40).default(""),
+  /* ── Formes (cadres, rectangles, cercles…) ── */
+  shape: z.enum(SHAPE_TYPES).default("rect"),
+  /** Hauteur de la forme = largeur × ratio */
+  ratio: num(0.01, 4, 1),
+  /** Arrondi des angles (rectangle arrondi), en % du petit côté */
+  radius: num(0, 50, 10),
+  /** Remplissage (vide = aucun) */
+  fill: hexColor.or(z.literal("")).default(""),
+  fillOpacity: num(0, 1, 1),
+  /** Contour (vide = couleur d'accent du thème) ; épaisseur en pixels, 0 = aucun */
+  stroke: hexColor.or(z.literal("")).default(""),
+  strokeWidth: num(0, 12, 1),
+  dash: z.enum(["solid", "dashed", "dotted"]).default("solid"),
 });
 export type InvitationLayer = z.infer<typeof layerSchema>;
 
@@ -255,6 +280,14 @@ export function newLayer(kind: InvitationLayer["kind"], patch: Partial<Invitatio
     enter: { type: "fade", delay: 0, duration: 1400 },
     loop: "none",
     group: "",
+    shape: "rect",
+    ratio: 1,
+    radius: 10,
+    fill: "",
+    fillOpacity: 1,
+    stroke: "",
+    strokeWidth: 1,
+    dash: "solid",
     ...patch,
   };
 }

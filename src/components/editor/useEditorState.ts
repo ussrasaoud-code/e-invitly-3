@@ -33,6 +33,8 @@ export function useEditorState({
   const savedJson = useRef(JSON.stringify(initial));
   const savedAt = useRef(initialSavedAt);
   const latest = useRef(content);
+  /** Relance une sauvegarde quand le contenu a changé pendant un enregistrement */
+  const [resave, setResave] = useState(0);
 
   const commit = useCallback((next: InvitationContent) => {
     latest.current = next;
@@ -80,6 +82,12 @@ export function useEditorState({
       if (res.ok) {
         savedJson.current = JSON.stringify(snapshot);
         savedAt.current = res.savedAt;
+        // Modifié pendant l'enregistrement (ex. annuler juste après) : on réenregistre la dernière version
+        if (JSON.stringify(latest.current) !== savedJson.current) {
+          setSave({ kind: "dirty" });
+          setResave((n) => n + 1);
+          return;
+        }
       }
       setSave(res.ok ? { kind: "saved", at: res.savedAt } : { kind: "error", message: res.message, issues: res.issues });
     } catch {
@@ -111,7 +119,7 @@ export function useEditorState({
     if (!autosave) return;
     const t = window.setTimeout(runSave, 1500);
     return () => window.clearTimeout(t);
-  }, [content, autosave, runSave]);
+  }, [content, autosave, runSave, resave]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -123,3 +131,4 @@ export function useEditorState({
 
   return { content, update, undo, redo, canUndo: past.current.length > 0, canRedo: future.current.length > 0, save, runSave, reset };
 }
+

@@ -15,6 +15,8 @@ import {
   REPEATABLE_SECTIONS,
   SECTION_LABELS,
   SECTION_TYPES,
+  SHAPE_LABELS,
+  SHAPE_TYPES,
   cloneSection,
   layerSchema,
   newLayer,
@@ -29,6 +31,8 @@ import {
 import type { SaveResult } from "@/lib/save-result";
 import { elementsFor, flattenElements, type ElementDef } from "@/lib/invitation/elements";
 import { FONTS, FONT_GROUPS } from "@/lib/fonts";
+import { ShapeSvg } from "@/components/invitation/Shape";
+import { shapePresets } from "@/lib/invitation/shape-presets";
 import { HistoryDrawer, type HistoryApi } from "./HistoryDrawer";
 import { useEditorState } from "./useEditorState";
 
@@ -93,7 +97,7 @@ function NumberSlider({ label, value, min, max, step = 1, unit = "", onChange }:
 
 const sectionName = (s: InvitationSection) => (s.title && !["hero", "closing"].includes(s.type) ? s.title : SECTION_LABELS[s.type]);
 const layerName = (l: InvitationLayer) =>
-  l.name || (l.kind === "text" ? `« ${l.text.slice(0, 24) || "Texte"} »` : decodeURIComponent(l.src.split("/").pop() ?? "Image").replace(/^[0-9a-f]{8}-/, "").replace(/\.\w+$/, "") || "Image");
+  l.name || (l.kind === "shape" ? SHAPE_LABELS[l.shape] : l.kind === "text" ? `« ${l.text.slice(0, 24) || "Texte"} »` : decodeURIComponent(l.src.split("/").pop() ?? "Image").replace(/^[0-9a-f]{8}-/, "").replace(/\.\w+$/, "") || "Image");
 
 export function VisualEditor({
   initial,
@@ -136,6 +140,7 @@ export function VisualEditor({
   const [replay, setReplay] = useState(0);
   const [picker, setPicker] = useState<null | "add" | "replace">(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [shapeMenu, setShapeMenu] = useState(false);
   const [clipboard, setClipboard] = useState<InvitationLayer | null>(null);
   const [notice, setNotice] = useState("");
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -504,6 +509,7 @@ export function VisualEditor({
                       <div className="mt-2 flex flex-wrap gap-1">
                         <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => setPicker("add")}>+ Image</button>
                         <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => addLayer(newLayer("text", { y: 30 }))}>+ Texte</button>
+                        <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => setShapeMenu(true)}>+ Forme</button>
                         {clipboard ? <button type="button" className="btn btn-ghost btn-sm !px-2 !text-[0.65rem]" onClick={pasteLayer}>Coller</button> : null}
                       </div>
                       {elementsFor(s.type, renderer, c).length ? (
@@ -636,6 +642,7 @@ export function VisualEditor({
               onDelete={() => deleteSection(section)}
               onAddImage={() => setPicker("add")}
               onAddText={() => addLayer(newLayer("text", { y: 30 }))}
+              onAddShape={() => setShapeMenu(true)}
             />
           ) : (
             <div className="space-y-4 text-sm">
@@ -684,6 +691,44 @@ export function VisualEditor({
         <p role="status" className="fixed bottom-5 left-1/2 z-[60] -translate-x-1/2 rounded-sm bg-charcoal px-4 py-2 text-sm text-ivory shadow-lg">{notice}</p>
       ) : null}
 
+      {shapeMenu ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-charcoal/40 p-4" onClick={(e) => e.target === e.currentTarget && setShapeMenu(false)}>
+          <section role="dialog" aria-modal="true" aria-label="Ajouter une forme" className="max-h-[86vh] w-[min(760px,96vw)] overflow-y-auto rounded-sm bg-ivory p-5 shadow-2xl">
+            <header className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="font-serif text-2xl">Ajouter une forme</h2>
+                <p className="text-xs text-stone">Formats prêts à l&apos;emploi aux couleurs de l&apos;invitation : tout se règle ensuite (taille, couleurs, contour, opacité).</p>
+              </div>
+              <button type="button" onClick={() => setShapeMenu(false)} aria-label="Fermer" className="px-2 text-xl text-stone hover:text-charcoal">×</button>
+            </header>
+            <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+              {shapePresets(c.theme.colors).map((p) => {
+                const preview = newLayer("shape", p.patch);
+                return (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addLayer(newLayer("shape", { y: 50, placement: "behind", ...p.patch, name: p.label }));
+                        setShapeMenu(false);
+                      }}
+                      className="group flex w-full flex-col items-center gap-2 rounded-sm border border-line bg-white p-3 hover:border-forest"
+                      style={{ "--inv-accent": c.theme.colors.accent } as React.CSSProperties}
+                    >
+                      <span className="flex h-20 w-full items-center justify-center">
+                        <span style={{ width: `${Math.min(100, Math.max(18, preview.ratio > 1 ? 60 / preview.ratio : 70))}%` }}>
+                          <ShapeSvg {...preview} />
+                        </span>
+                      </span>
+                      <span className="text-xs group-hover:text-forest">{p.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        </div>
+      ) : null}
       <MediaPicker
         kinds={["image", "svg"]}
         open={picker !== null}
@@ -724,10 +769,12 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-2">
-        <h2 className="font-serif text-2xl">{l.kind === "text" ? "Texte libre" : "Illustration"}</h2>
+        <h2 className="font-serif text-2xl">{l.kind === "text" ? "Texte libre" : l.kind === "shape" ? "Forme" : "Illustration"}</h2>
         <span className="text-xs text-stone">{l.locked ? "verrouillé" : ""}</span>
       </div>
-      {l.kind === "image" ? (
+      {l.kind === "shape" ? (
+        <ShapeControls layer={l} onChange={onChange} />
+      ) : l.kind === "image" ? (
         <div className="flex items-center gap-3">
           {l.src ? <img src={l.src} alt="" className="checker h-16 w-16 rounded-sm border border-line object-contain" /> : null}
           <button type="button" className="btn btn-secondary btn-sm" onClick={onReplace}>Changer l&apos;image</button>
@@ -824,7 +871,8 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
 /* ── Panneau d'une section ────────────────────────────────────────── */
 const NOT_DUPLICABLE: InvitationSection["type"][] = ["hero", "rsvp", "countdown"];
 
-function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHref, canDelete, onChange, onDuplicate, onDelete, onAddImage, onAddText }: {
+function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHref, canDelete, onChange, onDuplicate, onDelete, onAddImage, onAddText, onAddShape }: {
+  onAddShape: () => void;
   section: InvitationSection;
   themeColors: InvitationContent["theme"]["colors"];
   onApplyBackgroundToAll: () => void;
@@ -932,6 +980,7 @@ function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHre
       <div className="flex flex-wrap gap-2 border-t border-line pt-3">
         <button type="button" className="btn btn-secondary btn-sm" onClick={onAddImage}>+ Illustration</button>
         <button type="button" className="btn btn-secondary btn-sm" onClick={onAddText}>+ Texte libre</button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onAddShape}>+ Forme</button>
       </div>
       <div className="flex flex-wrap gap-2 border-t border-line pt-3">
         {!NOT_DUPLICABLE.includes(s.type) ? <button type="button" className="btn btn-ghost btn-sm !px-2" onClick={onDuplicate}>Dupliquer la section</button> : null}
@@ -1290,6 +1339,48 @@ function EnvelopePanel({ content: c, onEnvelope, onMusic, onColors, onReplay }: 
         <button type="button" className="btn btn-secondary btn-sm" onClick={onReplay}>▶ Rejouer l&apos;ouverture</button>
       ) : null}
       <p className="text-xs text-stone">Dans le téléphone, touchez le cachet (ou laissez la vidéo se terminer) pour voir l&apos;enchaînement avec l&apos;invitation.</p>
+    </div>
+  );
+}
+
+/* ── Réglages d'une forme ─────────────────────────────────────────── */
+function ShapeControls({ layer: l, onChange }: { layer: InvitationLayer; onChange: (patch: Partial<InvitationLayer>) => void }) {
+  return (
+    <div className="space-y-3">
+      <Field label="Forme">
+        <select aria-label="Type de forme" className={inputCls} value={l.shape} onChange={(e) => onChange({ shape: e.target.value as InvitationLayer["shape"] })}>
+          {SHAPE_TYPES.map((t) => <option key={t} value={t}>{SHAPE_LABELS[t]}</option>)}
+        </select>
+      </Field>
+      <NumberSlider label="Hauteur (par rapport à la largeur)" value={Math.round(l.ratio * 100)} min={1} max={400} unit="%" onChange={(v) => onChange({ ratio: v / 100 })} />
+      {l.shape === "rounded" ? <NumberSlider label="Arrondi des angles" value={l.radius} min={0} max={50} unit="%" onChange={(v) => onChange({ radius: v })} /> : null}
+      <fieldset className="min-w-0 space-y-2 border-t border-line pt-3">
+        <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Contour</legend>
+        <NumberSlider label="Épaisseur du trait" value={l.strokeWidth} min={0} max={12} step={0.5} unit="px" onChange={(v) => onChange({ strokeWidth: v })} />
+        {l.strokeWidth > 0 ? (
+          <>
+            <span className="flex items-center gap-2 text-xs">
+              <input type="color" value={l.stroke || "#586c60"} onChange={(e) => onChange({ stroke: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur du contour" />
+              {l.stroke ? <button type="button" className="underline" onClick={() => onChange({ stroke: "" })}>couleur du thème</button> : "couleur du thème"}
+            </span>
+            <select aria-label="Style du trait" className={inputCls} value={l.dash} onChange={(e) => onChange({ dash: e.target.value as InvitationLayer["dash"] })}>
+              <option value="solid">Trait plein</option>
+              <option value="dashed">Tirets</option>
+              <option value="dotted">Pointillés</option>
+            </select>
+          </>
+        ) : null}
+      </fieldset>
+      {l.shape !== "line" ? (
+        <fieldset className="min-w-0 space-y-2 border-t border-line pt-3">
+          <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Remplissage</legend>
+          <span className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={!!l.fill} onChange={(e) => onChange({ fill: e.target.checked ? "#e3e8df" : "" })} className="h-4 w-4 accent-forest" aria-label="Remplir la forme" />
+            {l.fill ? <input type="color" value={l.fill} onChange={(e) => onChange({ fill: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur de remplissage" /> : "transparent"}
+          </span>
+          {l.fill ? <NumberSlider label="Opacité du remplissage" value={Math.round(l.fillOpacity * 100)} min={0} max={100} unit="%" onChange={(v) => onChange({ fillOpacity: v / 100 })} /> : null}
+        </fieldset>
+      ) : null}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { FONTS } from "@/lib/fonts";
 import type { InvitationLayer, InvitationSection } from "@/lib/invitation/schema";
 import { LayerEditorContext, SectionContext, type LayerEditor } from "./editor-context";
 import { AnimationContext, SectionAnimationContext } from "./Sections";
+import { ShapeSvg } from "./Shape";
 
 /**
  * Calques décoratifs posés sur une section : images de la bibliothèque
@@ -170,6 +171,8 @@ function LayerView({ layer: l, section, frame, play, animate }: {
         {l.text}
       </p>
     );
+  } else if (l.kind === "shape") {
+    body = <ShapeSvg {...l} />;
   } else if (!l.src) {
     body = editor ? <div className="flex aspect-square items-center justify-center border-2 border-dashed border-current text-[10px] opacity-60">image</div> : null;
   } else if (l.color) {
@@ -193,7 +196,7 @@ function LayerView({ layer: l, section, frame, play, animate }: {
       data-layer={l.id}
       className={`inv-layer absolute ${editor ? (l.locked ? "cursor-default" : "cursor-move") : "pointer-events-none"} ${selected ? "inv-layer-selected" : ""} ${l.placement === "behind" ? "inv-layer-behind" : ""}`}
       style={pos}
-      aria-hidden={l.kind === "image" ? true : undefined}
+      aria-hidden={l.kind !== "text" ? true : undefined}
       onPointerDown={editor ? (e) => startMove(e, l, section, frame, editor) : undefined}
     >
       <div style={{ ...enterStyle, opacity: enterStyle.opacity ?? undefined }}>
@@ -203,6 +206,9 @@ function LayerView({ layer: l, section, frame, play, animate }: {
         <>
           <span className="inv-handle inv-handle-resize" onPointerDown={(e) => startResize(e, l, sectionId, frame, editor)} aria-hidden="true" />
           <span className="inv-handle inv-handle-rotate" onPointerDown={(e) => startRotate(e, l, sectionId, editor)} aria-hidden="true" />
+          {l.kind === "shape" ? (
+            <span className="inv-handle inv-handle-height" title="Hauteur" onPointerDown={(e) => startHeight(e, l, sectionId, editor)} aria-hidden="true" />
+          ) : null}
         </>
       ) : null}
     </div>
@@ -292,5 +298,18 @@ function startRotate(e: ReactPointerEvent, l: InvitationLayer, sectionId: string
     if (deg > 180) deg -= 360;
     if (ev.shiftKey) deg = Math.round(deg / 15) * 15;
     editor.change(sectionId, l.id, { rotation: Math.round(deg) });
+  });
+}
+
+/** Poignée du bas d'une forme : change sa hauteur sans changer sa largeur */
+function startHeight(e: ReactPointerEvent, l: InvitationLayer, sectionId: string, editor: LayerEditor) {
+  const box = (e.currentTarget as HTMLElement).parentElement?.getBoundingClientRect();
+  if (!box) return;
+  const w = box.width / Math.max(Math.abs(Math.cos((l.rotation * Math.PI) / 180)), 0.2);
+  const h0 = w * l.ratio;
+  const sy = e.clientY;
+  drag(e, (ev) => {
+    const h = Math.max(2, h0 + (ev.clientY - sy));
+    editor.change(sectionId, l.id, { ratio: Math.round(Math.min(4, Math.max(0.01, h / w)) * 1000) / 1000 });
   });
 }

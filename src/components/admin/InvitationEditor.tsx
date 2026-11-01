@@ -119,6 +119,7 @@ export function InvitationEditor({
   /** Dernier contenu enregistré : on ne sauvegarde que si le contenu a réellement changé */
   const savedJson = useRef(JSON.stringify(initial));
   const savedAtRef = useRef(initialSavedAt);
+  const [resave, setResave] = useState(0);
   const latest = useRef(content);
   latest.current = content;
 
@@ -165,6 +166,11 @@ export function InvitationEditor({
       if (res.ok) {
         savedJson.current = JSON.stringify(snapshot);
         savedAtRef.current = res.savedAt;
+        if (JSON.stringify(latest.current) !== savedJson.current) {
+          setSave({ kind: "dirty" });
+          setResave((n) => n + 1);
+          return;
+        }
       }
       setSave(res.ok ? { kind: "saved", at: res.savedAt } : { kind: "error", message: res.message, issues: res.issues });
     } catch {
@@ -182,7 +188,7 @@ export function InvitationEditor({
     if (!autosave) return;
     const t = window.setTimeout(runSave, 1500);
     return () => window.clearTimeout(t);
-  }, [content, autosave, runSave]);
+  }, [content, autosave, runSave, resave]);
 
   // Avertit avant de quitter avec des modifications non enregistrées
   useEffect(() => {

@@ -57,3 +57,13 @@ describe("groupes et parties", () => {
     expect(sectionSchema.safeParse({ ...newSection("program"), elements: { "list.e-ceremonie.time": { font: "greatvibes" } } }).success).toBe(true);
   });
 });
+
+describe("formes", () => {
+  it("les formats prêts à l'emploi sont des calques valides", async () => {
+    const { shapePresets } = await import("./shape-presets");
+    const colors = invitationContentSchema.parse(PRESETS["the-garden"]).theme.colors;
+    for (const p of shapePresets(colors)) expect(layerSchema.safeParse(newLayer("shape", p.patch)).success, p.id).toBe(true);
+    expect(layerSchema.safeParse({ ...newLayer("shape"), strokeWidth: 50 }).success).toBe(false);
+    expect(layerSchema.safeParse({ ...newLayer("shape"), fill: "red" }).success).toBe(false);
+  });
+});

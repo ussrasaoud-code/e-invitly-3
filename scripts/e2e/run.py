@@ -608,7 +608,7 @@ with sync_playwright() as p:
     a.keyboard.press("Control+v")
     d = wait_draft(lambda d: any(l["text"] == "Save the date" for l in sec(d, "hero")[0]["layers"]), "copier-coller vers une autre section")
     n_hero = len(sec(d, "hero")[0]["layers"])
-    a.evaluate("window.__undoMarker = 1")
+
     expect(props.get_by_role("heading", name="Texte libre")).to_be_visible()
     a.wait_for_timeout(300)
     a.keyboard.press("Delete")
@@ -623,7 +623,7 @@ with sync_playwright() as p:
         d = wait_draft(lambda d: len(sec(d, "hero")[0]["layers"]) == n_hero, "annuler la suppression")
     except AssertionError:
         a.screenshot(path=SHOTS / "debug-undo.png")
-        print("focus:", a.evaluate("document.activeElement && document.activeElement.outerHTML.slice(0,200)"), len(sec(draft(), "hero")[0]["layers"]), n_hero, "marker:", a.evaluate("window.__undoMarker"))
+        print("focus:", a.evaluate("document.activeElement && document.activeElement.outerHTML.slice(0,200)"), len(sec(draft(), "hero")[0]["layers"]), n_hero, "")
         raise
     ok("éditeur visuel : texte libre, copier-coller entre sections, Suppr et Ctrl+Z")
 
@@ -850,14 +850,36 @@ with sync_playwright() as p:
     props.get_by_label("Titre affiché").fill("Notre histoire")
     left.get_by_role("button", name="+ Texte").click()
     props.get_by_label("Texte", exact=True).fill("Save the date")
+    left.get_by_role("button", name=re.compile(r"^Invitation principale")).click()
+    left.get_by_role("button", name="+ Forme").click()
+    shapes = a.get_by_role("dialog", name="Ajouter une forme")
+    expect(shapes.get_by_role("button", name="Double cadre")).to_be_visible()
+    a.screenshot(path=SHOTS / "34-formes.png")
+    shapes.get_by_role("button", name="Double cadre").click()
+    expect(props.get_by_role("heading", name="Forme")).to_be_visible()
+    props.get_by_label("Épaisseur du trait (valeur)").fill("3")
+    props.get_by_label("Remplir la forme").check()
+    props.get_by_label("Couleur du contour").fill("#aa3355")
+    props.get_by_label("Opacité du remplissage (valeur)").fill("40")
+    hh = a.locator('[data-section="hero"] .inv-handle-height')
+    hh.scroll_into_view_if_needed()
+    hbx = hh.bounding_box()
+    a.mouse.move(hbx["x"] + 7, hbx["y"] + 7)
+    a.mouse.down()
+    a.mouse.move(hbx["x"] + 7, hbx["y"] + 60, steps=5)
+    a.mouse.up()
+    a.screenshot(path=SHOTS / "35-forme-reglages.png")
     a.get_by_role("button", name="Enregistrer une nouvelle version").click()
     expect(a.get_by_role("status").filter(has_text="Version enregistrée")).to_be_visible(timeout=10000)
     bt = api("GET", f"/rest/v1/templates?name=eq.{urllib.parse.quote(blank_name)}&select=status,current_version_id")[0]
     assert bt["status"] == "draft"
     bv = api("GET", f"/rest/v1/template_versions?id=eq.{bt['current_version_id']}&select=renderer,definition")[0]
     assert bv["renderer"] == "blank" and [x["type"] for x in bv["definition"]["sample"]["sections"]] == ["hero", "text"], bv["definition"]["sample"]["sections"]
+    shp = [l for l in bv["definition"]["sample"]["sections"][0]["layers"] if l["kind"] == "shape"][0]
+    assert shp["shape"] == "double" and shp["strokeWidth"] == 3 and shp["fill"] and shp["stroke"] == "#aa3355" and shp["fillOpacity"] == 0.4 and shp["ratio"] > 1.3, shp
     a.screenshot(path=SHOTS / "32-modele-vierge.png")
     ok("modèle vierge : créé depuis l'éditeur, sans ornement, composé puis enregistré (hors catalogue)")
+    ok("formes : format prêt à l'emploi, épaisseur, couleurs, remplissage, opacité et hauteur à la souris")
 
     # ── Scénario 7 : un couple ne voit que son invitation ────────────
     client = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True)
