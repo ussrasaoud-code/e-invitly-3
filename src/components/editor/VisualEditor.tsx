@@ -15,6 +15,8 @@ import {
   REPEATABLE_SECTIONS,
   SECTION_LABELS,
   SECTION_TYPES,
+  SCROLL_MOTIONS,
+  SCROLL_MOTION_LABELS,
   SHAPE_LABELS,
   SHAPE_TYPES,
   cloneSection,
@@ -226,7 +228,7 @@ export function VisualEditor({
 
   const section = sel ? c.sections.find((s) => s.id === sel.sectionId) ?? null : null;
   const layer = section && sel?.layerId ? section.layers.find((l) => l.id === sel.layerId) ?? null : null;
-  const elementDefs = section ? elementsFor(section.type, renderer, c) : [];
+  const elementDefs = section ? elementsFor(section.type, renderer, c, section) : [];
   const element = section && sel?.elementId ? flattenElements(elementDefs).find((d) => d.id === sel.elementId) ?? null : null;
   /** Calques sélectionnés ensemble (Maj+clic ou groupe) */
   const multi = section && sel?.layerIds && sel.layerIds.length > 1 ? section.layers.filter((l) => sel.layerIds!.includes(l.id)) : [];
@@ -743,11 +745,11 @@ export function VisualEditor({
                           </button>
                         ) : null}
                       </div>
-                      {elementsFor(s.type, renderer, c).length ? (
+                      {elementsFor(s.type, renderer, c, s).length ? (
                         <>
                           <p className="mt-3 text-[0.65rem] uppercase tracking-wider text-stone">Éléments du modèle</p>
                           <ElementTree
-                            defs={elementsFor(s.type, renderer, c)}
+                            defs={elementsFor(s.type, renderer, c, s)}
                             section={s}
                             selectedId={sel?.sectionId === s.id ? sel?.elementId ?? null : null}
                             onSelect={(id) => selectElement(s.id, id)}
@@ -1103,6 +1105,27 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
             {LOOP_ANIMATIONS.map((a) => <option key={a} value={a}>{LOOP_ANIMATION_LABELS[a]}</option>)}
           </select>
         </Field>
+        <Field label="Au défilement de l'écran">
+          <select aria-label="Au défilement de l'écran" className={inputCls} value={l.scroll.type} onChange={(e) => onChange({ scroll: { ...l.scroll, type: e.target.value as InvitationLayer["scroll"]["type"], ...(e.target.value === "parallax" && l.scroll.dy === 60 ? { dy: -25 } : {}), ...(e.target.value === "rotate" && !l.scroll.amount ? { amount: 90 } : {}), ...(e.target.value === "zoom" && !l.scroll.amount ? { amount: 40 } : {}) } })}>
+            {SCROLL_MOTIONS.map((m) => <option key={m} value={m}>{SCROLL_MOTION_LABELS[m]}</option>)}
+          </select>
+        </Field>
+        {l.scroll.type === "move" ? (
+          <>
+            <NumberSlider label="Descente pendant le défilement" value={l.scroll.dy} min={-300} max={300} unit="%" onChange={(v) => onChange({ scroll: { ...l.scroll, dy: v } })} />
+            <NumberSlider label="Glissement horizontal" value={l.scroll.dx} min={-100} max={100} unit="%" onChange={(v) => onChange({ scroll: { ...l.scroll, dx: v } })} />
+            <p className="text-[0.7rem] text-stone">L&apos;élément part de sa position quand le haut de la section arrive au milieu de l&apos;écran, et termine son trajet quand le bas de la section y arrive (% de la hauteur de la section).</p>
+          </>
+        ) : null}
+        {l.scroll.type === "parallax" ? (
+          <NumberSlider label="Intensité (négatif = plus lent que la page)" value={l.scroll.dy} min={-100} max={100} unit="%" onChange={(v) => onChange({ scroll: { ...l.scroll, dy: v } })} />
+        ) : null}
+        {l.scroll.type === "rotate" ? (
+          <NumberSlider label="Rotation pendant le défilement" value={l.scroll.amount} min={-720} max={720} step={5} unit="°" onChange={(v) => onChange({ scroll: { ...l.scroll, amount: v } })} />
+        ) : null}
+        {l.scroll.type === "zoom" ? (
+          <NumberSlider label="Taille de départ" value={l.scroll.amount || 40} min={0} max={100} unit="%" onChange={(v) => onChange({ scroll: { ...l.scroll, amount: v } })} />
+        ) : null}
         <button type="button" className="btn btn-secondary btn-sm" onClick={onReplay}>▶ Voir l&apos;animation</button>
       </fieldset>
 
@@ -1153,12 +1176,13 @@ function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHre
       {s.type === "decor" ? (
         <NumberSlider label="Hauteur" value={s.height} min={10} max={250} unit="%" onChange={(v) => onChange({ height: v })} />
       ) : null}
-      {!["text", "decor"].includes(s.type) ? (
+      {!["text", "decor", "program2"].includes(s.type) ? (
         <p className="text-xs text-stone">
           Le contenu de cette section (dates, lieux, textes) se modifie dans le <Link href={formHref} className="text-forest underline">formulaire</Link>.
           {s.type === "rsvp" || s.type === "countdown" ? " Sa logique est verrouillée." : ""}
         </p>
       ) : null}
+      {s.type === "program2" ? <ProgramV2Editor section={s} onChange={onChange} /> : null}
       <Field label="Apparition du contenu">
         <select aria-label="Apparition du contenu" className={inputCls} value={s.animation} onChange={(e) => onChange({ animation: e.target.value as InvitationSection["animation"] })}>
           <option value="inherit">Par défaut (montée douce)</option>
@@ -1432,6 +1456,10 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
     else if ("contact" in ed) {
       const ct = c.contacts[ed.contact];
       if (ct) editor = input("Texte", ct[ed.field], (v) => onContent((x) => ({ ...x, contacts: x.contacts.map((k, i) => (i === ed.contact ? { ...k, [ed.field]: v } : k)) })), ed.field === "phone" ? 30 : 80);
+    } else if ("item" in ed) {
+      const it = section.items[ed.item];
+      const setIt = (v: string) => patchSection({ items: section.items.map((x, i) => (i === ed.item ? { ...x, [ed.field]: v } : x)) });
+      if (it) editor = input("Texte", it[ed.field], setIt, ed.field === "detail" ? 200 : ed.field === "time" ? 12 : 80, ed.field === "detail");
     } else if ("event" in ed) {
       const ev = c.events.find((e) => e.id === ed.event);
       const setEv = (v: string) => onContent((x) => ({ ...x, events: x.events.map((e) => (e.id === ed.event ? { ...e, [ed.field]: v } : e)) }));
@@ -1448,6 +1476,9 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
     }
   } else {
     switch (ed) {
+      case "section-kicker":
+        editor = input("Texte", section.kicker, (v) => patchSection({ kicker: v }), 120);
+        break;
       case "kicker":
         editor = input("Texte", c.kicker, (v) => onContent((x) => ({ ...x, kicker: v })), 120);
         break;
@@ -1729,6 +1760,54 @@ function ShapeControls({ layer: l, onChange }: { layer: InvitationLayer; onChang
           {l.fill ? <NumberSlider label="Opacité du remplissage" value={Math.round(l.fillOpacity * 100)} min={0} max={100} unit="%" onChange={(v) => onChange({ fillOpacity: v / 100 })} /> : null}
         </fieldset>
       ) : null}
+    </div>
+  );
+}
+
+/* ── Programme v2 : surtitre, moments, fleur ─────────────────────── */
+function ProgramV2Editor({ section: s, onChange }: { section: InvitationSection; onChange: (patch: Partial<InvitationSection>) => void }) {
+  const setItem = (i: number, patch: Partial<InvitationSection["items"][number]>) => onChange({ items: s.items.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+  const move = (i: number, d: -1 | 1) => {
+    const j = i + d;
+    if (j < 0 || j >= s.items.length) return;
+    const items = [...s.items];
+    [items[i], items[j]] = [items[j], items[i]];
+    onChange({ items });
+  };
+  return (
+    <div className="space-y-3">
+      <Field label="Surtitre">
+        <input aria-label="Surtitre" className={inputCls} maxLength={120} value={s.kicker} onChange={(e) => onChange({ kicker: e.target.value })} />
+      </Field>
+      <Field label="Fleur qui descend le long de la tige" hint="Elle suit le défilement de l'écran. Choisissez une autre illustration dans la bibliothèque si vous le souhaitez.">
+        <MediaUrlField kinds={["image", "svg"]} className={inputCls} label="Fleur qui suit le défilement" value={s.marker} onChange={(v) => onChange({ marker: v })} />
+      </Field>
+      <fieldset className="min-w-0 space-y-2 border-t border-line pt-3">
+        <legend className="mb-1 font-serif text-lg">Moments ({s.items.length})</legend>
+        {s.items.map((it, i) => (
+          <div key={it.id} className="space-y-1.5 rounded-sm border border-line bg-white p-2">
+            <div className="flex gap-1.5">
+              <input aria-label={`Heure du moment ${i + 1}`} className={`${inputCls} w-20`} maxLength={12} value={it.time} onChange={(e) => setItem(i, { time: e.target.value })} placeholder="14h30" />
+              <input aria-label={`Intitulé du moment ${i + 1}`} className={`${inputCls} min-w-0 flex-1`} maxLength={80} value={it.title} onChange={(e) => setItem(i, { title: e.target.value })} placeholder="Cérémonie" />
+            </div>
+            <textarea aria-label={`Détail du moment ${i + 1}`} className="field min-h-12 py-1 text-xs" maxLength={200} value={it.detail} onChange={(e) => setItem(i, { detail: e.target.value })} placeholder="Lieu, précision…" />
+            <div className="flex justify-end gap-1">
+              <Btn label="Monter le moment" onClick={() => move(i, -1)} disabled={i === 0}>↑</Btn>
+              <Btn label="Descendre le moment" onClick={() => move(i, 1)} disabled={i === s.items.length - 1}>↓</Btn>
+              <Btn label="Supprimer le moment" onClick={() => onChange({ items: s.items.filter((_, j) => j !== i) })}>✕</Btn>
+            </div>
+          </div>
+        ))}
+        {s.items.length < 20 ? (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => onChange({ items: [...s.items, { id: `m-${Math.random().toString(36).slice(2, 8)}`, time: "", title: "", detail: "" }] })}
+          >
+            + Ajouter un moment
+          </button>
+        ) : null}
+      </fieldset>
     </div>
   );
 }

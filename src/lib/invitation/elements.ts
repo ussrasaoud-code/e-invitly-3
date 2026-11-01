@@ -1,4 +1,4 @@
-import type { InvitationContent, RendererKey, SectionType } from "./schema";
+import type { InvitationContent, InvitationSection, RendererKey, SectionType } from "./schema";
 
 /**
  * Éléments intégrés à chaque section d'un modèle (titres, prénoms, ornements…).
@@ -16,7 +16,8 @@ export type SimpleEdit =
   | "closing-title"
   | "closing-text"
   | "dresscode-text"
-  | "rsvp-intro";
+  | "rsvp-intro"
+  | "section-kicker";
 
 export type EventField = "startTime" | "title" | "venueName" | "description" | "address";
 export type ElementEdit =
@@ -24,7 +25,8 @@ export type ElementEdit =
   | { partner: "partnerOne" | "partnerTwo" }
   | { venue: "name" | "city" }
   | { event: string; field: EventField }
-  | { contact: number; field: "name" | "role" | "phone" };
+  | { contact: number; field: "name" | "role" | "phone" }
+  | { item: number; field: "time" | "title" | "detail" };
 
 export type ElementDef = {
   id: string;
@@ -105,7 +107,7 @@ function contactItems(c: InvitationContent): ElementDef[] {
   });
 }
 
-function definitions(type: SectionType, c: InvitationContent): ElementDef[] {
+function definitions(type: SectionType, c: InvitationContent, section?: InvitationSection): ElementDef[] {
   switch (type) {
     case "hero":
       return [
@@ -165,14 +167,39 @@ function definitions(type: SectionType, c: InvitationContent): ElementDef[] {
       return [...title(), { id: "body", label: "Texte", kind: "text", edit: "section-body" }];
     case "decor":
       return [];
+    case "program2":
+      return [
+        { id: "kicker", label: "Surtitre", kind: "text", edit: "section-kicker" },
+        { id: "title", label: "Titre", kind: "text", edit: "section-title" },
+        { id: "stem", label: "Tige fleurie", kind: "ornament" },
+        { id: "marker", label: "Fleur qui suit le défilement", kind: "ornament" },
+        {
+          id: "list",
+          label: "Liste des moments",
+          kind: "block",
+          children: (section?.items ?? []).map((it, i) => {
+            const k = `list.${elKey(it.id)}`;
+            return {
+              id: k,
+              label: it.title || "Moment",
+              kind: "block" as const,
+              children: [
+                { id: `${k}.time`, label: "Heure", kind: "text" as const, edit: { item: i, field: "time" as const } },
+                { id: `${k}.title`, label: "Intitulé", kind: "text" as const, edit: { item: i, field: "title" as const } },
+                ...(it.detail ? [{ id: `${k}.detail`, label: "Détail", kind: "text" as const, edit: { item: i, field: "detail" as const } }] : []),
+              ],
+            };
+          }),
+        },
+      ];
   }
 }
 
 /** Arbre des éléments d'une section pour un modèle donné. */
-export function elementsFor(type: SectionType, renderer: RendererKey, content: InvitationContent): ElementDef[] {
+export function elementsFor(type: SectionType, renderer: RendererKey, content: InvitationContent, section?: InvitationSection): ElementDef[] {
   const filter = (defs: ElementDef[]): ElementDef[] =>
     defs.filter((e) => !e.renderers || e.renderers.includes(renderer)).map((e) => (e.children ? { ...e, children: filter(e.children) } : e));
-  return filter(definitions(type, content));
+  return filter(definitions(type, content, section));
 }
 
 /** Tous les éléments (groupes et parties) à plat. */

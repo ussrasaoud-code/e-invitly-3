@@ -51,6 +51,39 @@ export function SectionFrame({ section, children }: { section: InvitationSection
     return () => io.disconnect();
   }, [animate, layers.length]);
 
+  // Progression du défilement dans la section (0 → 1), exposée en variable CSS --p
+  const scrollLinked = animate && (section.type === "program2" || layers.some((l) => l.scroll && l.scroll.type !== "none"));
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (!scrollLinked || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      el.style.removeProperty("--p");
+      return;
+    }
+    const scroller = scrollParent(el);
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const r = el.getBoundingClientRect();
+      const view = scroller ? scroller.getBoundingClientRect() : { top: 0, height: window.innerHeight };
+      const middle = view.top + view.height * 0.5;
+      const p = Math.min(1, Math.max(0, (middle - r.top) / Math.max(1, r.height)));
+      el.style.setProperty("--p", p.toFixed(4));
+      el.style.setProperty("--fh", `${r.height}px`);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("scroll", onScroll, { capture: true });
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [scrollLinked]);
+
   const isSelectedSection = editor?.selected?.sectionId === section.id;
   const render = (placement: InvitationLayer["placement"]) =>
     layers
@@ -152,6 +185,7 @@ function LayerView({ layer: l, section, frame, play, animate }: {
     width: `${l.width}%`,
     transform: `translate(-50%, -50%) rotate(${l.rotation}deg) scaleX(${l.flip ? -1 : 1})`,
     zIndex: l.placement === "behind" ? -1 : 2,
+    ...(animate ? scrollStyle(l.scroll) : {}),
   };
   const enterStyle: CSSProperties = !entering
     ? {}
@@ -320,4 +354,37 @@ function startHeight(e: ReactPointerEvent, l: InvitationLayer, sectionId: string
     const h = Math.max(2, h0 + (ev.clientY - sy));
     editor.change(sectionId, l.id, { ratio: Math.round(Math.min(4, Math.max(0.01, h / w)) * 1000) / 1000 });
   });
+}
+
+/** Conteneur qui défile (l'éditeur fait défiler un panneau, l'invitation la fenêtre) */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const o = getComputedStyle(p).overflowY;
+    if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) return p;
+  }
+  return null;
+}
+
+/**
+ * Mouvement au défilement : propriétés individuelles (translate, rotate, scale),
+ * qui s'ajoutent à la position du calque. --p vaut 0 quand le haut de la section
+ * atteint le milieu de l'écran, 1 quand son bas l'atteint.
+ */
+function scrollStyle(sc: InvitationLayer["scroll"] | undefined): CSSProperties {
+  if (!sc || sc.type === "none") return {};
+  const p = "var(--p, 0)";
+  switch (sc.type) {
+    case "move":
+      return { translate: `calc(${p} * ${sc.dx}cqw) calc(${p} * var(--fh, 0px) * ${sc.dy / 100})` };
+    case "parallax":
+      return { translate: `0 calc((${p} - 0.5) * var(--fh, 0px) * ${sc.dy / 100})` };
+    case "rotate":
+      return { rotate: `calc(${p} * ${sc.amount}deg)` };
+    case "fade":
+      return { opacity: `min(1, calc(${p} * 2.2))` as unknown as number };
+    case "zoom": {
+      const from = Math.max(0, sc.amount || 40) / 100;
+      return { scale: `calc(${from} + (1 - ${from}) * min(1, ${p} * 1.8))` };
+    }
+  }
 }

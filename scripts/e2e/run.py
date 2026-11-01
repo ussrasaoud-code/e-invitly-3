@@ -778,6 +778,30 @@ with sync_playwright() as p:
     assert bg == "rgb(51, 102, 153)", bg
     ok("éditeur visuel : couleur de fond d'une section ; couleurs déjà utilisées proposées")
 
+    # Programme v2 prêt à l'emploi + mouvement au défilement
+    left.get_by_label("Ajouter une section").select_option("program2")
+    expect(props.get_by_role("heading", name="Programme v2 (frise fleurie)")).to_be_visible()
+    d = wait_draft(lambda d: len(sec(d, "program2")) == 1 and len(sec(d, "program2")[0]["items"]) == 6, "programme v2 ajouté")
+    assert sec(d, "program2")[0]["items"][0]["title"] == "Cérémonie civile" and sec(d, "program2")[0]["marker"] == "/decor/rose.svg"
+    props.get_by_label("Heure du moment 1").fill("14h45")
+    d = wait_draft(lambda d: sec(d, "program2")[0]["items"][0]["time"] == "14h45", "heure du programme v2")
+    expect(a.locator('[data-section="program2"] li')).to_have_count(6)
+    left.get_by_title("Maj+clic pour sélectionner plusieurs calques").filter(has_text="Papillon").click()
+    props.get_by_label("Au défilement de l'écran").select_option("move")
+    d = wait_draft(lambda d: sec(d, "program2")[0]["layers"][0]["scroll"]["type"] == "move", "mouvement au défilement")
+    a.get_by_role("button", name="Aperçu animé").click()
+    a.wait_for_timeout(600)
+    pos = []
+    for k in range(3):
+        a.evaluate("(k) => { const m = document.querySelector('main.min-h-0'); m.scrollTop = document.querySelector('[data-section=program2]').offsetTop - 300 + k * 250; }", k)
+        a.wait_for_timeout(500)
+        pos.append(a.evaluate("() => { const s = document.querySelector('[data-section=program2]'); const r = s.getBoundingClientRect(); return [parseFloat(s.style.getPropertyValue('--p') || '0'), s.querySelector('[data-el=marker]').getBoundingClientRect().top - r.top, s.querySelector('[data-layer]').getBoundingClientRect().top - r.top]; }"))
+    assert pos[0][0] < pos[1][0] < pos[2][0], pos
+    assert pos[0][1] < pos[1][1] < pos[2][1], pos
+    assert pos[0][2] < pos[2][2], pos
+    a.get_by_role("button", name="Arrêter l'aperçu animé").click()
+    ok("programme v2 prêt à l'emploi ; la fleur et un calque suivent le défilement")
+
     # Écran d'ouverture (enveloppe) visible et réglable dans l'éditeur
     left.get_by_role("button", name=re.compile("Ouverture de l'invitation")).click()
     expect(props.get_by_role("heading", name="Ouverture de l'invitation")).to_be_visible()
@@ -840,6 +864,7 @@ with sync_playwright() as p:
     expect(vis.locator('[data-section="hero"] [data-el="corner-right"]')).to_have_count(1)
     expect(vis.get_by_text("Avec leurs familles réunies")).to_be_visible()
     expect(vis.locator('[data-section="hero"] [data-el="names.and"]')).to_have_text("et")
+    expect(vis.locator('[data-section="program2"] li')).to_have_count(6)
     assert vis.locator('[data-section="program"]').evaluate("e => getComputedStyle(e).backgroundColor") == "rgb(51, 102, 153)"
     vis.locator('[data-section="program"]').scroll_into_view_if_needed()
     vis.wait_for_timeout(2500)

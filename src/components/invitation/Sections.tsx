@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Arch, CornerSpray, Divider, Sprig } from "@/components/ornaments";
-import { EVENT_TYPE_LABELS, type InvitationContent, type InvitationEvent, type RendererKey } from "@/lib/invitation/schema";
+import { EVENT_TYPE_LABELS, type InvitationContent, type InvitationEvent, type InvitationSection, type RendererKey } from "@/lib/invitation/schema";
 import { formatDotDate, formatLongDate, formatTime, zonedToUtc } from "@/lib/time";
 import type { PublicRsvpConfig } from "@/lib/rsvp";
 import type { Labels } from "./i18n";
@@ -658,4 +658,79 @@ export function TextSection({ renderer, title, body }: SectionProps & { body: st
 /* ── Bande décorative : un espace qui n'accueille que des calques ──── */
 export function DecorSection({ height }: { height: number }) {
   return <div aria-hidden="true" style={{ paddingTop: `${height}%` }} />;
+}
+
+/* ── Programme v2 : frise végétale et fleur qui suit le défilement ── */
+export function ProgramV2Section({ section }: SectionProps & { section: InvitationSection }) {
+  const { kicker, title, items, marker } = section;
+  // Colonnes en % de la largeur de l'invitation : heure | tige | texte
+  const cols = "grid-cols-[24cqw_12cqw_minmax(0,1fr)]";
+  return (
+    <section className="relative px-[6cqw] pb-16 pt-14">
+      <Reveal>
+        {kicker ? (
+          <El id="kicker">
+            <p className="text-center text-[0.68rem] uppercase tracking-[0.24em]" style={{ color: "var(--inv-muted)" }}>{kicker}</p>
+          </El>
+        ) : null}
+        {title ? (
+          <El id="title">
+            <h2 className="mx-auto mt-3 max-w-[300px] text-center text-[2rem] leading-snug" style={{ ...css.script, color: "var(--inv-ink)" }}>{title}</h2>
+          </El>
+        ) : null}
+      </Reveal>
+      {items.length ? (
+        <div className="relative mt-10">
+          <El id="stem" className="pointer-events-none absolute inset-y-0" style={{ left: "24cqw", width: "12cqw" }}>
+            <div
+              aria-hidden="true"
+              className="h-full w-full"
+              style={{
+                backgroundColor: "var(--inv-accent)",
+                WebkitMaskImage: "url(/decor/tige.svg)",
+                maskImage: "url(/decor/tige.svg)",
+                WebkitMaskRepeat: "repeat-y",
+                maskRepeat: "repeat-y",
+                WebkitMaskSize: "100% auto",
+                maskSize: "100% auto",
+                WebkitMaskPosition: "center top",
+                maskPosition: "center top",
+              }}
+            />
+          </El>
+          {marker ? (
+            <El id="marker" className="pointer-events-none absolute z-[2]" style={{ left: "24cqw", width: "12cqw", top: "calc(var(--p, 0) * (100% - 12cqw))", transition: "top 140ms linear" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={marker} alt="" className="block h-auto w-full drop-shadow-sm" />
+            </El>
+          ) : null}
+          <El id="list">
+            <ol className="relative">
+              {items.map((it) => {
+                const k = `list.${elKey(it.id)}`;
+                return (
+                  <El id={k} as="li" key={it.id} className={`grid ${cols} items-start py-[3.4cqw]`}>
+                    <El id={`${k}.time`}>
+                      <p className="pt-0.5 text-[1.05rem] uppercase lining-nums tracking-wide" style={{ ...css.display, color: "var(--inv-ink)" }}>{it.time}</p>
+                    </El>
+                    <span aria-hidden="true" />
+                    <div className="min-w-0">
+                      <El id={`${k}.title`}>
+                        <p className="text-[1.02rem] uppercase tracking-[0.06em]" style={{ ...css.display, color: "var(--inv-ink)" }}>{it.title}</p>
+                      </El>
+                      {it.detail ? (
+                        <El id={`${k}.detail`}>
+                          <p className="mt-1 whitespace-pre-line text-[0.66rem] uppercase leading-relaxed tracking-[0.06em]" style={{ color: "var(--inv-muted)" }}>{it.detail}</p>
+                        </El>
+                      ) : null}
+                    </div>
+                  </El>
+                );
+              })}
+            </ol>
+          </El>
+        </div>
+      ) : null}
+    </section>
+  );
 }

@@ -16,6 +16,7 @@ import {
   DressCodeSection,
   HeroSection,
   ProgramSection,
+  ProgramV2Section,
   RsvpSection,
   TextSection,
   VenuesSection,
@@ -24,7 +25,7 @@ import {
 
 const FONT_STACKS = Object.fromEntries(Object.entries(FONTS).map(([k, f]) => [k, f.stack])) as Record<FontKey, string>;
 
-const SECTION_COMPONENTS: Record<Exclude<SectionType, "rsvp" | "text" | "decor">, (p: SectionProps) => React.ReactNode> = {
+const SECTION_COMPONENTS: Record<Exclude<SectionType, "rsvp" | "text" | "decor" | "program2">, (p: SectionProps) => React.ReactNode> = {
   hero: HeroSection,
   program: ProgramSection,
   countdown: CountdownSection,
@@ -119,6 +120,7 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
             if (s.type === "rsvp") inner = <RsvpSection {...props} mode={mode} />;
             else if (s.type === "text") inner = <TextSection {...props} body={s.body} />;
             else if (s.type === "decor") inner = <DecorSection height={s.height} />;
+            else if (s.type === "program2") inner = <ProgramV2Section {...props} section={s} />;
             else {
               const Component = SECTION_COMPONENTS[s.type];
               inner = <Component {...props} />;

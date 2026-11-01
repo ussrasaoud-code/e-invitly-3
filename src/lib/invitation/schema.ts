@@ -91,6 +91,7 @@ export const SECTION_TYPES = [
   "closing",
   "text",
   "decor",
+  "program2",
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
@@ -105,6 +106,7 @@ export const SECTION_LABELS: Record<SectionType, string> = {
   closing: "Message final",
   text: "Texte libre",
   decor: "Bande décorative",
+  program2: "Programme v2 (frise fleurie)",
 };
 
 /** Sections qu'on peut ajouter plusieurs fois (les autres sont uniques). */
@@ -125,6 +127,18 @@ export const ENTER_ANIMATION_LABELS: Record<EnterAnimation, string> = {
   "slide-right": "Glissement depuis la droite",
   draw: "Éclosion (fleurs)",
 };
+/** Mouvements liés au défilement de l'écran */
+export const SCROLL_MOTIONS = ["none", "move", "parallax", "rotate", "fade", "zoom"] as const;
+export type ScrollMotion = (typeof SCROLL_MOTIONS)[number];
+export const SCROLL_MOTION_LABELS: Record<ScrollMotion, string> = {
+  none: "Aucun",
+  move: "Suit le défilement (glisse)",
+  parallax: "Parallaxe (profondeur)",
+  rotate: "Tourne en défilant",
+  fade: "Apparaît en défilant",
+  zoom: "Grandit en défilant",
+};
+
 export const SHAPE_TYPES = ["rect", "rounded", "circle", "arch", "double", "line", "diamond", "heart", "leafdivider", "diamonddivider"] as const;
 export type ShapeType = (typeof SHAPE_TYPES)[number];
 export const SHAPE_LABELS: Record<ShapeType, string> = {
@@ -188,6 +202,10 @@ export const layerSchema = z.object({
   bold: z.boolean().default(false),
   italic: z.boolean().default(false),
   align: z.enum(["left", "center", "right"]).default("center"),
+  /** Mouvement au défilement : dx en % de la largeur, dy en % de la hauteur de la section, amount = degrés ou % de départ */
+  scroll: z
+    .object({ type: z.enum(SCROLL_MOTIONS).default("none"), dx: num(-100, 100, 0), dy: num(-300, 300, 60), amount: num(-720, 720, 0) })
+    .default({ type: "none", dx: 0, dy: 60, amount: 0 }),
   /* ── Formes (cadres, rectangles, cercles…) ── */
   shape: z.enum(SHAPE_TYPES).default("rect"),
   /** Hauteur de la forme = largeur × ratio */
@@ -257,6 +275,13 @@ export const sectionSchema = z.object({
   spaceBottom: num(-30, 300, 0),
   /** Section « bande décorative » : hauteur en % de la largeur */
   height: num(10, 250, 60),
+  /** Programme v2 : surtitre, moments propres à la section, fleur qui suit le défilement */
+  kicker: optionalText(120),
+  items: z
+    .array(z.object({ id: z.string().min(1).max(40), time: optionalText(12), title: optionalText(80), detail: optionalText(200) }))
+    .max(20)
+    .default([]),
+  marker: cssUrl,
   /** Animation d'apparition du contenu ("inherit" = réglage du thème) */
   animation: z.enum(["inherit", ...ENTER_ANIMATIONS]).default("inherit"),
   layers: z.array(layerSchema).max(40).default([]),
@@ -270,7 +295,8 @@ export type InvitationSection = z.infer<typeof sectionSchema>;
 const shortId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
 export function newSection(type: SectionType): InvitationSection {
-  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0 };
+  if (type === "program2") return programV2Section();
+  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], marker: "" };
 }
 
 export function newLayer(kind: InvitationLayer["kind"], patch: Partial<InvitationLayer> = {}): InvitationLayer {
@@ -298,6 +324,7 @@ export function newLayer(kind: InvitationLayer["kind"], patch: Partial<Invitatio
     bold: false,
     italic: false,
     align: "center",
+    scroll: { type: "none", dx: 0, dy: 60, amount: 0 },
     shape: "rect",
     ratio: 1,
     radius: 10,
@@ -395,3 +422,34 @@ export type TemplateDefinition = z.infer<typeof templateDefinitionSchema>;
 
 export const RENDERERS = ["the-garden", "province", "blank"] as const;
 export type RendererKey = (typeof RENDERERS)[number];
+
+/** Section prête à l'emploi « Programme v2 » : frise végétale, fleur qui descend au défilement, papillon. */
+export function programV2Section(): InvitationSection {
+  const items: Array<[string, string, string]> = [
+    ["14h30", "Cérémonie civile", "Mairie d'Aix-en-Provence\nPlace de l'Hôtel-de-Ville"],
+    ["16h00", "Cérémonie laïque", "Dans le jardin du domaine"],
+    ["17h00", "Vin d'honneur", "Petites délices et grandes retrouvailles"],
+    ["20h00", "Dîner", "Tous à table"],
+    ["22h30", "Pièce montée", "Dessert & champagne"],
+    ["23h30", "Soirée dansante", "Rendez-vous sur le dancefloor !"],
+  ];
+  return {
+    id: shortId("s-program2"),
+    type: "program2",
+    visible: true,
+    title: "Les petits moments, les grands souvenirs",
+    body: "",
+    height: 60,
+    animation: "inherit",
+    elements: {},
+    background: { ...DEFAULT_SECTION_BACKGROUND },
+    spaceTop: 0,
+    spaceBottom: 0,
+    kicker: "Le fil de notre journée",
+    items: items.map(([time, title, detail], i) => ({ id: `m${i + 1}`, time, title, detail })),
+    marker: "/decor/rose.svg",
+    layers: [
+      newLayer("image", { src: "/decor/papillon.svg", name: "Papillon", x: 88, y: 9, width: 11, rotation: 12, placement: "front", enter: { type: "fade", delay: 300, duration: 1600 }, loop: "float" }),
+    ],
+  };
+}
