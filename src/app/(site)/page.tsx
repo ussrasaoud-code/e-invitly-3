@@ -5,7 +5,8 @@ import fleurs from "../../../public/decor/fleurs-aquarelle.png";
 import { CornerSpray, Divider, Sprig } from "@/components/ornaments";
 import { InteractiveDemo } from "@/components/site/InteractiveDemo";
 import { SetupNotice } from "@/components/site/SetupNotice";
-import { TemplateCard } from "@/components/site/TemplateCard";
+import { PhoneStrip } from "@/components/site/PhoneStrip";
+import { PriceGrid } from "@/components/site/PriceGrid";
 import { getSettings } from "@/lib/settings";
 import { listPublishedTemplates, listShowcase } from "@/lib/templates";
 
@@ -30,7 +31,6 @@ const BENEFITS = [
 export default async function HomePage() {
   const [settings, templates, showcase] = await Promise.all([getSettings(), listPublishedTemplates(), listShowcase(3)]);
   const { home } = settings;
-  const featured = templates.data.slice(0, 3);
 
   return (
     <main>
@@ -92,8 +92,8 @@ export default async function HomePage() {
       </section>
 
       {/* ── Collections ── */}
-      <section className="px-5 py-20 md:py-28">
-        <div className="mx-auto max-w-6xl">
+      <section className="py-20 md:py-28">
+        <div className="mx-auto max-w-6xl px-5">
           <div className="flex flex-col items-center justify-between gap-6 text-center md:flex-row md:items-end md:text-left">
             <div>
               <p className="eyebrow">Nos collections</p>
@@ -103,19 +103,29 @@ export default async function HomePage() {
               Tout le catalogue →
             </Link>
           </div>
-          <div className="mt-14">
-            {!templates.configured ? (
-              <SetupNotice />
-            ) : featured.length ? (
-              <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-3">
-                {featured.map((t, i) => (
-                  <TemplateCard key={t.id} template={t} priority={i === 0} />
-                ))}
+        </div>
+        <div className="mt-14">
+          {!templates.configured ? (
+            <div className="mx-auto max-w-6xl px-5"><SetupNotice /></div>
+          ) : templates.data.length ? (
+            <>
+              <PhoneStrip templates={templates.data} />
+              <div className="mx-auto mt-10 max-w-6xl px-5">
+                <div className="flex flex-col items-center justify-between gap-6 text-center md:flex-row md:items-end md:text-left">
+                  <div>
+                    <p className="eyebrow">Modèles et tarifs</p>
+                    <h2 className="mt-4 font-serif text-3xl md:text-4xl">Choisissez votre invitation</h2>
+                  </div>
+                  <Link href="/invitations" className="btn btn-secondary">Voir toutes les créations</Link>
+                </div>
+                <div className="mt-10">
+                  <PriceGrid templates={templates.data} />
+                </div>
               </div>
-            ) : (
-              <p className="text-center text-stone">Les premiers modèles arrivent très bientôt.</p>
-            )}
-          </div>
+            </>
+          ) : (
+            <p className="text-center text-stone">Les premiers modèles arrivent très bientôt.</p>
+          )}
         </div>
       </section>
 

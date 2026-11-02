@@ -67,7 +67,7 @@ with sync_playwright() as p:
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.goto(BASE)
-    expect(page.get_by_role("heading", level=1)).to_contain_text("invitation unique")
+    expect(page.get_by_role("heading", level=1).first).to_contain_text("invitation unique")
     page.screenshot(path=SHOTS / "01-accueil-mobile.png")
     ok("accueil mobile : titre affiché")
 
@@ -993,7 +993,8 @@ with sync_playwright() as p:
     expect(first.get_by_role("heading", name=blank_name)).to_be_visible()
     expect(first.get_by_text("Coup de cœur")).to_be_visible()
     page.goto(f"{BASE}/")
-    expect(page.locator("article").first.get_by_role("heading", name=blank_name)).to_be_visible()
+    expect(page.get_by_label("Tous nos modèles").get_by_role("link").first).to_contain_text(blank_name)
+    expect(page.get_by_role("heading", name=blank_name).first).to_be_visible()
     a.get_by_role("button", name="★ Mis en avant").click()
     expect(a.get_by_role("button", name="☆ Mettre en avant")).to_be_visible(timeout=10000)
     a.get_by_role("button", name="Retirer du catalogue").click()

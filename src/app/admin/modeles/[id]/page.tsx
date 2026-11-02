@@ -2,6 +2,7 @@ import { MediaListField, MediaUrlField } from "@/components/media/MediaUrlField"
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InvitationEditor } from "@/components/admin/InvitationEditor";
+import { PriceField } from "@/components/admin/PriceField";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -121,10 +122,7 @@ export default async function TemplatePage({ params, searchParams }: Props) {
               {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </label>
-          <label>
-            <span className="field-label">Prix affiché (facultatif)</span>
-            <input name="price_label" defaultValue={t.price_label ?? ""} maxLength={80} className="field" placeholder="Laisser vide pour ne rien afficher" />
-          </label>
+          <PriceField defaultLabel={t.price_label} />
           <fieldset className="md:col-span-2">
             <legend className="field-label">Styles</legend>
             <div className="flex flex-wrap gap-4">
@@ -146,7 +144,7 @@ export default async function TemplatePage({ params, searchParams }: Props) {
               <MediaUrlField kinds={["image", "svg"]} name="cover_image" defaultValue={t.cover_image ?? ""} className="field text-sm" label="Image principale" />
             </div>
             <div>
-              <span className="field-label">Galerie (un lien par ligne)</span>
+              <span className="field-label">Galerie (un lien par ligne) — la 1<sup>re</sup> image s&apos;affiche dans le 2<sup>e</sup> téléphone de la page d&apos;accueil</span>
               <MediaListField name="gallery" defaultValue={(t.gallery as string[]).join("\n")} />
             </div>
           </div>

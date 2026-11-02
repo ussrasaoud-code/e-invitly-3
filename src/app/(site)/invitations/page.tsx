@@ -91,7 +91,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Sear
             {filtered.length ? (
               <div className="mt-8 grid gap-x-10 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
                 {filtered.map((t, i) => (
-                  <TemplateCard key={t.id} template={t} priority={i < 2} />
+                  <TemplateCard key={t.id} template={t} priority={i < 2} offset={i % 3 === 1} />
                 ))}
               </div>
             ) : (

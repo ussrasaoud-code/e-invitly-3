@@ -1,5 +1,7 @@
 "use server";
 
+import { formatPrice } from "@/lib/price";
+
 import { isAllowedAssetUrl } from "@/lib/url";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -100,7 +102,9 @@ export async function updateTemplateMeta(form: FormData) {
     category: form.get("category"),
     styles: form.getAll("styles"),
     features: form.get("features") ?? "",
-    price_label: form.get("price_label") ?? "",
+    price_label: form.has("price_mode")
+      ? formatPrice(String(form.get("price_mode")), String(form.get("price_amount") ?? ""), String(form.get("price_text") ?? "")) ?? ""
+      : (form.get("price_label") ?? ""),
     cover_image: form.get("cover_image") ?? "",
     gallery: form.get("gallery") ?? "",
   });
