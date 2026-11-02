@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InvitationEditor } from "@/components/admin/InvitationEditor";
 import { PriceField } from "@/components/admin/PriceField";
+import { LANGUAGES, LANGUAGE_LABELS } from "@/lib/invitation/schema";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -148,6 +149,50 @@ export default async function TemplatePage({ params, searchParams }: Props) {
               <MediaListField name="gallery" defaultValue={(t.gallery as string[]).join("\n")} />
             </div>
           </div>
+          <fieldset className="md:col-span-2">
+            <legend className="field-label">Fiche dans les autres langues du site</legend>
+            <p className="mb-3 text-xs text-stone">
+              Laissez un champ vide pour reprendre le texte français. Les prix « À partir de… » et « Prix fixe » sont traduits automatiquement.
+            </p>
+            <div className="divide-y divide-line border-y border-line">
+              {LANGUAGES.filter((l) => l !== "fr").map((l) => {
+                const tr = ((t as { translations?: Record<string, Record<string, string>> }).translations ?? {})[l] ?? {};
+                const filled = Object.values(tr).some((v) => v?.trim());
+                return (
+                  <details key={l} className="group py-3" open={false}>
+                    <summary className="flex cursor-pointer list-none items-center justify-between text-sm">
+                      <span>
+                        {LANGUAGE_LABELS[l]} <span className="text-stone">· {filled ? "traduite" : "à traduire"}</span>
+                      </span>
+                      <span aria-hidden="true" className="text-forest transition-transform group-open:rotate-45">+</span>
+                    </summary>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2" dir={l === "ar" ? "rtl" : undefined} lang={l}>
+                      <label>
+                        <span className="field-label !text-xs">Nom</span>
+                        <input name={`tr_${l}_name`} defaultValue={tr.name ?? ""} maxLength={80} className="field text-sm" placeholder={t.name} />
+                      </label>
+                      <label>
+                        <span className="field-label !text-xs">Prix en texte libre (facultatif)</span>
+                        <input name={`tr_${l}_price_label`} defaultValue={tr.price_label ?? ""} maxLength={80} className="field text-sm" />
+                      </label>
+                      <label className="md:col-span-2">
+                        <span className="field-label !text-xs">Description courte</span>
+                        <input name={`tr_${l}_short_description`} defaultValue={tr.short_description ?? ""} maxLength={200} className="field text-sm" placeholder={t.short_description} />
+                      </label>
+                      <label className="md:col-span-2">
+                        <span className="field-label !text-xs">Description complète</span>
+                        <textarea name={`tr_${l}_description`} defaultValue={tr.description ?? ""} rows={3} className="field text-sm" />
+                      </label>
+                      <label className="md:col-span-2">
+                        <span className="field-label !text-xs">Fonctionnalités (une par ligne)</span>
+                        <textarea name={`tr_${l}_features`} defaultValue={tr.features ?? ""} rows={3} className="field text-sm" placeholder={(t.features as string[]).join("\n")} />
+                      </label>
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          </fieldset>
           <div className="md:col-span-2">
             <SubmitButton className="btn btn-primary" pendingLabel="Enregistrement…">Enregistrer la fiche</SubmitButton>
           </div>
@@ -165,8 +210,9 @@ export default async function TemplatePage({ params, searchParams }: Props) {
               <Link href={`/admin/modeles/${t.id}/editeur`} className="btn btn-secondary btn-sm">Ouvrir l&apos;éditeur visuel (décors, textes libres, animations)</Link>
             </p>
             <InvitationEditor
-              save={saveTemplateDraft.bind(null, t.id)}
-              publish={publishTemplateDraft.bind(null, t.id)}
+              save={saveTemplateDraft.bind(null, t.id, null)}
+              publish={publishTemplateDraft.bind(null, t.id, null)}
+              lockLanguage="Langue principale du modèle. Les autres langues se créent dans l'éditeur visuel (bouton « + Langue »)."
               backupKey={`ei-backup:modele:${t.id}`}
               initial={def.data.sample}
               renderer={def.data.renderer}

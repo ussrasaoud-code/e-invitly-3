@@ -109,7 +109,8 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
       <main
         className="mx-auto max-w-[480px] transition-opacity duration-1000"
         style={opened ? { opacity: 1 } : { opacity: 0, height: 0, overflow: "hidden" }}
-        aria-hidden={!opened}
+        // Contenu caché derrière l'enveloppe : ni lu, ni atteignable au clavier
+        inert={!opened}
       >
         <AnimationContext.Provider value={animations && content.theme.animation !== "none"}>
         {content.sections

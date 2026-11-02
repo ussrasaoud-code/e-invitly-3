@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { logActivity } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
+import { SITE_LANGS } from "@/lib/i18n/config";
 import { createClient } from "@/lib/supabase/server";
 
 const str = (max: number) => z.string().trim().max(max);
@@ -58,6 +59,12 @@ export async function savePolicies(form: FormData) {
     rsvpRetentionMonths: z.coerce.number().int().min(1).max(120).parse(form.get("rsvpRetentionMonths")),
   };
   await saveSetting("policies", value, true, user.id);
+}
+
+export async function saveLanguages(form: FormData) {
+  const user = await requireAdmin();
+  const enabled = ["fr", ...SITE_LANGS.filter((l) => l !== "fr" && form.get(`lang_${l}`) === "on")];
+  await saveSetting("languages", { enabled }, true, user.id);
 }
 
 export async function saveNotifications(form: FormData) {

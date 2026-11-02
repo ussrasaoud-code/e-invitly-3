@@ -28,8 +28,12 @@ import "@fontsource/lora/latin-400-italic.css";
 import "@fontsource/lora/latin-700-italic.css";
 import "@fontsource/amiri/400.css";
 import "@fontsource/amiri/700.css";
+import "@fontsource/ibm-plex-sans-arabic/arabic-400.css";
+import "@fontsource/ibm-plex-sans-arabic/arabic-500.css";
 import "./globals.css";
 import { env } from "@/lib/env";
+import { LANG_META } from "@/lib/i18n/config";
+import { getSiteLang } from "@/lib/i18n/server";
 
 /** Toutes les pages lisent la base en direct (modèles, paramètres, invitations). */
 export const dynamic = "force-dynamic";
@@ -48,9 +52,10 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = await getSiteLang();
   return (
-    <html lang="fr">
+    <html lang={lang} dir={LANG_META[lang].dir}>
       <body>{children}</body>
     </html>
   );

@@ -35,7 +35,7 @@ export function zonedToUtc(local: string, timeZone: string): Date | null {
   }
 }
 
-const LOCALES = { fr: "fr-FR", en: "en-GB", ar: "ar-MA" } as const;
+export const LOCALES = { fr: "fr-FR", en: "en-GB", ar: "ar-MA", es: "es-ES", it: "it-IT", de: "de-DE", nl: "nl-NL" } as const;
 export type Lang = keyof typeof LOCALES;
 
 /** « samedi 12 juin 2027 » dans la langue de l'invitation. */
@@ -55,7 +55,9 @@ export function formatDotDate(local: string): string {
 /** « 15h30 » (fr) ou « 15:30 » */
 export function formatTime(hhmm: string, lang: Lang = "fr"): string {
   if (!/^\d{2}:\d{2}$/.test(hhmm)) return hhmm;
-  return lang === "fr" ? hhmm.replace(":", "h") : hhmm;
+  if (lang === "fr") return hhmm.replace(":", "h");
+  if (lang === "de") return `${hhmm} Uhr`;
+  return hhmm;
 }
 
 /** Date courte pour l'administration : 12/06/2027 */

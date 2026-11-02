@@ -5,7 +5,9 @@ import { requireStaff } from "@/lib/auth";
 import { isEmailConfigured } from "@/lib/email";
 import { getSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
-import { saveBrand, saveHome, saveNotifications, savePolicies, setMemberRole } from "./actions";
+import { LANG_META, SITE_LANGS, localePath } from "@/lib/i18n/config";
+import { LANGUAGE_LABELS } from "@/lib/invitation/schema";
+import { saveBrand, saveHome, saveLanguages, saveNotifications, savePolicies, setMemberRole } from "./actions";
 
 export const metadata = { title: "Paramètres" };
 
@@ -34,7 +36,8 @@ export default async function SettingsPage() {
   const settings = await getSettings();
   const supabase = (await createClient())!;
   const { data: team } = await supabase.from("profiles").select("email, full_name, role").in("role", ["admin", "collaborator"]).order("email");
-  const { brand, home, policies, notifications } = settings;
+  const { brand, home, policies, notifications, languages } = settings;
+  const enabledLangs = new Set(["fr", ...(languages.enabled ?? [])]);
   const faq = [...home.faq, { question: "", answer: "" }, { question: "", answer: "" }];
   const disabled = !isAdmin;
 
@@ -57,7 +60,43 @@ export default async function SettingsPage() {
           </form>
         </Card>
 
-        <Card title="Page d'accueil et FAQ" description="Pour supprimer une question, videz-la. Deux lignes vides permettent d'en ajouter.">
+        <Card
+          title="Langues du site"
+          description="Le site vitrine existe en 7 langues. Ouvrez une langue aux visiteurs après avoir relu ses textes : tant qu'elle est fermée, seule l'équipe connectée peut la voir (lien « Relire »). Les visiteurs ne voient dans le sélecteur que les langues ouvertes."
+        >
+          <form action={saveLanguages} className="space-y-3">
+            <fieldset disabled={disabled} className="contents">
+              <ul className="divide-y divide-line border-y border-line">
+                {SITE_LANGS.map((l) => (
+                  <li key={l} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                    <label className="flex items-center gap-3 text-sm">
+                      <input
+                        type="checkbox"
+                        name={`lang_${l}`}
+                        defaultChecked={enabledLangs.has(l)}
+                        disabled={l === "fr"}
+                        className="h-4 w-4 accent-forest"
+                      />
+                      <span>
+                        {LANGUAGE_LABELS[l]} <span className="text-stone" lang={l}>· {LANG_META[l].native}</span>
+                        {l === "fr" ? <span className="text-stone"> · toujours ouverte</span> : null}
+                      </span>
+                    </label>
+                    <a href={localePath(l, "/")} target="_blank" rel="noopener" className="text-sm text-forest underline underline-offset-4">
+                      Relire ↗
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex flex-wrap items-center gap-4">
+                <SubmitButton pendingLabel="Enregistrement…">Enregistrer les langues</SubmitButton>
+                <a href="/admin/traductions" className="text-sm text-forest underline underline-offset-4">Relire tous les textes traduits</a>
+              </div>
+            </fieldset>
+          </form>
+        </Card>
+
+        <Card title="Page d'accueil et FAQ" description="Version française. Pour supprimer une question, videz-la. Deux lignes vides permettent d'en ajouter. Les autres langues affichent des textes traduits par défaut.">
           <form action={saveHome} className="space-y-4">
             <fieldset disabled={disabled} className="space-y-4">
               <F label="Titre principal"><input name="heroTitle" defaultValue={home.heroTitle} className="field" required /></F>

@@ -149,7 +149,7 @@ export function Envelope({ envelope, colors, labels, scope, onOpened }: Props) {
       </div>
       <p
         className="mt-10 px-6 text-center text-[0.68rem] uppercase tracking-[0.22em] animate-[fade_2s_ease_1s_both]"
-        style={{ color: colors.muted }}
+        style={{ color: colors.ink }}
       >
         {labels.tapSeal}
       </p>

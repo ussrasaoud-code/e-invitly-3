@@ -6,6 +6,7 @@ import { z } from "zod";
 import { logActivity } from "@/lib/audit";
 import { requireStaff } from "@/lib/auth";
 import { buildInvitationFromRequest, type RequestFormData } from "@/lib/invitation/from-request";
+import { contentFor } from "@/lib/invitation/variants";
 import { templateDefinitionSchema } from "@/lib/invitation/schema";
 import { slugFromNames } from "@/lib/slug";
 import { suggestSlug } from "@/lib/slug-db";
@@ -84,7 +85,8 @@ export async function convertRequestToInvitation(form: FormData) {
   }
 
   const formData = { ...(req.form_data as Partial<RequestFormData>), partnerOne: req.partner_one ?? "", partnerTwo: req.partner_two ?? "", eventDate: req.event_date ?? "", language: req.language };
-  const { content, notesToReview } = buildInvitationFromRequest(def.data.sample, formData as RequestFormData);
+  // Version du modèle dans la langue choisie par le client (sinon la version principale, à traduire)
+  const { content, notesToReview } = buildInvitationFromRequest(contentFor(def.data, req.language), formData as RequestFormData);
   const eventAt = content.eventAt ? zonedToUtc(content.eventAt, content.timezone)?.toISOString() ?? null : null;
 
   let invitationId: string | null = null;

@@ -1,42 +1,35 @@
 import type { Metadata } from "next";
 import { PolicyPage } from "@/components/site/PolicyPage";
+import { fmt } from "@/lib/i18n/config";
+import { pageMetadata } from "@/lib/i18n/metadata";
+import { getDict } from "@/lib/i18n/server";
 import { getSettings } from "@/lib/settings";
 
-export const metadata: Metadata = { title: "Politique de confidentialité" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { lang, t } = await getDict();
+  return pageMetadata(lang, "/confidentialite", { title: t.legal.privacy });
+}
 
 export default async function Page() {
+  const { lang, t } = await getDict();
   const { policies, brand } = await getSettings();
+  const l = t.legal;
   return (
     <PolicyPage
-      title="Politique de confidentialité"
+      title={l.privacy}
       body={policies.privacyPolicy}
+      frenchNote={lang === "fr" ? undefined : l.frenchOnly}
       fallback={
         <>
-          <p className="italic text-stone">
-            Résumé provisoire décrivant le fonctionnement technique du site, en attendant la politique complète.
-          </p>
-          <h2>Données collectées</h2>
-          <p>
-            Formulaire de demande : vos coordonnées (nom, e-mail, téléphone facultatif, pays) et les informations de
-            votre événement. Formulaire de réponse des invités : prénom, nom, présence, accompagnants et, uniquement si
-            les mariés l&apos;activent, préférences alimentaires.
-          </p>
-          <h2>Utilisation</h2>
-          <p>
-            Ces données servent uniquement à préparer l&apos;invitation et à transmettre les réponses aux mariés concernés.
-            Elles ne sont ni vendues ni utilisées à des fins publicitaires. Chaque couple n&apos;accède qu&apos;aux réponses
-            de sa propre invitation.
-          </p>
-          <h2>Sécurité et hébergement</h2>
-          <p>
-            Les données sont stockées dans une base de données protégée par des règles d&apos;accès strictes. Les adresses
-            IP ne sont pas conservées : seule une empreinte non réversible sert à limiter les abus.
-          </p>
-          <h2>Vos droits</h2>
-          <p>
-            Vous pouvez demander l&apos;accès, la rectification ou la suppression de vos données
-            {brand.contactEmail ? <> en écrivant à {brand.contactEmail}</> : " en nous contactant"}.
-          </p>
+          <p className="italic text-stone">{l.privacyIntro}</p>
+          {l.privacySections.map((s) => (
+            <section key={s.title}>
+              <h2>{s.title}</h2>
+              <p>{s.text}</p>
+            </section>
+          ))}
+          <h2>{l.rightsTitle}</h2>
+          <p>{brand.contactEmail ? fmt(l.rightsWithEmail, { email: brand.contactEmail }) : l.rights}</p>
         </>
       }
     />

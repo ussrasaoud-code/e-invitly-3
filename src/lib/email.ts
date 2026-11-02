@@ -14,14 +14,16 @@ export function isEmailConfigured() {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
 }
 
-export async function sendEmail(msg: { to: string; subject: string; heading: string; paragraphs: string[]; replyTo?: string }): Promise<EmailResult> {
+export async function sendEmail(msg: { to: string; subject: string; heading: string; paragraphs: string[]; replyTo?: string; lang?: string }): Promise<EmailResult> {
+  const lang = msg.lang ?? "fr";
+  const dir = lang === "ar" ? "rtl" : "ltr";
   if (!isEmailConfigured()) return { sent: false, error: "Service e-mail non configuré" };
-  const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#FAF8F4;font-family:Georgia,serif;color:#323330">
+  const html = `<!doctype html><html lang="${lang}" dir="${dir}"><body dir="${dir}" style="margin:0;background:#FAF8F4;font-family:Georgia,serif;color:#323330">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #DDD2C3">
 <tr><td style="padding:36px 40px 8px;text-align:center;letter-spacing:4px;font-size:13px;color:#586C60">E-INVITLY</td></tr>
 <tr><td style="padding:8px 40px 0;text-align:center;font-size:22px">${escape(msg.heading)}</td></tr>
-<tr><td style="padding:16px 40px 36px;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6">
+<tr><td style="padding:16px 40px 36px;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;text-align:${dir === "rtl" ? "right" : "left"}">
 ${msg.paragraphs.map((p) => `<p style="margin:0 0 14px">${escape(p)}</p>`).join("")}
 </td></tr></table></td></tr></table></body></html>`;
   try {

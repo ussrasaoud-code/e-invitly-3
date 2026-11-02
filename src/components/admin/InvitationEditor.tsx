@@ -19,6 +19,7 @@ import {
 } from "@/lib/invitation/schema";
 import type { SaveResult } from "@/lib/save-result";
 import { useEditorState } from "@/components/editor/useEditorState";
+import { LANGUAGES, LANGUAGE_LABELS } from "@/lib/invitation/schema";
 import type { InvitationContentInput } from "@/lib/invitation/schema";
 
 /**
@@ -99,7 +100,10 @@ export function InvitationEditor({
   previewNote = "Aperçu du brouillon — non visible par les invités",
   publish,
   backupKey,
+  lockLanguage,
 }: {
+  /** Langue imposée (modèles : les autres langues sont des versions à part) — texte d'explication */
+  lockLanguage?: string;
   /** Publie le contenu comme nouvelle version (modèles : le brouillon s'enregistre automatiquement) */
   publish?: (content: InvitationContentInput) => Promise<SaveResult>;
   /** Copie de secours locale (récupérable après une fermeture accidentelle) */
@@ -244,11 +248,12 @@ export function InvitationEditor({
                 </select>
               </L>
               <L label="Langue de l'invitation">
-                <select className={inputCls} value={c.language} onChange={(e) => set("language", e.target.value as InvitationContent["language"])}>
-                  <option value="fr">Français</option>
-                  <option value="en">Anglais</option>
-                  <option value="ar">Arabe (de droite à gauche)</option>
+                <select className={inputCls} value={c.language} disabled={!!lockLanguage} onChange={(e) => set("language", e.target.value as InvitationContent["language"])}>
+                  {LANGUAGES.map((l) => (
+                    <option key={l} value={l}>{LANGUAGE_LABELS[l]}</option>
+                  ))}
                 </select>
+                {lockLanguage ? <span className="mt-1 block text-xs text-stone">{lockLanguage}</span> : null}
               </L>
               <L label="Lieu principal"><input className={inputCls} value={c.mainVenue.name} onChange={(e) => setIn("mainVenue", { name: e.target.value })} /></L>
               <L label="Ville"><input className={inputCls} value={c.mainVenue.city} onChange={(e) => setIn("mainVenue", { city: e.target.value })} /></L>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LANGUAGES } from "@/lib/invitation/schema";
 
 /**
  * Formulaire de demande de personnalisation.
@@ -44,6 +45,11 @@ export const COUNTRIES = [
   "Espagne",
   "Italie",
   "Allemagne",
+  "Pays-Bas",
+  "Autriche",
+  "Émirats arabes unis",
+  "Arabie saoudite",
+  "Qatar",
   "États-Unis",
   "Autre",
 ] as const;
@@ -60,7 +66,7 @@ export const contactStep = z.object({
     .optional()
     .default(""),
   country: t(60).min(1, "Indiquez votre pays"),
-  language: z.enum(["fr", "en", "ar"], { message: "Choisissez une langue" }),
+  language: z.enum(LANGUAGES, { message: "Choisissez une langue" }),
 });
 
 export const coupleStep = z.object({
@@ -148,6 +154,33 @@ export const STEP_TITLES = [
   "Autres informations",
   "Vérification",
 ] as const;
+
+/** Message d'erreur (en français dans le schéma) → clé du dictionnaire du site */
+const ERROR_KEYS: Record<string, string> = {
+  "Heure au format HH:MM": "time",
+  "Le lien doit commencer par https://": "https",
+  "Indiquez votre prénom": "firstName",
+  "Indiquez votre nom": "lastName",
+  "Adresse e-mail invalide": "email",
+  "Numéro de téléphone invalide": "phone",
+  "Indiquez votre pays": "country",
+  "Choisissez une langue": "language",
+  "Indiquez le premier prénom": "partnerOne",
+  "Indiquez le second prénom": "partnerTwo",
+  "Indiquez la date de l'événement": "eventDate",
+  "La date doit être à venir": "futureDate",
+  "6 cérémonies maximum": "maxCeremonies",
+  "Date invalide": "date",
+  "Votre accord est nécessaire pour envoyer la demande": "consent",
+};
+
+/** Traduit un message d'erreur du formulaire dans la langue du visiteur. */
+export function translateError(message: string, errors: Record<string, string>): string {
+  const max = /^(\d+) caractères maximum$/.exec(message);
+  if (max) return (errors.maxChars ?? message).replace("{n}", max[1]);
+  const key = ERROR_KEYS[message];
+  return (key && errors[key]) || message;
+}
 
 /** Transforme les erreurs Zod en { "chemin.du.champ": "message" } */
 export function flattenErrors(error: z.ZodError): Record<string, string> {

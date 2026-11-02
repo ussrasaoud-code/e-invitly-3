@@ -10,7 +10,17 @@ import { logActivity } from "@/lib/audit";
 import { requireStaff } from "@/lib/auth";
 import { CATEGORIES, STYLES } from "@/lib/catalog";
 import { PRESETS } from "@/lib/invitation/presets";
-import { RENDERERS, invitationContentSchema, templateDefinitionSchema, type InvitationContentInput } from "@/lib/invitation/schema";
+import {
+  LANGUAGES,
+  RENDERERS,
+  invitationContentSchema,
+  templateDefinitionSchema,
+  type InvitationContent,
+  type InvitationContentInput,
+  type Language,
+  type TemplateDefinition,
+} from "@/lib/invitation/schema";
+import { getVariant, mainLang, newVariant, removeVariant, setVariant, syncAllVariants, templateLangs } from "@/lib/invitation/variants";
 import type { SaveResult } from "@/lib/save-result";
 import { slugify } from "@/lib/slug";
 import { createClient } from "@/lib/supabase/server";
@@ -131,6 +141,22 @@ export async function updateTemplateMeta(form: FormData) {
     })
     .eq("id", d.id);
   if (error) throw new Error(error.code === "23505" ? "Cet identifiant est déjà utilisé par un autre modèle." : error.message);
+  // Fiche traduite (colonne ajoutée par la migration « languages »)
+  const FIELDS = { name: 80, short_description: 200, description: 3000, price_label: 80, features: 2000 } as const;
+  const translations: Record<string, Record<string, string>> = {};
+  for (const l of LANGUAGES) {
+    if (l === "fr") continue;
+    const entry: Record<string, string> = {};
+    for (const [f, max] of Object.entries(FIELDS)) {
+      const v = String(form.get(`tr_${l}_${f}`) ?? "").trim().slice(0, max);
+      if (v) entry[f] = v;
+    }
+    if (Object.keys(entry).length) translations[l] = entry;
+  }
+  if ([...form.keys()].some((k) => k.startsWith("tr_"))) {
+    const { error: trError } = await supabase.from("templates").update({ translations }).eq("id", d.id);
+    if (trError) throw new Error(`Traductions non enregistrées : ${trError.message}. Avez-vous exécuté la migration 20261105000001_languages.sql ?`);
+  }
   await logActivity({ actorId: user.id, action: "template.updated", resourceType: "template", resourceId: d.id, summary: `Fiche du modèle ${d.name} modifiée` });
   refreshCatalog(d.id);
 }
@@ -139,69 +165,147 @@ export async function updateTemplateMeta(form: FormData) {
  * Enregistre le design du modèle comme NOUVELLE version.
  * Les invitations existantes gardent la version qu'elles avaient figée.
  */
-export async function saveTemplateVersion(templateId: string, sample: InvitationContentInput): Promise<SaveResult> {
-  const user = await requireStaff();
-  if (!uuid.safeParse(templateId).success) return { ok: false, message: "Modèle inconnu." };
-  const parsed = invitationContentSchema.safeParse(sample);
-  if (!parsed.success) {
-    return { ok: false, message: "Valeurs invalides : version non enregistrée.", issues: parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(" › ")} : ${i.message}`) };
-  }
-  const supabase = (await createClient())!;
+type Supa = NonNullable<Awaited<ReturnType<typeof createClient>>>;
+
+/** Définition de travail d'un modèle : le brouillon s'il existe, sinon la version courante. */
+async function loadWorking(supabase: Supa, templateId: string) {
   const { data: tpl } = await supabase
     .from("templates")
-    .select("name, template_versions!template_versions_template_id_fkey(version, renderer)")
+    .select("name, current:template_versions!templates_current_version_fk(renderer, definition)")
     .eq("id", templateId)
-    .single();
-  if (!tpl) return { ok: false, message: "Modèle introuvable." };
-  const versions = (tpl.template_versions as Array<{ version: number; renderer: string }>) ?? [];
-  const last = versions.sort((a, b) => b.version - a.version)[0];
-  const renderer = z.enum(RENDERERS).parse(last?.renderer ?? "the-garden");
-  const definition = templateDefinitionSchema.parse({ renderer, sample: parsed.data });
-  const nextVersion = (last?.version ?? 0) + 1;
-  const { data: v, error } = await supabase
-    .from("template_versions")
-    .insert({ template_id: templateId, version: nextVersion, renderer, definition, created_by: user.id })
-    .select("id, created_at")
-    .single();
-  if (error || !v) return { ok: false, message: `Enregistrement impossible : ${error?.message}` };
-  await supabase.from("templates").update({ current_version_id: v.id }).eq("id", templateId);
-  await logActivity({ actorId: user.id, action: "template.version", resourceType: "template", resourceId: templateId, summary: `Modèle ${tpl.name} : version ${nextVersion} enregistrée` });
-  refreshCatalog(templateId);
-  return { ok: true, savedAt: v.created_at };
+    .maybeSingle();
+  if (!tpl) return null;
+  const { data: draft } = await supabase.from("template_drafts").select("definition").eq("template_id", templateId).maybeSingle();
+  const cur = tpl.current as { renderer?: string; definition?: unknown } | null;
+  const fromDraft = draft ? templateDefinitionSchema.safeParse(draft.definition) : null;
+  const fromCur = cur?.definition ? templateDefinitionSchema.safeParse(cur.definition) : null;
+  const def: TemplateDefinition | null = fromDraft?.success ? fromDraft.data : fromCur?.success ? fromCur.data : null;
+  const renderer = z.enum(RENDERERS).catch("the-garden").parse(cur?.renderer ?? def?.renderer);
+  return { name: tpl.name as string, def, renderer };
 }
 
-/**
- * Brouillon automatique du modèle (enregistré à chaque modification).
- * Les invitations et le catalogue n'en voient rien tant qu'une version n'est pas créée.
- */
-export async function saveTemplateDraft(templateId: string, sample: InvitationContentInput): Promise<SaveResult> {
-  const user = await requireStaff();
-  if (!uuid.safeParse(templateId).success) return { ok: false, message: "Modèle inconnu." };
-  const parsed = invitationContentSchema.safeParse(sample);
-  if (!parsed.success) {
-    return { ok: false, message: "Valeurs invalides : brouillon non enregistré.", issues: parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(" › ")} : ${i.message}`) };
-  }
-  const supabase = (await createClient())!;
-  const { data: cur } = await supabase.from("templates").select("current:template_versions!templates_current_version_fk(renderer)").eq("id", templateId).maybeSingle();
-  if (!cur) return { ok: false, message: "Modèle introuvable." };
-  const renderer = z.enum(RENDERERS).parse((cur.current as { renderer?: string } | null)?.renderer ?? "the-garden");
-  const definition = templateDefinitionSchema.parse({ renderer, sample: parsed.data });
+/** Intègre le contenu d'une langue dans la définition de travail. */
+function mergeContent(base: TemplateDefinition | null, renderer: TemplateDefinition["renderer"], lang: Language | null, content: InvitationContent): TemplateDefinition {
+  if (!base) return { renderer, sample: content, variants: {} };
+  return setVariant({ ...base, renderer }, lang ?? mainLang(base), content);
+}
+
+async function saveDraftDefinition(supabase: Supa, templateId: string, definition: TemplateDefinition, userId: string): Promise<SaveResult> {
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("template_drafts")
-    .upsert({ template_id: templateId, definition, updated_by: user.id, updated_at: now }, { onConflict: "template_id" });
+    .upsert({ template_id: templateId, definition, updated_by: userId, updated_at: now }, { onConflict: "template_id" });
   if (error) return { ok: false, message: `Brouillon non enregistré : ${error.message}` };
   return { ok: true, savedAt: now };
 }
 
-/** Enregistre une nouvelle version à partir du contenu affiché, puis vide le brouillon. */
-export async function publishTemplateDraft(templateId: string, sample: InvitationContentInput): Promise<SaveResult> {
-  const res = await saveTemplateVersion(templateId, sample);
-  if (res.ok) {
-    const supabase = (await createClient())!;
-    await supabase.from("template_drafts").delete().eq("template_id", templateId);
-  }
+/** Crée une nouvelle version (toutes les langues) et la rend courante. */
+async function insertVersion(supabase: Supa, templateId: string, name: string, definition: TemplateDefinition, userId: string): Promise<SaveResult> {
+  const { data: last } = await supabase
+    .from("template_versions")
+    .select("version")
+    .eq("template_id", templateId)
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextVersion = (last?.version ?? 0) + 1;
+  const { data: v, error } = await supabase
+    .from("template_versions")
+    .insert({ template_id: templateId, version: nextVersion, renderer: definition.renderer, definition, created_by: userId })
+    .select("id, created_at")
+    .single();
+  if (error || !v) return { ok: false, message: `Enregistrement impossible : ${error?.message}` };
+  await supabase.from("templates").update({ current_version_id: v.id }).eq("id", templateId);
+  // Langues disponibles (colonne ajoutée par la migration « languages » ; ignorée si absente)
+  await supabase.from("templates").update({ languages: templateLangs(definition) }).eq("id", templateId);
+  await logActivity({ actorId: userId, action: "template.version", resourceType: "template", resourceId: templateId, summary: `Modèle ${name} : version ${nextVersion} enregistrée` });
+  refreshCatalog(templateId);
+  return { ok: true, savedAt: v.created_at };
+}
+
+function parseContent(sample: InvitationContentInput, what: string): { ok: true; data: InvitationContent } | { ok: false; res: SaveResult } {
+  const parsed = invitationContentSchema.safeParse(sample);
+  if (parsed.success) return { ok: true, data: parsed.data };
+  return {
+    ok: false,
+    res: { ok: false, message: `Valeurs invalides : ${what} non enregistré${what === "version" ? "e" : ""}.`, issues: parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(" › ")} : ${i.message}`) },
+  };
+}
+
+const langOrNull = (v: unknown): Language | null => (LANGUAGES as readonly string[]).includes(v as string) ? (v as Language) : null;
+
+/**
+ * Brouillon automatique du modèle, pour la langue éditée (enregistré à chaque modification).
+ * Les invitations et le catalogue n'en voient rien tant qu'une version n'est pas créée.
+ */
+export async function saveTemplateDraft(templateId: string, lang: string | null, sample: InvitationContentInput): Promise<SaveResult> {
+  const user = await requireStaff();
+  if (!uuid.safeParse(templateId).success) return { ok: false, message: "Modèle inconnu." };
+  const c = parseContent(sample, "brouillon");
+  if (!c.ok) return c.res;
+  const supabase = (await createClient())!;
+  const w = await loadWorking(supabase, templateId);
+  if (!w) return { ok: false, message: "Modèle introuvable." };
+  return saveDraftDefinition(supabase, templateId, mergeContent(w.def, w.renderer, langOrNull(lang), c.data), user.id);
+}
+
+/** Enregistre une nouvelle version (toutes les langues) à partir du contenu affiché, puis vide le brouillon. */
+export async function publishTemplateDraft(templateId: string, lang: string | null, sample: InvitationContentInput): Promise<SaveResult> {
+  const user = await requireStaff();
+  if (!uuid.safeParse(templateId).success) return { ok: false, message: "Modèle inconnu." };
+  const c = parseContent(sample, "version");
+  if (!c.ok) return c.res;
+  const supabase = (await createClient())!;
+  const w = await loadWorking(supabase, templateId);
+  if (!w) return { ok: false, message: "Modèle introuvable." };
+  const res = await insertVersion(supabase, templateId, w.name, mergeContent(w.def, w.renderer, langOrNull(lang), c.data), user.id);
+  if (res.ok) await supabase.from("template_drafts").delete().eq("template_id", templateId);
   return res;
+}
+
+/** Ancienne signature (version principale) : publie directement. */
+export async function saveTemplateVersion(templateId: string, sample: InvitationContentInput): Promise<SaveResult> {
+  return publishTemplateDraft(templateId, null, sample);
+}
+
+/** Ajoute une langue au modèle : copie de la version principale, textes à traduire. */
+export async function addTemplateLanguage(form: FormData) {
+  const user = await requireStaff();
+  const id = uuid.parse(form.get("id"));
+  const lang = z.enum(LANGUAGES).parse(form.get("lang"));
+  const supabase = (await createClient())!;
+  const w = await loadWorking(supabase, id);
+  if (!w?.def) throw new Error("Ce modèle n'a pas de version valide.");
+  if (!getVariant(w.def, lang)) {
+    const res = await saveDraftDefinition(supabase, id, setVariant(w.def, lang, newVariant(w.def, lang)), user.id);
+    if (!res.ok) throw new Error(res.message);
+  }
+  redirect(`/admin/modeles/${id}/editeur?langue=${lang}`);
+}
+
+/** Retire une langue (jamais la langue principale). Effectif à la prochaine version. */
+export async function removeTemplateLanguage(form: FormData) {
+  const user = await requireStaff();
+  const id = uuid.parse(form.get("id"));
+  const lang = z.enum(LANGUAGES).parse(form.get("lang"));
+  const supabase = (await createClient())!;
+  const w = await loadWorking(supabase, id);
+  if (!w?.def) throw new Error("Ce modèle n'a pas de version valide.");
+  const res = await saveDraftDefinition(supabase, id, removeVariant(w.def, lang), user.id);
+  if (!res.ok) throw new Error(res.message);
+  redirect(`/admin/modeles/${id}/editeur`);
+}
+
+/** Reprend le design de la langue principale dans toutes les autres (textes traduits conservés). */
+export async function syncTemplateLanguages(form: FormData) {
+  const user = await requireStaff();
+  const id = uuid.parse(form.get("id"));
+  const supabase = (await createClient())!;
+  const w = await loadWorking(supabase, id);
+  if (!w?.def) throw new Error("Ce modèle n'a pas de version valide.");
+  const res = await saveDraftDefinition(supabase, id, syncAllVariants(w.def), user.id);
+  if (!res.ok) throw new Error(res.message);
+  revalidatePath(`/admin/modeles/${id}/editeur`);
 }
 
 export async function restoreTemplateVersion(form: FormData) {
@@ -279,7 +383,9 @@ export async function createTemplate(form: FormData) {
   }
   const { data: t, error } = await supabase.from("templates").insert({ slug, name, status: "draft", sort_order: 900 }).select("id").single();
   if (error || !t) throw new Error(error?.message ?? "Création impossible");
-  const definition = templateDefinitionSchema.parse({ renderer, sample: invitationContentSchema.parse(PRESETS[renderer]) });
+  const language = z.enum(LANGUAGES).catch("fr").parse(form.get("langue"));
+  const definition = templateDefinitionSchema.parse({ renderer, sample: { ...invitationContentSchema.parse(PRESETS[renderer]), language } });
+  await supabase.from("templates").update({ languages: [language] }).eq("id", t.id);
   const { data: v } = await supabase
     .from("template_versions")
     .insert({ template_id: t.id, version: 1, renderer, definition, note: "Version initiale", created_by: user.id })

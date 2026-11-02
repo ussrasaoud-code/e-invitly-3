@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Arch, CornerSpray, Divider, Sprig } from "@/components/ornaments";
 import { EVENT_TYPE_LABELS, type InvitationContent, type InvitationEvent, type InvitationSection, type RendererKey } from "@/lib/invitation/schema";
-import { formatDotDate, formatLongDate, formatTime, zonedToUtc } from "@/lib/time";
+import { LOCALES, formatDotDate, formatLongDate, formatTime, zonedToUtc } from "@/lib/time";
 import type { PublicRsvpConfig } from "@/lib/rsvp";
 import type { Labels } from "./i18n";
 import { El, ElText, elKey } from "./Element";
@@ -160,7 +160,7 @@ export function HeroSection({ content, renderer }: SectionProps) {
               </El>
               <El id="date">
                 <p className="mt-6 text-[0.95rem] tracking-[0.2em] lining-nums" style={{ ...css.display, color: "var(--inv-accent)" }}>
-                  {formatDotDate(eventAt)}
+                  <bdi dir="ltr">{formatDotDate(eventAt)}</bdi>
                 </p>
               </El>
             </Reveal>
@@ -244,7 +244,7 @@ export function HeroSection({ content, renderer }: SectionProps) {
         ) : null}
         <El id="date">
           <p className="mt-6 text-[1.05rem] tracking-[0.28em] lining-nums" style={{ ...css.display, color: "var(--inv-accent)" }}>
-            {formatDotDate(eventAt)}
+            <bdi dir="ltr">{formatDotDate(eventAt)}</bdi>
           </p>
         </El>
         <El id="date-long">
@@ -475,7 +475,7 @@ export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp
   // La date limite réglée dans l'onglet RSVP fait foi ; sinon celle du contenu.
   const deadlineIso = rsvp?.deadline ?? null;
   const deadline = deadlineIso
-    ? new Intl.DateTimeFormat({ fr: "fr-FR", en: "en-GB", ar: "ar-MA" }[content.language], { day: "numeric", month: "long", year: "numeric", timeZone: content.timezone }).format(new Date(deadlineIso))
+    ? new Intl.DateTimeFormat(LOCALES[content.language], { day: "numeric", month: "long", year: "numeric", timeZone: content.timezone }).format(new Date(deadlineIso))
     : content.rsvp.deadline
       ? formatLongDate(`${content.rsvp.deadline}T12:00`, content.language)
       : "";

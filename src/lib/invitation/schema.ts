@@ -11,8 +11,18 @@ import { z } from "zod";
  *   version publiée d'une invitation.
  */
 
-export const LANGUAGES = ["fr", "en", "ar"] as const;
+export const LANGUAGES = ["fr", "en", "ar", "es", "it", "de", "nl"] as const;
 export type Language = (typeof LANGUAGES)[number];
+/** Libellés français des langues (administration) */
+export const LANGUAGE_LABELS: Record<Language, string> = {
+  fr: "Français",
+  en: "Anglais",
+  ar: "Arabe (de droite à gauche)",
+  es: "Espagnol",
+  it: "Italien",
+  de: "Allemand",
+  nl: "Néerlandais",
+};
 
 /**
  * Adresse d'image, de vidéo ou de musique acceptée : https, chemin du site,
@@ -431,7 +441,10 @@ export type InvitationContentInput = z.input<typeof invitationContentSchema>;
 /** Définition d'un modèle stockée dans template_versions.definition */
 export const templateDefinitionSchema = z.object({
   renderer: z.enum(["the-garden", "province", "blank"]),
+  /** Version principale (sa langue = sample.language) */
   sample: invitationContentSchema,
+  /** Même design dans d'autres langues : textes traduits, réglages propres à la langue */
+  variants: z.partialRecord(z.enum(LANGUAGES), invitationContentSchema).default({}),
 });
 export type TemplateDefinition = z.infer<typeof templateDefinitionSchema>;
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LANGUAGE_LABELS } from "@/lib/invitation/schema";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { StatusBadge } from "@/components/admin/StatusBadge";
@@ -12,7 +13,7 @@ import { convertRequestToInvitation, saveRequestNotes, setRequestArchived, updat
 
 export const metadata = { title: "Demande" };
 
-const LANG: Record<string, string> = { fr: "Français", en: "Anglais", ar: "Arabe" };
+const LANG: Record<string, string> = LANGUAGE_LABELS;
 
 function Block({ title, rows }: { title: string; rows: Array<[string, string | null | undefined]> }) {
   const filled = rows.filter(([, v]) => v && String(v).trim());

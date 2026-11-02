@@ -3,12 +3,15 @@ import Link from "next/link";
 import { SetupNotice } from "@/components/site/SetupNotice";
 import { TemplateCard } from "@/components/site/TemplateCard";
 import { CATEGORIES, STYLES } from "@/lib/catalog";
-import { listPublishedTemplates } from "@/lib/templates";
+import { fmt, localePath } from "@/lib/i18n/config";
+import { pageMetadata } from "@/lib/i18n/metadata";
+import { getDict } from "@/lib/i18n/server";
+import { listPublishedTemplates, localizeTemplate } from "@/lib/templates";
 
-export const metadata: Metadata = {
-  title: "Nos invitations",
-  description: "Le catalogue des modèles d'invitations digitales E-Invitly : mariage, fiançailles, anniversaire, baptême…",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { lang, t } = await getDict();
+  return pageMetadata(lang, "/invitations", { title: t.catalog.metaTitle, description: t.catalog.metaDescription });
+}
 
 type Search = Promise<{ categorie?: string; style?: string }>;
 
@@ -28,56 +31,57 @@ function FilterLink({ href, active, children }: { href: string; active: boolean;
 }
 
 export default async function CatalogPage({ searchParams }: { searchParams: Search }) {
+  const { lang, t } = await getDict();
+  const c = t.catalog;
   const { categorie, style } = await searchParams;
-  const { data: templates, configured } = await listPublishedTemplates();
+  const { data, configured } = await listPublishedTemplates();
+  const templates = data.map((x) => localizeTemplate(x, lang));
 
   // Uniquement les filtres qui correspondent à au moins un modèle
-  const categories = CATEGORIES.filter((c) => templates.some((t) => t.category === c.value));
-  const styles = STYLES.filter((s) => templates.some((t) => t.styles.includes(s.value)));
-  const filtered = templates.filter(
-    (t) => (!categorie || t.category === categorie) && (!style || t.styles.includes(style)),
-  );
+  const categories = CATEGORIES.filter((x) => templates.some((tp) => tp.category === x.value));
+  const styles = STYLES.filter((x) => templates.some((tp) => tp.styles.includes(x.value)));
+  const filtered = templates.filter((tp) => (!categorie || tp.category === categorie) && (!style || tp.styles.includes(style)));
   const qs = (next: { categorie?: string; style?: string }) => {
     const p = new URLSearchParams();
     if (next.categorie) p.set("categorie", next.categorie);
     if (next.style) p.set("style", next.style);
     const s = p.toString();
-    return s ? `/invitations?${s}` : "/invitations";
+    return localePath(lang, s ? `/invitations?${s}` : "/invitations");
   };
+  const catLabel = (v: string) => t.categories[v as keyof typeof t.categories] ?? v;
+  const styleLabel = (v: string) => t.styles[v as keyof typeof t.styles] ?? v;
 
   return (
     <main className="px-5 pb-24 pt-14 md:pt-20">
       <div className="mx-auto max-w-6xl">
         <header className="text-center">
-          <p className="eyebrow">Catalogue</p>
-          <h1 className="mt-4 font-serif text-5xl md:text-6xl">Nos invitations</h1>
-          <p className="mx-auto mt-5 max-w-xl leading-relaxed text-stone">
-            Chaque modèle est une base : nous l&apos;adaptons à vos prénoms, vos lieux, vos textes et votre programme.
-          </p>
+          <p className="eyebrow">{c.eyebrow}</p>
+          <h1 className="mt-4 font-serif text-5xl md:text-6xl">{c.title}</h1>
+          <p className="mx-auto mt-5 max-w-xl leading-relaxed text-stone">{c.intro}</p>
         </header>
 
         {!configured ? (
-          <div className="mt-14"><SetupNotice /></div>
+          <div className="mt-14"><SetupNotice t={t.setup} /></div>
         ) : (
           <>
             {(categories.length > 1 || styles.length > 1) && (
               <div className="mt-12 space-y-4">
                 {categories.length > 1 ? (
-                  <div className="flex flex-wrap justify-center gap-2" aria-label="Filtrer par événement">
-                    <FilterLink href={qs({ style })} active={!categorie}>Tous les événements</FilterLink>
-                    {categories.map((c) => (
-                      <FilterLink key={c.value} href={qs({ categorie: c.value, style })} active={categorie === c.value}>
-                        {c.label}
+                  <div className="flex flex-wrap justify-center gap-2" aria-label={c.byEvent}>
+                    <FilterLink href={qs({ style })} active={!categorie}>{c.allEvents}</FilterLink>
+                    {categories.map((x) => (
+                      <FilterLink key={x.value} href={qs({ categorie: x.value, style })} active={categorie === x.value}>
+                        {catLabel(x.value)}
                       </FilterLink>
                     ))}
                   </div>
                 ) : null}
                 {styles.length > 1 ? (
-                  <div className="flex flex-wrap justify-center gap-2" aria-label="Filtrer par style">
-                    <FilterLink href={qs({ categorie })} active={!style}>Tous les styles</FilterLink>
-                    {styles.map((s) => (
-                      <FilterLink key={s.value} href={qs({ categorie, style: s.value })} active={style === s.value}>
-                        {s.label}
+                  <div className="flex flex-wrap justify-center gap-2" aria-label={c.byStyle}>
+                    <FilterLink href={qs({ categorie })} active={!style}>{c.allStyles}</FilterLink>
+                    {styles.map((x) => (
+                      <FilterLink key={x.value} href={qs({ categorie, style: x.value })} active={style === x.value}>
+                        {styleLabel(x.value)}
                       </FilterLink>
                     ))}
                   </div>
@@ -86,18 +90,18 @@ export default async function CatalogPage({ searchParams }: { searchParams: Sear
             )}
 
             <p className="mt-10 text-center text-sm text-stone" aria-live="polite">
-              {filtered.length} modèle{filtered.length > 1 ? "s" : ""}
+              {fmt(filtered.length > 1 ? c.countMany : c.countOne, { n: filtered.length })}
             </p>
             {filtered.length ? (
               <div className="mt-8 grid gap-x-10 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
-                {filtered.map((t, i) => (
-                  <TemplateCard key={t.id} template={t} priority={i < 2} offset={i % 3 === 1} />
+                {filtered.map((tp, i) => (
+                  <TemplateCard key={tp.id} template={tp} priority={i < 2} offset={i % 3 === 1} t={t} lang={lang} />
                 ))}
               </div>
             ) : (
               <p className="mt-10 text-center text-stone">
-                Aucun modèle ne correspond à ces filtres.{" "}
-                <Link href="/invitations" className="text-forest underline underline-offset-4">Tout afficher</Link>
+                {c.none}{" "}
+                <Link href={localePath(lang, "/invitations")} className="text-forest underline underline-offset-4">{c.showAll}</Link>
               </p>
             )}
           </>

@@ -2,6 +2,8 @@
 
 import { logActivity } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
+import { fmt, isSiteLang } from "@/lib/i18n/config";
+import { dictFor } from "@/lib/i18n/server";
 import { env } from "@/lib/env";
 import { hashedClientIp } from "@/lib/net";
 import { getSettings } from "@/lib/settings";
@@ -18,10 +20,12 @@ export type SubmitResult =
  * 3. insertion en base (référence attribuée par la base)  4. e-mails  5. journal
  * Aucune invitation n'est créée ni publiée ici.
  */
-export async function submitRequest(input: RequestInput): Promise<SubmitResult> {
+export async function submitRequest(input: RequestInput, uiLang: string = "fr"): Promise<SubmitResult> {
+  const t = dictFor(isSiteLang(uiLang) ? uiLang : "fr");
+  const err = t.request.errors;
   const db = createAdminClient();
   if (!db) {
-    return { ok: false, message: "Le service n'est pas encore configuré. Merci de réessayer plus tard." };
+    return { ok: false, message: err.notConfigured };
   }
 
   const ipHash = await hashedClientIp();
@@ -32,12 +36,12 @@ export async function submitRequest(input: RequestInput): Promise<SubmitResult> 
   });
   if (rlError) console.error("[request] rate limit", rlError.message);
   if (allowed === false) {
-    return { ok: false, message: "Trop de demandes envoyées depuis cette connexion. Merci de réessayer dans une heure." };
+    return { ok: false, message: err.rate };
   }
 
   const parsed = requestSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, message: "Certaines informations sont à corriger.", fieldErrors: flattenErrors(parsed.error) };
+    return { ok: false, message: err.invalid, fieldErrors: flattenErrors(parsed.error) };
   }
   const data = parsed.data;
   if (data.website) {
@@ -51,7 +55,7 @@ export async function submitRequest(input: RequestInput): Promise<SubmitResult> 
     .eq("slug", data.templateSlug)
     .maybeSingle();
   if (!template || template.status !== "published") {
-    return { ok: false, message: "Ce modèle n'est plus disponible. Choisissez-en un autre dans le catalogue." };
+    return { ok: false, message: err.unavailable };
   }
 
   const { website: _hp, consent: _c, templateSlug: _s, ...formData } = data;
@@ -79,7 +83,7 @@ export async function submitRequest(input: RequestInput): Promise<SubmitResult> 
 
   if (error || !row) {
     console.error("[request] insert", error?.message);
-    return { ok: false, message: "Votre demande n'a pas pu être enregistrée. Merci de réessayer dans quelques instants." };
+    return { ok: false, message: err.server };
   }
 
   await logActivity({
@@ -90,18 +94,21 @@ export async function submitRequest(input: RequestInput): Promise<SubmitResult> 
   });
 
   const settings = await getSettings();
+  // E-mail de confirmation dans la langue du site où la demande a été faite
+  const m = t.email;
   const confirmation = await sendEmail({
     to: data.email,
-    subject: `Votre demande ${row.reference} a bien été reçue`,
-    heading: "Merci pour votre demande",
+    subject: fmt(m.subject, { ref: row.reference }),
+    heading: m.heading,
     paragraphs: [
-      `Bonjour ${data.firstName},`,
-      `Nous avons bien reçu votre demande de personnalisation du modèle « ${template.name} » pour ${data.partnerOne} & ${data.partnerTwo}.`,
-      `Votre référence : ${row.reference}. Nous revenons vers vous avec un aperçu de votre invitation.`,
-      "Votre invitation ne sera publiée qu'après votre validation.",
-      `L'équipe ${settings.brand.name}`,
+      fmt(m.hello, { name: data.firstName }),
+      fmt(m.received, { template: template.name, couple: `${data.partnerOne} & ${data.partnerTwo}` }),
+      fmt(m.reference, { ref: row.reference }),
+      m.noPublish,
+      fmt(m.signature, { brand: settings.brand.name }),
     ],
     replyTo: settings.brand.contactEmail || undefined,
+    lang: isSiteLang(uiLang) ? uiLang : "fr",
   });
   if (!confirmation.sent) console.warn("[request] e-mail client non envoyé :", confirmation.error);
 
@@ -113,6 +120,7 @@ export async function submitRequest(input: RequestInput): Promise<SubmitResult> 
       heading: "Nouvelle demande reçue",
       paragraphs: [
         `${data.firstName} ${data.lastName} (${data.email}) — modèle ${template.name}.`,
+        `Langue de l'invitation : ${data.language.toUpperCase()} · site consulté en ${uiLang.toUpperCase()}.`,
         `Couple : ${data.partnerOne} & ${data.partnerTwo}, le ${data.eventDate}.`,
         `À traiter dans l'administration : ${env.siteUrl}/admin/demandes/${row.id}`,
       ],

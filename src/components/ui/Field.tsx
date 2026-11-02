@@ -1,15 +1,19 @@
 "use client";
 
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { createContext, useContext, useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 
 type Common = { label: string; error?: string; hint?: string; optional?: boolean; className?: string };
 
+/** Mention « (facultatif) » dans la langue de la page */
+export const OptionalLabelContext = createContext("facultatif");
+
 function Wrapper({ id, label, error, hint, optional, className, children }: Common & { id: string; children: ReactNode }) {
+  const optionalLabel = useContext(OptionalLabelContext);
   return (
     <div className={className}>
       <label htmlFor={id} className="field-label">
         {label}
-        {optional ? <span className="ml-1 text-stone/80">(facultatif)</span> : null}
+        {optional ? <span className="ms-1 text-stone">({optionalLabel})</span> : null}
       </label>
       {children}
       {hint && !error ? <p id={`${id}-hint`} className="field-hint">{hint}</p> : null}

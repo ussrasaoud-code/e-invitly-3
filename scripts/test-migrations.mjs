@@ -332,6 +332,20 @@ await test("brouillon automatique des modèles : un seul par modèle, réservé 
   await as("authenticated", admin.id, () => rows(`delete from public.template_drafts where template_id = $1`, [tpl.id]));
 });
 
+await test("langues : 7 langues acceptées, fiche traduite et langues ouvertes lisibles par tous", async () => {
+  const [r] = await rows(`select id from public.client_requests limit 1`);
+  if (r) {
+    await db.query(`update public.client_requests set language = 'nl' where id = $1`, [r.id]);
+    await assert.rejects(db.query(`update public.client_requests set language = 'pt' where id = $1`, [r.id]));
+  }
+  await db.query(`update public.templates set translations = '{"en":{"name":"The Garden EN"}}', languages = '{fr,en}' where id = $1`, [tpl.id]);
+  const pub = await as("anon", null, () => rows(`select translations, languages from public.templates where id = $1`, [tpl.id]));
+  assert.equal(pub[0].translations.en.name, "The Garden EN");
+  assert.deepEqual(pub[0].languages, ["fr", "en"]);
+  const s = await as("anon", null, () => rows(`select value from public.settings where key = 'languages'`));
+  assert.deepEqual(s[0].value.enabled, ["fr"]);
+});
+
 await test("deux invitations ne peuvent pas partager un slug (insensible à la casse)", async () => {
   await assert.rejects(
     db.query(

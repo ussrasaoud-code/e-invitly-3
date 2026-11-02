@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 import { env } from "@/lib/env";
+import { isSiteLang } from "@/lib/i18n/config";
+import { dictFor } from "@/lib/i18n/server";
 import { hashedClientIp } from "@/lib/net";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -12,11 +14,13 @@ const safeNext = (v: unknown) => (typeof v === "string" && /^\/(?!\/)[\w\-/]*$/.
 
 /** Envoie un lien de connexion. Aucun compte n'est créé ici (comptes créés par l'administration). */
 export async function sendMagicLink(_prev: LoginState, form: FormData): Promise<LoginState> {
+  const uiLang = form.get("lang");
+  const t = dictFor(isSiteLang(uiLang) ? uiLang : "fr").login;
   const email = z.string().trim().toLowerCase().email().safeParse(form.get("email"));
-  if (!email.success) return { status: "error", message: "Adresse e-mail invalide." };
+  if (!email.success) return { status: "error", message: t.invalidEmail };
 
   const supabase = await createClient();
-  if (!supabase) return { status: "error", message: "Le service de connexion n'est pas encore configuré." };
+  if (!supabase) return { status: "error", message: t.notConfigured };
 
   const admin = createAdminClient();
   if (admin) {
@@ -25,7 +29,7 @@ export async function sendMagicLink(_prev: LoginState, form: FormData): Promise<
       p_limit: 8,
       p_window_seconds: 3600,
     });
-    if (ok === false) return { status: "error", message: "Trop de tentatives. Réessayez dans une heure." };
+    if (ok === false) return { status: "error", message: t.tooMany };
   }
 
   const next = safeNext(form.get("suite"));
@@ -40,11 +44,11 @@ export async function sendMagicLink(_prev: LoginState, form: FormData): Promise<
   if (error && !/not found|signups not allowed|otp_disabled/i.test(error.message)) {
     console.error("[login]", error.message);
     if (/rate limit/i.test(error.message)) {
-      return { status: "error", message: "Trop de demandes de lien. Patientez quelques minutes." };
+      return { status: "error", message: t.tooManyLinks };
     }
   }
   return {
     status: "sent",
-    message: "Si cette adresse est associée à un compte, un lien de connexion vient de lui être envoyé. Il est valable une heure.",
+    message: t.sent,
   };
 }

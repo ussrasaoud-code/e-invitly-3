@@ -20,15 +20,34 @@ au DNS ou au déploiement.
 | 4 — Publication | Page publique `/[adresse]`, aperçu privé (7 jours), publier / dépublier, historique, redirections, code d'accès, noindex | ✅ fait et testé |
 | 5 — RSVP | Formulaire réel dans l'invitation, réglages par invitation, questions personnalisées, invités nominatifs avec codes, statistiques par moment, corrections tracées, exports Excel/CSV, espace couple, notifications | ✅ fait et testé |
 | 6 — Éditeur visuel | Éditeur 3 colonnes (invitations et modèles) : éléments du modèle sélectionnables (titres, prénoms, ornements : modifier, déplacer, recolorer, retirer), calques d'illustrations et de textes libres déplaçables, redimensionnables, pivotables, opacité, miroir, devant/derrière, teinte, verrouillage, copier-coller ; animations par élément ; sections texte libre et bande décorative, dupliquer / supprimer ; historique du brouillon avec restauration ; modèle vierge « page blanche » ; 12 polices au choix par texte ; sections agrandies à la souris ; éléments dégroupables (prénoms, listes) et calques groupables ; formes (cadres, arches, cercles, lignes…) avec 18 formats prêts à l'emploi | ✅ fait et testé |
-| 7 — Finalisation | Anglais/arabe du site, audit accessibilité, mise en ligne | ⏳ |
+| 7 — Langues et finalisation | Site vitrine et invitations en 7 langues (FR, EN, AR, ES, IT, DE, NL), adresses /en /ar…, sélecteur, suggestion selon le téléphone et le pays, langues ouvertes une à une (Paramètres → Langues), page de relecture des traductions ; versions par langue des modèles (un design, des textes traduits, synchronisation du design), fiche catalogue traduite, prix traduits, démo multilingue, langue choisie dans la demande et reprise à la conversion ; audit d'accessibilité (axe, WCAG 2.1 AA) ; plan du site et hreflang | ✅ fait et testé — reste la liste de mise en ligne ci-dessous |
 
 Les fonctions pas encore disponibles sont signalées comme telles dans l'administration : aucun bouton
 factice.
 
-**Tests réalisés** : 27 tests de sécurité de la base, 40 tests unitaires (prix, adresses, fuseaux horaires,
-conversion demande → invitation, règles RSVP, médias, calques, formes, alignement, programme v2), 64 vérifications de bout en bout dans un vrai
+**Tests réalisés** : 28 tests de sécurité de la base, 48 tests unitaires (langues, versions par langue, prix, adresses, fuseaux horaires,
+conversion demande → invitation, règles RSVP, médias, calques, formes, alignement, programme v2), 66 vérifications de bout en bout dans un vrai
 navigateur (demande, connexion, conversion, éditeur, aperçu, publication, code d'accès, réponses RSVP,
 codes invités, corrections, exports, espace couple, médias, éditeur visuel, historique, accès refusés).
+
+### Liste de mise en ligne (phase 7)
+
+- [ ] **Supabase** : exécuter `20261105000001_languages.sql` (après `20261104000001_template_drafts.sql`).
+- [ ] **Langues** : relire chaque langue dans *Admin → Paramètres → Relire tous les textes traduits*
+      (idéalement par un locuteur natif), puis l'ouvrir dans *Paramètres → Langues*.
+- [ ] **Modèles** : pour chaque modèle, *Éditeur visuel → + Langue*, traduire les textes de démo,
+      puis *Enregistrer une nouvelle version* ; traduire la fiche (*onglet Fiche catalogue*).
+- [ ] **Netlify** : `NEXT_PUBLIC_SITE_URL=https://e-invitly.com` (sert au plan du site et aux liens des e-mails).
+- [ ] **Supabase → Authentication → URL Configuration** : *Site URL* `https://e-invitly.com` et
+      *Redirect URL* `https://e-invitly.com/auth/callback`.
+- [ ] **Resend** : domaine `e-invitly.com` vérifié (enregistrements DNS), puis `EMAIL_FROM`
+      (ex. `E-Invitly <bonjour@e-invitly.com>`) et `RESEND_API_KEY` dans Netlify.
+- [ ] **Pages légales** : remplir mentions légales, confidentialité et CGV dans *Paramètres*
+      (version française, qui fait foi ; les autres langues l'indiquent).
+- [ ] **Google Search Console** : ajouter `e-invitly.com` et soumettre `https://e-invitly.com/sitemap.xml`.
+- [ ] **Sauvegardes Supabase** : vérifier qu'elles sont actives (offre payante pour les sauvegardes quotidiennes).
+- [ ] **Dernier passage sur téléphone** : accueil, catalogue, démo, formulaire, une invitation publiée et son RSVP,
+      en français puis dans chaque langue ouverte.
 
 ---
 
@@ -46,7 +65,7 @@ Comptez environ une heure. Vous aurez besoin de quatre comptes gratuits : **GitH
 2. Ouvrez **SQL Editor** → *New query*. Copiez-collez tout le contenu du fichier
    `supabase/migrations/20261026000001_init.sql`, puis cliquez sur **Run**. Faites de même, dans
    l'ordre, avec chaque fichier suivant du dossier `supabase/migrations`
-   (`20261031000001_publication.sql`, `20261101000001_rsvp.sql`, `20261102000001_media.sql`, `20261103000001_editor.sql`, `20261104000001_template_drafts.sql`…). Chaque fichier ne s'exécute qu'une seule fois.
+   (`20261031000001_publication.sql`, `20261101000001_rsvp.sql`, `20261102000001_media.sql`, `20261103000001_editor.sql`, `20261104000001_template_drafts.sql`, `20261105000001_languages.sql`…). Chaque fichier ne s'exécute qu'une seule fois.
 3. Nouvelle requête : copiez-collez `supabase/seed.sql`, puis **Run**. Les modèles *The Garden* et
    *Province* sont créés.
 4. **Authentication → Sign In / Providers** : laissez *Email* activé et **désactivez « Allow new

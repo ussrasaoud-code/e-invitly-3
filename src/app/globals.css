@@ -77,6 +77,22 @@
   :lang(ar) {
     font-family: var(--font-arabic);
   }
+  /* Arabe : l'espacement des lettres casse la liaison des caractères */
+  :lang(ar),
+  :lang(ar) * {
+    letter-spacing: 0 !important;
+  }
+  /* Site vitrine en arabe : titres en Amiri, texte courant en IBM Plex Sans Arabic */
+  html[lang="ar"] body {
+    font-family: "IBM Plex Sans Arabic", var(--font-arabic), sans-serif;
+    font-weight: 400;
+  }
+  html[lang="ar"] :is(.font-serif, .font-display, .font-script, .eyebrow, h1, h2, h3) {
+    font-family: "Amiri", "IBM Plex Sans Arabic", serif;
+  }
+  html[lang="ar"] .eyebrow {
+    font-size: 0.85rem;
+  }
 }
 
 @layer components {

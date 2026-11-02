@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { LANG_META, localePath, type SiteLang } from "@/lib/i18n/config";
+import type { SiteDict } from "@/lib/i18n/dict";
 import type { CatalogTemplate } from "@/lib/templates";
 
 /** Écran de téléphone : image recouvrant tout l'écran, ou nom du modèle. */
@@ -18,18 +20,19 @@ function Screen({ src, name, className = "" }: { src?: string | null; name: stri
  * (l'enveloppe à l'avant, l'invitation derrière), puis le nom, la
  * description et le prix.
  */
-export function PriceGrid({ templates }: { templates: CatalogTemplate[] }) {
+export function PriceGrid({ templates, t: tr, lang }: { templates: CatalogTemplate[]; t: SiteDict["cards"]; lang: SiteLang }) {
+  const href = (p: string) => localePath(lang, p);
   return (
     <ul className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
       {templates.map((t) => {
         const second = t.gallery.find(Boolean) ?? null;
         return (
           <li key={t.id} className="group">
-            <Link href={`/demo/${t.slug}`} aria-label={`Voir la démo du modèle ${t.name}`} className="relative block aspect-square overflow-hidden rounded-[1.6rem] bg-[#e8e3da]">
+            <Link href={href(`/demo/${t.slug}`)} aria-label={tr.demoAria.replace("{name}", t.name)} className="relative block aspect-square overflow-hidden rounded-[1.6rem] bg-[#e8e3da]">
               {t.is_featured ? (
-                <span className="absolute left-4 top-4 z-10 rounded-full bg-forest px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-ivory">Coup de cœur</span>
+                <span className="absolute start-4 top-4 z-10 rounded-full bg-forest px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-ivory">{tr.featured}</span>
               ) : null}
-              <span className={`absolute inset-0 flex items-center justify-center ${second ? "gap-[6%] pl-[4%]" : ""}`}>
+              <span className={`absolute inset-0 flex items-center justify-center ${second ? "gap-[6%] ps-[4%]" : ""}`}>
                 {/* Téléphone à l'avant (enveloppe) */}
                 <span className="relative z-[1] aspect-[9/19] w-[30%] rounded-[1.1rem] bg-[#151515] p-[2.5%] shadow-[0_22px_30px_-14px_rgb(40_30_20/0.55)] transition-transform duration-500 group-hover:-translate-y-1.5">
                   <span className="block h-full w-full overflow-hidden rounded-[0.85rem]">
@@ -46,10 +49,15 @@ export function PriceGrid({ templates }: { templates: CatalogTemplate[] }) {
               </span>
             </Link>
             <h3 className="mt-5 font-serif text-[1.65rem] leading-tight">
-              <Link href={`/invitations/${t.slug}`} className="hover:text-forest">{t.name}</Link>
+              <Link href={href(`/invitations/${t.slug}`)} className="hover:text-forest">{t.name}</Link>
             </h3>
             {t.short_description ? <p className="mt-2 text-[0.95rem] leading-relaxed text-stone">{t.short_description}</p> : null}
             {t.price_label ? <p className="mt-3 font-medium text-forest">{t.price_label}</p> : null}
+            {t.languages?.length > 1 ? (
+              <p className="mt-2 text-xs text-stone">
+                {tr.languages.replace("{list}", t.languages.map((l) => LANG_META[l as SiteLang]?.native ?? l).join(" · "))}
+              </p>
+            ) : null}
           </li>
         );
       })}

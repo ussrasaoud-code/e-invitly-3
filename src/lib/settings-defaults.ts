@@ -41,7 +41,13 @@ export type NotificationSettings = {
   notifyOnNewRsvp: boolean;
 };
 
+export type LanguageSettings = {
+  /** Langues ouvertes sur le site vitrine (le français l'est toujours) */
+  enabled: string[];
+};
+
 export type SettingsMap = {
+  languages: LanguageSettings;
   brand: BrandSettings;
   policies: PolicySettings;
   home: HomeSettings;
@@ -49,6 +55,7 @@ export type SettingsMap = {
 };
 
 export const DEFAULT_SETTINGS: { [K in keyof SettingsMap]: { value: SettingsMap[K]; isPublic: boolean } } = {
+  languages: { isPublic: true, value: { enabled: ["fr"] } },
   brand: {
     isPublic: true,
     value: {

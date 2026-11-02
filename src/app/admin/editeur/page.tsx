@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/admin/StatusBadge";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { requireStaff } from "@/lib/auth";
 import { createTemplate } from "../modeles/actions";
+import { LANGUAGES, LANGUAGE_LABELS } from "@/lib/invitation/schema";
 import { INVITATION_STATUS, type InvitationStatus } from "@/lib/status";
 import { createClient } from "@/lib/supabase/server";
 import { relativeFromNow } from "@/lib/time";
@@ -36,6 +37,12 @@ export default async function EditorPage() {
           <label className="min-w-60 flex-1 sm:max-w-sm">
             <span className="field-label !text-xs">Nom du nouveau modèle</span>
             <input name="name" required maxLength={80} placeholder="ex. Bohème champêtre" className="field min-h-10 text-sm" />
+          </label>
+          <label>
+            <span className="field-label !text-xs">Langue principale</span>
+            <select name="langue" defaultValue="fr" className="field min-h-10 text-sm" aria-label="Langue principale du modèle">
+              {LANGUAGES.map((l) => <option key={l} value={l}>{LANGUAGE_LABELS[l]}</option>)}
+            </select>
           </label>
           <SubmitButton className="btn btn-primary btn-sm" pendingLabel="Création…">Créer un modèle vierge</SubmitButton>
         </form>

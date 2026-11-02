@@ -5,6 +5,8 @@
 
 /** Chemins réservés par l'application : ne peuvent jamais devenir un slug. */
 export const RESERVED_SLUGS = new Set([
+  // Préfixes de langue du site (e-invitly.com/en, /ar…)
+  "fr", "en", "ar", "es", "it", "de", "nl",
   "admin",
   "api",
   "auth",

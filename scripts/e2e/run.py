@@ -57,6 +57,8 @@ for table in ["media_assets", "rsvp_responses", "invitation_access", "rsvp_forms
     api("DELETE", f"/rest/v1/{table}?{'id' if table != 'slug_redirects' else 'old_slug'}=not.is.null", prefer="return=minimal")
 api("DELETE", "/rest/v1/rate_limits?bucket=not.is.null", prefer="return=minimal")
 api("PATCH", "/rest/v1/templates?slug=in.(the-garden,province)", {"status": "published"}, prefer="return=minimal")
+api("POST", "/rest/v1/settings?on_conflict=key", {"key": "languages", "value": {"enabled": ["fr", "en", "ar"]}, "is_public": True}, prefer="resolution=merge-duplicates,return=minimal")
+api("DELETE", "/rest/v1/template_drafts?template_id=not.is.null", prefer="return=minimal")
 api("PATCH", "/rest/v1/settings?key=eq.brand", {"value": {"name": "E-Invitly", "tagline": "Invitations digitales élégantes", "contactEmail": "", "contactPhone": "", "instagram": "", "facebook": "", "pinterest": ""}}, prefer="return=minimal")
 
 with sync_playwright() as p:
@@ -1003,6 +1005,73 @@ with sync_playwright() as p:
     ok("modèle vierge : créé depuis l'éditeur, sans ornement, composé puis enregistré (hors catalogue)")
     ok("formes : format prêt à l'emploi, épaisseur, couleurs, remplissage, opacité et hauteur à la souris")
     ok("alignement : tout sélectionner, aligner à gauche sur la section, répartir, centrer entre eux")
+
+    # ── Langues : site traduit, suggestion, langue fermée, versions de modèle ──
+    ar = browser.new_context(viewport={"width": 390, "height": 844}, locale="ar-MA", is_mobile=True, has_touch=True).new_page()
+    ar.goto(f"{BASE}/")
+    banner = ar.get_by_role("region", name="العربية")
+    expect(banner).to_contain_text("هذا الموقع متوفر أيضًا باللغة العربية")
+    banner.get_by_role("link").click()
+    ar.wait_for_url(re.compile(r"/ar$"))
+    assert ar.evaluate("[document.documentElement.lang, document.documentElement.dir]") == ["ar", "rtl"]
+    expect(ar.get_by_role("heading", level=1).first).to_contain_text("أجمل لحظاتكم")
+    assert ar.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "défilement horizontal en arabe"
+    # Le choix est mémorisé : la racine renvoie vers /ar
+    ar.goto(f"{BASE}/")
+    ar.wait_for_url(re.compile(r"/ar$"))
+    ar.goto(f"{BASE}/ar/invitations")
+    expect(ar.get_by_role("heading", name="دعواتنا")).to_be_visible()
+    ar.screenshot(path=SHOTS / "40-site-arabe.png", full_page=False)
+    ar.context.close()
+    en = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-GB").new_page()
+    en.goto(f"{BASE}/es/invitations")
+    en.wait_for_url(re.compile(r"/invitations$"))  # espagnol pas encore ouvert → français
+    en.goto(f"{BASE}/en/personnalisation/the-garden")
+    expect(en.get_by_role("heading", name="Your details")).to_be_visible()
+    en.get_by_role("button", name="Continue").click()
+    expect(en.get_by_text("Please enter your first name")).to_be_visible()
+    en.get_by_role("button", name=re.compile("Site language")).click()
+    en.get_by_role("link", name="Français").click()
+    en.wait_for_url(re.compile(r"/personnalisation/the-garden$"))
+    expect(en.get_by_role("heading", name="Vos coordonnées")).to_be_visible()
+    en.context.close()
+    ok("langues : bandeau dans la langue du téléphone, site en arabe (droite à gauche), choix mémorisé, langue fermée, formulaire traduit")
+
+    gid = api("GET", "/rest/v1/templates?slug=eq.the-garden&select=id")[0]["id"]
+    a.goto(f"{BASE}/admin/modeles/{gid}/editeur")
+    a.get_by_label("Ajouter une langue").select_option("ar")
+    a.get_by_role("button", name="+ Langue").click()
+    a.wait_for_url(re.compile(r"langue=ar"), timeout=20000)
+    expect(a.get_by_role("link", name="AR", exact=True)).to_have_attribute("aria-current", "page")
+    left.get_by_role("button", name=re.compile(r"^Invitation principale")).click()
+    left.get_by_role("button", name="+ Texte").click()
+    props.get_by_label("Texte", exact=True).fill("مرحبًا بكم")
+    a.get_by_role("button", name="Enregistrer une nouvelle version").click()
+    expect(a.get_by_text("Nouvelle version du modèle enregistrée.")).to_be_visible(timeout=15000)
+    assert api("GET", f"/rest/v1/templates?id=eq.{gid}&select=languages")[0]["languages"] == ["fr", "ar"]
+    page.goto(f"{BASE}/demo/the-garden?langue=ar")
+    expect(page.get_by_text("مرحبًا بكم")).to_have_count(1)
+    page.goto(f"{BASE}/demo/the-garden")
+    expect(page.get_by_text("مرحبًا بكم")).to_have_count(0)
+    # Le design de la version française s'applique à l'arabe, la traduction reste
+    a.get_by_role("link", name="FR", exact=True).click()
+    a.wait_for_url(re.compile(r"/editeur$"))
+    a.get_by_role("button", name="Appliquer ce design aux autres langues").click()
+    a.wait_for_timeout(1500)
+    draft = api("GET", f"/rest/v1/template_drafts?template_id=eq.{gid}&select=definition")[0]["definition"]
+    hero_ar = [x for x in draft["variants"]["ar"]["sections"] if x["type"] == "hero"][0]
+    assert any(l["text"] == "مرحبًا بكم" for l in hero_ar["layers"]), "calque propre à l'arabe conservé"
+    assert draft["variants"]["ar"]["language"] == "ar"
+    # Fiche traduite
+    a.goto(f"{BASE}/admin/modeles/{gid}")
+    a.locator("summary", has_text="Anglais").click()
+    a.locator("input[name=tr_en_name]").fill("The Garden — English")
+    a.get_by_role("button", name="Enregistrer la fiche").click()
+    a.wait_for_timeout(1500)
+    page.goto(f"{BASE}/en/invitations")
+    expect(page.get_by_role("heading", name="The Garden — English")).to_be_visible()
+    api("PATCH", f"/rest/v1/templates?id=eq.{gid}", {"translations": {}}, prefer="return=minimal")
+    ok("modèles : version arabe créée, traduite, publiée et visible dans la démo ; design appliqué ; fiche traduite")
 
     # ── Scénario 7 : un couple ne voit que son invitation ────────────
     client = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True)
