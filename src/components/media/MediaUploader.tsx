@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { logUploadBatch, registerUpload, requestUpload } from "@/app/admin/medias/actions";
+import { createCollection, logUploadBatch, registerUpload, requestUpload } from "@/app/admin/medias/actions";
 import { ACCEPT_ATTRIBUTE, MEDIA_TYPES, formatBytes, guessMime } from "@/lib/media";
 import { browserClient } from "@/lib/supabase/browser";
 
@@ -37,6 +37,7 @@ async function readDimensions(file: File, mime: string): Promise<{ width: number
 export function MediaUploader({ collections }: { collections: string[] }) {
   const [collection, setCollection] = useState(collections[0] ?? "Divers");
   const [newCollection, setNewCollection] = useState("");
+  const [created, setCreated] = useState("");
   const [license, setLicense] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
@@ -95,14 +96,32 @@ export function MediaUploader({ collections }: { collections: string[] }) {
         <label>
           <span className="field-label !text-xs">Collection</span>
           <select value={collection} onChange={(e) => setCollection(e.target.value)} aria-label="Collection de destination" className="field min-h-10 text-sm">
-            {collections.map((c) => <option key={c} value={c}>{c}</option>)}
+            {[...collections, ...(created && !collections.includes(created) ? [created] : [])].map((c) => <option key={c} value={c}>{c}</option>)}
             <option value="__new">+ Nouvelle collection…</option>
           </select>
         </label>
         {collection === "__new" ? (
           <label>
             <span className="field-label !text-xs">Nom de la nouvelle collection</span>
-            <input value={newCollection} onChange={(e) => setNewCollection(e.target.value)} maxLength={60} className="field min-h-10 text-sm" />
+            <span className="flex gap-2">
+              <input value={newCollection} onChange={(e) => setNewCollection(e.target.value)} maxLength={60} className="field min-h-10 text-sm" />
+              <button
+                type="button"
+                className="btn btn-primary btn-sm shrink-0"
+                disabled={busy || !newCollection.trim()}
+                onClick={async () => {
+                  const res = await createCollection(newCollection);
+                  if (!res.ok) return setRows([{ key: "c", name: res.message, size: 0, status: "error" }]);
+                  setCreated(res.name);
+                  setCollection(res.name);
+                  setNewCollection("");
+                  router.refresh();
+                }}
+              >
+                Enregistrer
+              </button>
+            </span>
+            <span className="mt-1 block text-xs text-stone">Ou importez directement des fichiers : la collection sera créée avec eux.</span>
           </label>
         ) : null}
         <label className={collection === "__new" ? "" : "md:col-span-2"}>

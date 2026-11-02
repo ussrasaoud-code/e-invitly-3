@@ -568,6 +568,24 @@ with sync_playwright() as p:
     expect(a.get_by_role("heading", name="Illustrations fournies avec E-Invitly")).to_be_visible()
     ok("médias : filtres par type et recherche")
 
+    a.goto(f"{BASE}/admin/medias")
+    a.get_by_role("button", name="+ Nouvelle collection").click()
+    a.get_by_label("Nom de la nouvelle collection").fill("Cadres")
+    a.get_by_role("button", name="Enregistrer", exact=True).click()
+    expect(a.get_by_text("Collection « Cadres » créée")).to_be_visible()
+    a.reload()
+    cadres = a.get_by_role("navigation", name="Collections").get_by_role("link", name=re.compile("^Cadres"))
+    expect(cadres).to_be_visible()
+    card = a.locator("li[draggable=true]").filter(has_text="branche")
+    card.drag_to(cadres)
+    expect(a.get_by_text("rangé(s) dans « Cadres »")).to_be_visible()
+    assert api("GET", "/rest/v1/media_assets?name=eq.branche&select=collection")[0]["collection"] == "Cadres"
+    a.get_by_label("Collection de branche").select_option("Fleurs")
+    expect(a.get_by_text("rangé(s) dans « Fleurs »")).to_be_visible()
+    a.wait_for_timeout(800)
+    assert api("GET", "/rest/v1/media_assets?name=eq.branche&select=collection")[0]["collection"] == "Fleurs"
+    ok("médias : collection créée vide, visuel glissé dessus, reclassé par liste déroulante")
+
     # Utilisation dans une invitation → suppression bloquée
     a.goto(f"{BASE}/admin/invitations/{inv_id}")
     photo = a.locator("span.flex").filter(has=a.get_by_label("Photo du couple"))

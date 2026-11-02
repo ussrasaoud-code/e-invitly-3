@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { logActivity } from "@/lib/audit";
 import { requireStaff } from "@/lib/auth";
-import { MEDIA_TYPES, guessMime, isSafeSvg, type MediaItem, type MediaKind } from "@/lib/media";
+import { DEFAULT_COLLECTIONS, MEDIA_TYPES, guessMime, isSafeSvg, type MediaItem, type MediaKind } from "@/lib/media";
 import { slugify } from "@/lib/slug";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -178,4 +178,66 @@ export async function listMediaForPicker(kinds: MediaKind[]): Promise<MediaItem[
     .limit(300);
   const store = storage();
   return (data ?? []).map((m) => ({ ...(m as Omit<MediaItem, "url">), url: store.getPublicUrl(m.path).data.publicUrl }));
+}
+
+/* ── Collections ─────────────────────────────────────────────────────── */
+const COLLECTIONS_KEY = "media_collections";
+
+/** Collections créées à la main (elles existent même vides). */
+export async function getCustomCollections(): Promise<string[]> {
+  await requireStaff();
+  const admin = createAdminClient();
+  if (!admin) return [];
+  const { data } = await admin.from("settings").select("value").eq("key", COLLECTIONS_KEY).maybeSingle();
+  const names = (data?.value as { names?: unknown } | null)?.names;
+  return Array.isArray(names) ? names.filter((n): n is string => typeof n === "string").slice(0, 100) : [];
+}
+
+async function saveCustomCollections(names: string[], actorId: string) {
+  const admin = createAdminClient();
+  if (!admin) throw new Error("Stockage non configuré.");
+  const { error } = await admin
+    .from("settings")
+    .upsert({ key: COLLECTIONS_KEY, value: { names }, is_public: false, updated_by: actorId }, { onConflict: "key" });
+  if (error) throw new Error(error.message);
+}
+
+export async function createCollection(name: string): Promise<{ ok: true; name: string } | { ok: false; message: string }> {
+  const user = await requireStaff();
+  const parsed = collectionSchema.safeParse(name);
+  if (!parsed.success) return { ok: false, message: "Donnez un nom à la collection (60 caractères maximum)." };
+  const clean = parsed.data.replace(/\s+/g, " ");
+  const current = await getCustomCollections();
+  const exists = [...DEFAULT_COLLECTIONS, ...current].find((c) => c.toLowerCase() === clean.toLowerCase());
+  if (exists) return { ok: true, name: exists };
+  await saveCustomCollections([...current, clean], user.id);
+  await logActivity({ actorId: user.id, action: "media.collection_created", resourceType: "media", summary: `Collection « ${clean} » créée` });
+  revalidatePath("/admin/medias");
+  return { ok: true, name: clean };
+}
+
+/** Supprime une collection créée à la main, uniquement si elle est vide. */
+export async function deleteCollection(name: string): Promise<{ ok: boolean; message?: string }> {
+  const user = await requireStaff();
+  const supabase = (await createClient())!;
+  const { count } = await supabase.from("media_assets").select("id", { count: "exact", head: true }).eq("collection", name);
+  if (count) return { ok: false, message: "Cette collection contient encore des fichiers : déplacez-les d'abord." };
+  const current = await getCustomCollections();
+  await saveCustomCollections(current.filter((c) => c !== name), user.id);
+  revalidatePath("/admin/medias");
+  return { ok: true };
+}
+
+/** Range un ou plusieurs fichiers dans une collection (glisser-déposer ou liste déroulante). */
+export async function moveMedia(ids: string[], collection: string): Promise<{ ok: boolean; message?: string }> {
+  const user = await requireStaff();
+  const list = z.array(z.string().uuid()).min(1).max(200).safeParse(ids);
+  const target = collectionSchema.safeParse(collection);
+  if (!list.success || !target.success) return { ok: false, message: "Déplacement impossible." };
+  const supabase = (await createClient())!;
+  const { error } = await supabase.from("media_assets").update({ collection: target.data }).in("id", list.data);
+  if (error) return { ok: false, message: error.message };
+  await logActivity({ actorId: user.id, action: "media.moved", resourceType: "media", summary: `${list.data.length} fichier(s) rangé(s) dans « ${target.data} »` });
+  revalidatePath("/admin/medias");
+  return { ok: true };
 }
