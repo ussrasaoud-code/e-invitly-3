@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CoupleHeader } from "@/components/couple/CoupleHeader";
+import { CoupleHelp } from "@/components/contact/CoupleHelp";
+import { getSettings } from "@/lib/settings";
 import { getCurrentUser } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { LANG_META, fmt, localePath } from "@/lib/i18n/config";
@@ -24,6 +26,7 @@ export default async function ClientSpace() {
   ]);
   const lang = await getPreferredLang(invitations?.[0]?.language);
   const t = dictFor(lang).couple;
+  const { brand } = await getSettings();
   const byId = new Map((stats ?? []).map((s) => [s.invitation_id, s]));
   const host = env.siteUrl.replace(/^https?:\/\//, "");
   const date = (v: string | null) => (v ? new Intl.DateTimeFormat(LANG_META[lang].intl, { dateStyle: "long", timeZone: "Europe/Paris" }).format(new Date(v)) : "");
@@ -76,6 +79,7 @@ export default async function ClientSpace() {
             <Link href={localePath(lang, "/")} className="text-forest underline">{t.backSite}</Link>
           </p>
         )}
+        <CoupleHelp brand={brand} t={dictFor(lang).contact} couple={invitations?.length === 1 ? invitations[0].title : undefined} />
       </main>
     </div>
   );

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { LangProvider } from "@/components/site/LangContext";
 import { LangSuggest } from "@/components/site/LangSuggest";
 import { SiteFooter } from "@/components/site/SiteFooter";
+import { WhatsAppFab } from "@/components/contact/WhatsAppFab";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { getCurrentUser } from "@/lib/auth";
 import { LANG_META, localePath } from "@/lib/i18n/config";
@@ -46,7 +47,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       <LangSuggest country={req.country} hasChoice={!!req.cookieLang} texts={bannerTexts} />
       <SiteHeader t={t.nav} />
       <div id="contenu">{children}</div>
-      <SiteFooter settings={settings} t={t.footer} lang={req.lang} tagline={req.lang === "fr" ? settings.brand.tagline : t.meta.tagline} />
+      <SiteFooter settings={settings} t={t.footer} lang={req.lang} tagline={req.lang === "fr" ? settings.brand.tagline : t.meta.tagline} whatsappLabel={t.contact.whatsapp} />
+      <WhatsAppFab number={settings.brand.whatsapp} label={t.contact.fab} message={t.contact.siteMessage} />
     </LangProvider>
   );
 }

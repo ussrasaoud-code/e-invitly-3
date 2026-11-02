@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { instagramUrl } from "@/lib/instagram";
 import { logActivity } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
 import { SITE_LANGS } from "@/lib/i18n/config";
@@ -26,11 +27,12 @@ export async function saveBrand(form: FormData) {
       tagline: str(200),
       contactEmail: z.string().trim().max(200).refine((v) => v === "" || z.string().email().safeParse(v).success, "E-mail invalide"),
       contactPhone: str(30),
-      instagram: url,
+      whatsapp: z.string().trim().max(30).refine((v) => v === "" || /^\+?[\d\s().-]{8,}$/.test(v), "Numéro WhatsApp invalide : format international, ex. +33 6 12 34 56 78"),
+      instagram: z.string().transform(instagramUrl).pipe(url),
       facebook: url,
       pinterest: url,
     })
-    .parse(Object.fromEntries(["name", "tagline", "contactEmail", "contactPhone", "instagram", "facebook", "pinterest"].map((k) => [k, form.get(k) ?? ""])));
+    .parse(Object.fromEntries(["name", "tagline", "contactEmail", "contactPhone", "whatsapp", "instagram", "facebook", "pinterest"].map((k) => [k, form.get(k) ?? ""])));
   await saveSetting("brand", value, true, user.id);
 }
 

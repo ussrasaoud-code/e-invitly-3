@@ -52,7 +52,8 @@ export default async function SettingsPage() {
               <F label="Signature (pied de page)"><input name="tagline" defaultValue={brand.tagline} className="field" /></F>
               <F label="E-mail de contact"><input name="contactEmail" type="email" defaultValue={brand.contactEmail} className="field" /></F>
               <F label="Téléphone de contact"><input name="contactPhone" defaultValue={brand.contactPhone} className="field" /></F>
-              <F label="Instagram (lien)"><input name="instagram" defaultValue={brand.instagram} className="field" placeholder="https://instagram.com/…" /></F>
+              <F label="WhatsApp Business (format international, ex. +33 6 12 34 56 78)"><input name="whatsapp" type="tel" defaultValue={brand.whatsapp} className="field" placeholder="+33 6 12 34 56 78" /></F>
+              <F label="Instagram (@compte ou lien)"><input name="instagram" defaultValue={brand.instagram} className="field" placeholder="@e.invitly" /></F>
               <F label="Facebook (lien)"><input name="facebook" defaultValue={brand.facebook} className="field" /></F>
               <F label="Pinterest (lien)"><input name="pinterest" defaultValue={brand.pinterest} className="field" /></F>
               <div className="md:col-span-2"><SubmitButton pendingLabel="Enregistrement…">Enregistrer</SubmitButton></div>

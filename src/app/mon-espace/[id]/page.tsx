@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CoupleHeader } from "@/components/couple/CoupleHeader";
+import { CoupleHelp } from "@/components/contact/CoupleHelp";
+import { getSettings } from "@/lib/settings";
 import { getCurrentUser } from "@/lib/auth";
 import { publicUrl } from "@/lib/publication";
 import { loadRsvpOverview } from "@/lib/rsvp-data";
@@ -32,6 +34,7 @@ export default async function CoupleResponses({ params, searchParams }: { params
   const { data: invLang } = await supabase.from("invitations").select("language").eq("id", id).maybeSingle();
   const lang = await getPreferredLang(invLang?.language);
   const t = dictFor(lang).couple;
+  const { brand } = await getSettings();
   const when = (v: string) => new Intl.DateTimeFormat(LANG_META[lang].intl, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Paris" }).format(new Date(v));
   const list = o.responses.filter((r) => (presence === "oui" ? r.attending : presence === "non" ? !r.attending : true));
   const questionLabel = new Map((o.form?.questions ?? []).map((x) => [x.id, x.label]));
@@ -126,6 +129,7 @@ export default async function CoupleResponses({ params, searchParams }: { params
           )}
         </section>
         <p className="mt-8 text-xs text-stone">{t.fix}</p>
+        <CoupleHelp brand={brand} t={dictFor(lang).contact} couple={o.title} />
       </main>
     </div>
   );

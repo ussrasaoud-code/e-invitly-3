@@ -508,10 +508,19 @@ with sync_playwright() as p:
 
     a.goto(f"{BASE}/admin/parametres")
     a.locator("input[name=contactEmail]").fill("bonjour@e-invitly.com")
+    a.locator("input[name=whatsapp]").fill("+33 6 12 34 56 78")
+    a.locator("input[name=instagram]").fill("@e.invitly")
     a.locator("form").filter(has=a.locator("input[name=contactEmail]")).get_by_role("button", name="Enregistrer").click()
     a.wait_for_timeout(1200)
     page.goto(BASE)
     expect(page.get_by_text("bonjour@e-invitly.com")).to_be_visible()
+    fab = page.get_by_role("link", name="Nous écrire sur WhatsApp")
+    expect(fab).to_be_visible()
+    assert fab.get_attribute("href").startswith("https://wa.me/33612345678?text="), fab.get_attribute("href")
+    expect(page.locator("footer").get_by_text("+33 6 12 34 56 78")).to_be_visible()
+    ig = page.locator("footer").get_by_role("link", name="Instagram · @e.invitly")
+    expect(ig).to_be_visible()
+    assert ig.get_attribute("href") == "https://www.instagram.com/e.invitly/", ig.get_attribute("href")
     ok("paramètres : modifiables et visibles immédiatement sur le site")
 
     # ── Bibliothèque de médias ───────────────────────────────────────
@@ -1163,6 +1172,8 @@ with sync_playwright() as p:
     c.get_by_role("link", name="Voir toutes les réponses").click()
     expect(c.get_by_text("Paul Durand")).to_be_visible()
     expect(c.get_by_text("Hugo Test")).to_be_visible()
+    help_wa = c.get_by_role("region", name="Une question, une modification ?").get_by_role("link", name="WhatsApp")
+    assert "wa.me/33612345678" in help_wa.get_attribute("href")
     c.screenshot(path=SHOTS / "25-espace-couple-reponses.png", full_page=True)
     cx = c.context.request.get(f"{BASE}/api/exports/{inv_id}?format=csv")
     assert cx.status == 200 and "Paul" in cx.text()

@@ -508,6 +508,15 @@ export const es: SiteDict = {
     changes: "¿Hay algo que cambiar o algún texto que ajustar? Responded a este correo: haremos los cambios y os enviaremos de nuevo la vista previa. No se publicará nada sin vuestra aprobación.",
     noteLabel: "Unas palabras de nuestra parte:",
   },
+  contact: {
+    fab: "Escríbenos por WhatsApp",
+    siteMessage: "Hola, tengo una pregunta sobre vuestras invitaciones.",
+    helpTitle: "¿Una pregunta o un cambio?",
+    helpText: "Escribidnos por WhatsApp o por correo: os responderemos enseguida.",
+    coupleMessage: "Hola, somos {couple}. ",
+    whatsapp: "WhatsApp",
+    email: "Correo",
+  },
   notFound: {
     title: "Página no encontrada",
     text: "Esta página no existe o ya no está disponible. Si buscas una invitación, revisa el enlace que recibiste.",

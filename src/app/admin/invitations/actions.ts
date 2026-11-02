@@ -408,7 +408,7 @@ export async function sendPreviewEmail(invitationId: string, url: string, expire
       heading: t.heading,
       paragraphs: [t.text, ...(cleanNote ? [`${t.noteLabel} ${cleanNote}`] : [])],
       action: { label: t.button, url },
-      after: [fmt(t.validUntil, { date }), t.changes, fmt(dictFor(lang).access.signature, { brand: settings.brand.name })],
+      after: [fmt(t.validUntil, { date }), t.changes, ...(settings.brand.whatsapp ? [`${dictFor(lang).contact.whatsapp} : ${settings.brand.whatsapp}`] : []), fmt(dictFor(lang).access.signature, { brand: settings.brand.name })],
       replyTo: settings.brand.contactEmail,
       lang,
     });

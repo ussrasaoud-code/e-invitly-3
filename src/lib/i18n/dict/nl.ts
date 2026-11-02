@@ -508,6 +508,15 @@ export const nl: SiteDict = {
     changes: "Iets aanpassen of een tekst wijzigen? Beantwoord gewoon deze e-mail: wij passen het aan en sturen het voorbeeld opnieuw. Zonder jullie akkoord wordt niets gepubliceerd.",
     noteLabel: "Een berichtje van ons:",
   },
+  contact: {
+    fab: "Stuur ons een WhatsApp",
+    siteMessage: "Hallo, ik heb een vraag over jullie uitnodigingen.",
+    helpTitle: "Een vraag of een wijziging?",
+    helpText: "Stuur ons een bericht via WhatsApp of e-mail: we reageren snel.",
+    coupleMessage: "Hallo, met {couple}. ",
+    whatsapp: "WhatsApp",
+    email: "E-mail",
+  },
   notFound: {
     title: "Pagina niet gevonden",
     text: "Deze pagina bestaat niet of is niet meer beschikbaar. Zoek je een uitnodiging? Controleer dan de link die je hebt ontvangen.",

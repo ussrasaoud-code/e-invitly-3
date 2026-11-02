@@ -12,6 +12,8 @@ export type BrandSettings = {
   tagline: string;
   contactEmail: string;
   contactPhone: string;
+  /** Numéro WhatsApp Business au format international (+33…). */
+  whatsapp: string;
   instagram: string;
   facebook: string;
   pinterest: string;
@@ -63,6 +65,7 @@ export const DEFAULT_SETTINGS: { [K in keyof SettingsMap]: { value: SettingsMap[
       tagline: "Invitations digitales élégantes",
       contactEmail: "",
       contactPhone: "",
+      whatsapp: "",
       instagram: "",
       facebook: "",
       pinterest: "",

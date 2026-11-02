@@ -511,6 +511,15 @@ export const fr = {
     changes: "Une modification à faire, un texte à changer ? Répondez simplement à cet e-mail : nous ajustons et vous renvoyons l'aperçu. Rien ne sera publié sans votre accord.",
     noteLabel: "Un mot de notre part :",
   },
+  contact: {
+    fab: "Nous écrire sur WhatsApp",
+    siteMessage: "Bonjour, j'ai une question au sujet de vos invitations.",
+    helpTitle: "Une question, une modification ?",
+    helpText: "Écrivez-nous sur WhatsApp ou par e-mail : nous vous répondons rapidement.",
+    coupleMessage: "Bonjour, c'est {couple}. ",
+    whatsapp: "WhatsApp",
+    email: "E-mail",
+  },
   notFound: {
     title: "Page introuvable",
     text: "Cette page n'existe pas ou n'est plus disponible. Si vous cherchez une invitation, vérifiez le lien reçu.",
