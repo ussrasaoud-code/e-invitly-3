@@ -305,6 +305,8 @@ export const sectionSchema = z.object({
     .array(z.object({ id: z.string().min(1).max(40), time: optionalText(12), title: optionalText(80), detail: optionalText(200) }))
     .max(20)
     .default([]),
+  /** Programme v2 : « events » = reprend automatiquement le programme de l'invitation ; « custom » = moments saisis ici */
+  itemsFrom: z.enum(["events", "custom"]).default("events"),
   marker: cssUrl,
   stem: z.enum(STEM_STYLES).default("feuilles"),
   /** Animation d'apparition du contenu ("inherit" = réglage du thème) */
@@ -321,7 +323,7 @@ const shortId = (prefix: string) => `${prefix}-${Math.random().toString(36).slic
 
 export function newSection(type: SectionType): InvitationSection {
   if (type === "program2") return programV2Section();
-  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], marker: "", stem: "feuilles" };
+  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], itemsFrom: "events", marker: "", stem: "feuilles" };
 }
 
 export function newLayer(kind: InvitationLayer["kind"], patch: Partial<InvitationLayer> = {}): InvitationLayer {
@@ -475,10 +477,25 @@ export function programV2Section(): InvitationSection {
     spaceBottom: 0,
     kicker: "Le fil de notre journée",
     items: items.map(([time, title, detail], i) => ({ id: `m${i + 1}`, time, title, detail })),
+    itemsFrom: "events",
     marker: "/decor/rose.svg",
     stem: "feuilles",
     layers: [
       newLayer("image", { src: "/decor/papillon.svg", name: "Papillon", x: 88, y: 9, width: 11, rotation: 12, placement: "front", enter: { type: "fade", delay: 300, duration: 1600 }, loop: "float" }),
     ],
   };
+}
+
+/** Moments affichés par la section « Programme v2 » : le programme de l'invitation, ou des moments propres à la section. */
+export function programV2Items(section: InvitationSection, content: InvitationContent, formatTime: (t: string) => string = (t) => t) {
+  if (section.itemsFrom === "custom" || !content.events.length) return section.items;
+  return content.events
+    .filter((e) => e.title || e.startTime)
+    .map((e) => ({
+      id: e.id,
+      time: e.startTime ? formatTime(e.startTime) : "",
+      title: e.title,
+      detail: [e.venueName, e.description || e.address].filter(Boolean).join("\n"),
+      fromEvent: true as const,
+    }));
 }

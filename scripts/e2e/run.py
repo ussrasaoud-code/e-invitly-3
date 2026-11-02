@@ -811,6 +811,14 @@ with sync_playwright() as p:
     expect(props.get_by_role("heading", name="Programme v2 (frise fleurie)")).to_be_visible()
     d = wait_draft(lambda d: len(sec(d, "program2")) == 1 and len(sec(d, "program2")[0]["items"]) == 6, "programme v2 ajouté")
     assert sec(d, "program2")[0]["items"][0]["title"] == "Cérémonie civile" and sec(d, "program2")[0]["marker"] == "/decor/rose.svg"
+    # Par défaut : le programme de l'invitation (rempli depuis la demande du client)
+    n_events = len([e for e in d["events"] if e["title"] or e["startTime"]])
+    expect(a.locator('[data-section="program2"] li')).to_have_count(n_events)
+    first_event = [e for e in d["events"] if e["title"] or e["startTime"]][0]
+    expect(a.locator('[data-section="program2"] li').first).to_contain_text(first_event["title"])
+    # Moments propres à la section
+    props.get_by_label("Reprendre automatiquement le programme de l'invitation").uncheck()
+    d = wait_draft(lambda d: sec(d, "program2")[0]["itemsFrom"] == "custom", "moments propres")
     props.get_by_label("Heure du moment 1").fill("14h45")
     d = wait_draft(lambda d: sec(d, "program2")[0]["items"][0]["time"] == "14h45", "heure du programme v2")
     expect(a.locator('[data-section="program2"] li')).to_have_count(6)

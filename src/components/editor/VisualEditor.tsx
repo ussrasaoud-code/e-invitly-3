@@ -1876,7 +1876,24 @@ function ProgramV2Editor({ section: s, onChange }: { section: InvitationSection;
         <MediaUrlField kinds={["image", "svg"]} className={inputCls} label="Fleur qui suit le défilement" value={s.marker} onChange={(v) => onChange({ marker: v })} />
       </Field>
       <fieldset className="min-w-0 space-y-2 border-t border-line pt-3">
-        <legend className="mb-1 font-serif text-lg">Moments ({s.items.length})</legend>
+        <legend className="mb-1 font-serif text-lg">Moments</legend>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-forest"
+            checked={s.itemsFrom !== "custom"}
+            onChange={(e) => onChange({ itemsFrom: e.target.checked ? "events" : "custom" })}
+          />
+          <span>
+            Reprendre automatiquement le programme de l&apos;invitation
+            <span className="block text-xs text-stone">
+              Heures, intitulés et lieux viennent du formulaire (onglet « Informations », rempli depuis la demande du client). Décochez pour saisir des moments propres à cette section.
+            </span>
+          </span>
+        </label>
+      </fieldset>
+      <fieldset className="min-w-0 space-y-2" hidden={s.itemsFrom !== "custom"}>
+        <legend className="sr-only">Moments propres à la section ({s.items.length})</legend>
         {s.items.map((it, i) => (
           <div key={it.id} className="space-y-1.5 rounded-sm border border-line bg-white p-2">
             <div className="flex gap-1.5">

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Arch, CornerSpray, Divider, Sprig } from "@/components/ornaments";
-import { EVENT_TYPE_LABELS, type InvitationContent, type InvitationEvent, type InvitationSection, type RendererKey } from "@/lib/invitation/schema";
+import { EVENT_TYPE_LABELS, programV2Items, type InvitationContent, type InvitationEvent, type InvitationSection, type RendererKey } from "@/lib/invitation/schema";
 import { LOCALES, formatDotDate, formatLongDate, formatTime, zonedToUtc } from "@/lib/time";
 import type { PublicRsvpConfig } from "@/lib/rsvp";
 import type { Labels } from "./i18n";
@@ -661,8 +661,10 @@ export function DecorSection({ height }: { height: number }) {
 }
 
 /* ── Programme v2 : frise végétale et fleur qui suit le défilement ── */
-export function ProgramV2Section({ section }: SectionProps & { section: InvitationSection }) {
-  const { kicker, title, items, marker } = section;
+export function ProgramV2Section({ section, content }: SectionProps & { section: InvitationSection }) {
+  const { kicker, title, marker } = section;
+  // Par défaut, le programme de l'invitation (rempli depuis la demande du client)
+  const items = programV2Items(section, content, (t) => formatTime(t, content.language));
   const stemUrl = `url(/decor/tiges/${section.stem ?? "feuilles"}.svg)`;
   // Colonnes en % de la largeur de l'invitation : heure | tige | texte
   const cols = "grid-cols-[24cqw_12cqw_minmax(0,1fr)]";

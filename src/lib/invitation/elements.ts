@@ -1,4 +1,4 @@
-import type { InvitationContent, InvitationSection, RendererKey, SectionType } from "./schema";
+import { programV2Items, type InvitationContent, type InvitationSection, type RendererKey, type SectionType } from "./schema";
 
 /**
  * Éléments intégrés à chaque section d'un modèle (titres, prénoms, ornements…).
@@ -177,19 +177,25 @@ function definitions(type: SectionType, c: InvitationContent, section?: Invitati
           id: "list",
           label: "Liste des moments",
           kind: "block",
-          children: (section?.items ?? []).map((it, i) => {
-            const k = `list.${elKey(it.id)}`;
-            return {
-              id: k,
-              label: it.title || "Moment",
-              kind: "block" as const,
-              children: [
-                { id: `${k}.time`, label: "Heure", kind: "text" as const, edit: { item: i, field: "time" as const } },
-                { id: `${k}.title`, label: "Intitulé", kind: "text" as const, edit: { item: i, field: "title" as const } },
-                ...(it.detail ? [{ id: `${k}.detail`, label: "Détail", kind: "text" as const, edit: { item: i, field: "detail" as const } }] : []),
-              ],
-            };
-          }),
+          children: section
+            ? programV2Items(section, c).map((it, i) => {
+                const k = `list.${elKey(it.id)}`;
+                // Moment repris du programme de l'invitation : on modifie l'événement lui-même
+                const ev = "fromEvent" in it;
+                return {
+                  id: k,
+                  label: it.title || "Moment",
+                  kind: "block" as const,
+                  children: [
+                    { id: `${k}.time`, label: "Heure", kind: "text" as const, edit: ev ? { event: it.id, field: "startTime" as const } : { item: i, field: "time" as const } },
+                    { id: `${k}.title`, label: "Intitulé", kind: "text" as const, edit: ev ? { event: it.id, field: "title" as const } : { item: i, field: "title" as const } },
+                    ...(it.detail
+                      ? [{ id: `${k}.detail`, label: "Détail", kind: "text" as const, edit: ev ? { event: it.id, field: "venueName" as const } : { item: i, field: "detail" as const } }]
+                      : []),
+                  ],
+                };
+              })
+            : [],
         },
       ];
   }
