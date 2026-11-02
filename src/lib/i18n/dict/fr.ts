@@ -412,6 +412,7 @@ export const fr = {
     rights: "Vous pouvez demander l'accès, la rectification ou la suppression de vos données en nous contactant.",
   },
   payment: {
+    payButton: "Payer en ligne",
     metaTitle: "Paiement de votre invitation",
     eyebrow: "Paiement sécurisé",
     title: "Finalisez votre commande",
@@ -449,9 +450,11 @@ export const fr = {
     emailSignature: "L'équipe {brand}",
   },
   access: {
+    loginButton: "Me connecter à mon espace",
+    welcomeButton: "Accéder à mon espace",
     loginSubject: "Votre lien de connexion E-Invitly",
     loginHeading: "Connexion à votre espace",
-    loginText: "Cliquez sur ce lien pour vous connecter. Il est valable une heure et ne sert qu'une seule fois : {url}",
+    loginText: "Cliquez sur le bouton ci-dessous pour vous connecter à votre espace. Le lien est valable une heure et ne sert qu'une seule fois",
     loginIgnore: "Si vous n'avez rien demandé, ignorez simplement cet e-mail.",
     welcomeSubject: "Votre espace mariés est prêt — {couple}",
     welcomeHeading: "Bienvenue dans votre espace mariés",

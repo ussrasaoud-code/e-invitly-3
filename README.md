@@ -26,7 +26,7 @@ au DNS ou au déploiement.
 Les fonctions pas encore disponibles sont signalées comme telles dans l'administration : aucun bouton
 factice.
 
-**Tests réalisés** : 29 tests de sécurité de la base, 52 tests unitaires (paiements, signature Stripe, langues, versions par langue, prix, adresses, fuseaux horaires,
+**Tests réalisés** : 29 tests de sécurité de la base, 53 tests unitaires (paiements, signature Stripe, langues, versions par langue, prix, adresses, fuseaux horaires,
 conversion demande → invitation, règles RSVP, médias, calques, formes, alignement, programme v2), 69 vérifications de bout en bout dans un vrai
 navigateur (demande, connexion, conversion, éditeur, aperçu, publication, code d'accès, réponses RSVP,
 codes invités, corrections, exports, espace couple, médias, éditeur visuel, historique, accès refusés).

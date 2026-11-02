@@ -59,7 +59,9 @@ export async function sendPaymentLink(form: FormData) {
     to: ctx.clientEmail,
     subject: m.emailLinkSubject,
     heading: m.emailLinkHeading,
-    paragraphs: [fmt(m.emailLinkText, { couple: ctx.couple, amount }), fmt(m.emailLinkCta, { url: paymentUrl(row.token, ctx.lang) }), fmt(m.emailSignature, { brand: settings.brand.name })],
+    paragraphs: [fmt(m.emailLinkText, { couple: ctx.couple, amount })],
+    action: { label: m.payButton, url: paymentUrl(row.token, ctx.lang) },
+    after: [fmt(m.emailSignature, { brand: settings.brand.name })],
     replyTo: settings.brand.contactEmail || undefined,
     lang: ctx.lang,
   });

@@ -1,3 +1,4 @@
+import { publicUrl } from "@/lib/request-origin";
 import { NextResponse, type NextRequest } from "next/server";
 import writeExcelFile from "write-excel-file/node";
 import { getCurrentUser } from "@/lib/auth";
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { invitationId } = await params;
   if (!/^[0-9a-f-]{36}$/.test(invitationId)) return new NextResponse("Introuvable", { status: 404 });
   const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/connexion", request.url));
+  if (!user) return NextResponse.redirect(publicUrl("/connexion", request));
   const supabase = await createClient();
   if (!supabase) return new NextResponse("Service non configuré", { status: 503 });
 

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { publicUrl } from "@/lib/request-origin";
 import { createClient } from "@/lib/supabase/server";
 
 /** Retour du lien magique : échange le code contre une session puis redirige. */
@@ -17,11 +18,11 @@ export async function GET(request: NextRequest) {
       if (data.user && next === "/mon-espace") {
         const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
         if (profile?.role === "admin" || profile?.role === "collaborator") {
-          return NextResponse.redirect(new URL("/admin", url.origin));
+          return NextResponse.redirect(publicUrl("/admin", request));
         }
       }
-      return NextResponse.redirect(new URL(next, url.origin));
+      return NextResponse.redirect(publicUrl(next, request));
     }
   }
-  return NextResponse.redirect(new URL("/connexion?erreur=lien", url.origin));
+  return NextResponse.redirect(publicUrl("/connexion?erreur=lien", request));
 }

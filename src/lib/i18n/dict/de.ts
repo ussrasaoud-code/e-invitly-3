@@ -409,6 +409,7 @@ export const de: SiteDict = {
     rights: "Du kannst Auskunft, Berichtigung oder Löschung deiner Daten verlangen, indem du uns kontaktierst.",
   },
   payment: {
+    payButton: "Online bezahlen",
     metaTitle: "Bezahlung eurer Einladung",
     eyebrow: "Sichere Zahlung",
     title: "Bestellung abschließen",
@@ -446,9 +447,11 @@ export const de: SiteDict = {
     emailSignature: "Euer {brand}-Team",
   },
   access: {
+    loginButton: "In meinen Bereich einloggen",
+    welcomeButton: "Meinen Bereich öffnen",
     loginSubject: "Dein Anmeldelink für E-Invitly",
     loginHeading: "Anmeldung in deinem Bereich",
-    loginText: "Klicke auf diesen Link, um dich anzumelden. Er ist eine Stunde gültig und nur einmal nutzbar: {url}",
+    loginText: "Klicke auf die Schaltfläche unten, um dich in deinem Bereich anzumelden. Der Link ist eine Stunde gültig und nur einmal nutzbar",
     loginIgnore: "Falls du nichts angefordert hast, ignoriere diese E-Mail einfach.",
     welcomeSubject: "Euer Bereich für das Brautpaar ist bereit – {couple}",
     welcomeHeading: "Willkommen in eurem Bereich",

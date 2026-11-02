@@ -409,6 +409,7 @@ export const nl: SiteDict = {
     rights: "Je kunt inzage, correctie of verwijdering van je gegevens aanvragen door contact met ons op te nemen.",
   },
   payment: {
+    payButton: "Online betalen",
     metaTitle: "Betaling van jullie uitnodiging",
     eyebrow: "Veilig betalen",
     title: "Rond jullie bestelling af",
@@ -446,9 +447,11 @@ export const nl: SiteDict = {
     emailSignature: "Het {brand}-team",
   },
   access: {
+    loginButton: "Inloggen op mijn ruimte",
+    welcomeButton: "Naar mijn ruimte",
     loginSubject: "Je inloglink voor E-Invitly",
     loginHeading: "Inloggen in je ruimte",
-    loginText: "Klik op deze link om in te loggen. Hij is een uur geldig en kan maar één keer worden gebruikt: {url}",
+    loginText: "Klik op de knop hieronder om in te loggen op je ruimte. De link is een uur geldig en kan maar één keer worden gebruikt",
     loginIgnore: "Heb je niets aangevraagd? Negeer deze e-mail dan gewoon.",
     welcomeSubject: "Jullie ruimte voor het bruidspaar is klaar — {couple}",
     welcomeHeading: "Welkom in jullie ruimte",

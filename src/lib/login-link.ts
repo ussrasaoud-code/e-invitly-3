@@ -6,6 +6,9 @@ import { dictFor } from "./i18n/server";
 import { getSettings } from "./settings";
 import { createAdminClient } from "./supabase/admin";
 
+/** Texte sans le « : {url} » final (le lien est un bouton). */
+export const noUrl = (text: string) => `${text.replace(/\s*[:：]?\s*\{url\}\s*$/, "")}.`;
+
 const safeNext = (v: string) => (/^\/(?!\/)[\w\-/]*$/.test(v) ? v : "/mon-espace");
 
 /**
@@ -40,7 +43,9 @@ export async function sendLoginEmail(email: string, next: string, lang: SiteLang
     to: email,
     subject: t.loginSubject,
     heading: t.loginHeading,
-    paragraphs: [fmt(t.loginText, { url: link }), t.loginIgnore, fmt(t.signature, { brand: brand.name })],
+    paragraphs: [noUrl(t.loginText)],
+    action: { label: t.loginButton, url: link },
+    after: [t.loginIgnore, fmt(t.signature, { brand: brand.name })],
     lang,
   });
 }
@@ -58,9 +63,9 @@ export async function sendWelcomeEmail(email: string, couple: string, lang: stri
     to: email,
     subject: fmt(t.welcomeSubject, { couple }),
     heading: t.welcomeHeading,
-    paragraphs: [
-      fmt(t.welcomeText, { couple }),
-      fmt(t.welcomeCta, { url: link }),
+    paragraphs: [fmt(t.welcomeText, { couple })],
+    action: { label: t.welcomeButton, url: link },
+    after: [
       fmt(t.welcomeLater, { login: `${env.siteUrl.replace(/^https?:\/\//, "")}${localePath(l, "/connexion")}` }),
       fmt(t.signature, { brand: brand.name }),
     ],

@@ -409,6 +409,7 @@ export const es: SiteDict = {
     rights: "Puedes solicitar el acceso, la rectificación o la supresión de tus datos contactando con nosotros.",
   },
   payment: {
+    payButton: "Pagar en línea",
     metaTitle: "Pago de vuestra invitación",
     eyebrow: "Pago seguro",
     title: "Completad vuestro pedido",
@@ -446,9 +447,11 @@ export const es: SiteDict = {
     emailSignature: "El equipo de {brand}",
   },
   access: {
+    loginButton: "Acceder a mi espacio",
+    welcomeButton: "Entrar en mi espacio",
     loginSubject: "Tu enlace de acceso a E-Invitly",
     loginHeading: "Acceso a tu espacio",
-    loginText: "Haz clic en este enlace para acceder. Es válido durante una hora y solo se puede usar una vez: {url}",
+    loginText: "Haz clic en el botón de abajo para acceder a tu espacio. El enlace es válido durante una hora y solo se puede usar una vez",
     loginIgnore: "Si no lo has solicitado, simplemente ignora este correo.",
     welcomeSubject: "Vuestro espacio de novios está listo — {couple}",
     welcomeHeading: "Bienvenidos a vuestro espacio de novios",

@@ -409,6 +409,7 @@ export const en: SiteDict = {
     rights: "You can request access to, correction or deletion of your data by contacting us.",
   },
   payment: {
+    payButton: "Pay online",
     metaTitle: "Pay for your invitation",
     eyebrow: "Secure payment",
     title: "Complete your order",
@@ -446,9 +447,11 @@ export const en: SiteDict = {
     emailSignature: "The {brand} team",
   },
   access: {
+    loginButton: "Log in to my area",
+    welcomeButton: "Open my area",
     loginSubject: "Your E-Invitly login link",
     loginHeading: "Log in to your area",
-    loginText: "Click this link to log in. It is valid for one hour and can only be used once: {url}",
+    loginText: "Click the button below to log in to your area. The link is valid for one hour and can only be used once",
     loginIgnore: "If you didn't request this, simply ignore this email.",
     welcomeSubject: "Your couple's area is ready — {couple}",
     welcomeHeading: "Welcome to your couple's area",

@@ -401,6 +401,7 @@ export const ar: SiteDict = {
     rights: "يمكنكم طلب الاطلاع على بياناتكم أو تصحيحها أو حذفها بالتواصل معنا.",
   },
   payment: {
+    payButton: "الدفع عبر الإنترنت",
     metaTitle: "دفع ثمن دعوتكم",
     eyebrow: "دفع آمن",
     title: "أكملوا طلبكم",
@@ -438,9 +439,11 @@ export const ar: SiteDict = {
     emailSignature: "فريق {brand}",
   },
   access: {
+    loginButton: "الدخول إلى مساحتي",
+    welcomeButton: "الدخول إلى مساحتي",
     loginSubject: "رابط الدخول إلى E-Invitly",
     loginHeading: "الدخول إلى مساحتكم",
-    loginText: "اضغطوا على هذا الرابط لتسجيل الدخول. صالح لمدة ساعة ولمرة واحدة فقط: {url}",
+    loginText: "اضغطوا على الزر أدناه للدخول إلى مساحتكم. الرابط صالح لمدة ساعة ولمرة واحدة فقط",
     loginIgnore: "إن لم تطلبوا ذلك، تجاهلوا هذه الرسالة ببساطة.",
     welcomeSubject: "مساحة العروسين جاهزة — {couple}",
     welcomeHeading: "مرحبًا بكم في مساحة العروسين",
