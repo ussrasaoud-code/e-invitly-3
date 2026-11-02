@@ -382,6 +382,12 @@ function scrollStyle(sc: InvitationLayer["scroll"] | undefined): CSSProperties {
       return { rotate: `calc(${p} * ${sc.amount}deg)` };
     case "fade":
       return { opacity: `min(1, calc(${p} * 2.2))` as unknown as number };
+    case "part": {
+      // Rideau : couvre la section à son arrivée, puis glisse vers le côté (dx) en s'agrandissant un peu.
+      const span = Math.max(10, sc.amount || 45) / 100;
+      const q = `min(1, calc(${p} / ${span}))`;
+      return { translate: `calc(${q} * ${sc.dx}cqw) 0`, scale: `calc(1 + ${q} * 0.12)` };
+    }
     case "zoom": {
       const from = Math.max(0, sc.amount || 40) / 100;
       return { scale: `calc(${from} + (1 - ${from}) * min(1, ${p} * 1.8))` };

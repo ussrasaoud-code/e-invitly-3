@@ -191,6 +191,13 @@ function definitions(type: SectionType, c: InvitationContent, section?: Invitati
       return [...title(), { id: "body", label: "Texte", kind: "text", edit: "section-body" }];
     case "decor":
       return [];
+    case "scratch":
+      return [
+        ...title(),
+        { id: "hint", label: "Consigne (« Grattez… »)", kind: "text", edit: "section-kicker" },
+        { id: "cards", label: "Cartes à gratter", kind: "block", hideable: false },
+        { id: "done", label: "Message une fois la date découverte", kind: "text", edit: "section-body" },
+      ];
     case "program2":
       return [
         { id: "kicker", label: "Surtitre", kind: "text", edit: "section-kicker" },

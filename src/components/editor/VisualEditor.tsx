@@ -1166,7 +1166,7 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
           </select>
         </Field>
         <Field label="Au défilement de l'écran">
-          <select aria-label="Au défilement de l'écran" className={inputCls} value={l.scroll.type} onChange={(e) => onChange({ scroll: { ...l.scroll, type: e.target.value as InvitationLayer["scroll"]["type"], ...(e.target.value === "parallax" && l.scroll.dy === 60 ? { dy: -25 } : {}), ...(e.target.value === "rotate" && !l.scroll.amount ? { amount: 90 } : {}), ...(e.target.value === "zoom" && !l.scroll.amount ? { amount: 40 } : {}) } })}>
+          <select aria-label="Au défilement de l'écran" className={inputCls} value={l.scroll.type} onChange={(e) => onChange({ scroll: { ...l.scroll, type: e.target.value as InvitationLayer["scroll"]["type"], ...(e.target.value === "parallax" && l.scroll.dy === 60 ? { dy: -25 } : {}), ...(e.target.value === "rotate" && !l.scroll.amount ? { amount: 90 } : {}), ...(e.target.value === "zoom" && !l.scroll.amount ? { amount: 40 } : {}), ...(e.target.value === "part" ? { dx: l.x < 50 ? -75 : 75, amount: 45 } : {}) }, ...(e.target.value === "part" ? { placement: "front" as const } : {}) })}>
             {SCROLL_MOTIONS.map((m) => <option key={m} value={m}>{SCROLL_MOTION_LABELS[m]}</option>)}
           </select>
         </Field>
@@ -1182,6 +1182,15 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
         ) : null}
         {l.scroll.type === "rotate" ? (
           <NumberSlider label="Rotation pendant le défilement" value={l.scroll.amount} min={-720} max={720} step={5} unit="°" onChange={(v) => onChange({ scroll: { ...l.scroll, amount: v } })} />
+        ) : null}
+        {l.scroll.type === "part" ? (
+          <>
+            <NumberSlider label="Sortie (négatif = vers la gauche)" value={l.scroll.dx} min={-100} max={100} unit="%" onChange={(v) => onChange({ scroll: { ...l.scroll, dx: v } })} />
+            <NumberSlider label="Ouverture complète après" value={l.scroll.amount || 45} min={10} max={100} unit="%" onChange={(v) => onChange({ scroll: { ...l.scroll, amount: v } })} />
+            <p className="text-[0.7rem] text-stone">
+              Placez le nuage par-dessus le contenu (il passe automatiquement « devant »). Il couvre la section à son arrivée au milieu de l&apos;écran, puis s&apos;écarte vers le côté pendant que l&apos;invité fait défiler ; il revient en remontant. Pour l&apos;effet complet, mettez deux nuages qui se chevauchent au centre : celui de gauche part à gauche, celui de droite à droite. « Ouverture complète après » : part de la hauteur de la section à faire défiler (plus petit = plus rapide).
+            </p>
+          </>
         ) : null}
         {l.scroll.type === "zoom" ? (
           <NumberSlider label="Taille de départ" value={l.scroll.amount || 40} min={0} max={100} unit="%" onChange={(v) => onChange({ scroll: { ...l.scroll, amount: v } })} />
@@ -1236,13 +1245,14 @@ function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHre
       {s.type === "decor" ? (
         <NumberSlider label="Hauteur" value={s.height} min={10} max={250} unit="%" onChange={(v) => onChange({ height: v })} />
       ) : null}
-      {!["text", "decor", "program2"].includes(s.type) ? (
+      {!["text", "decor", "program2", "scratch"].includes(s.type) ? (
         <p className="text-xs text-stone">
           Le contenu de cette section (dates, lieux, textes) se modifie dans le <Link href={formHref} className="text-forest underline">formulaire</Link>.
           {s.type === "rsvp" || s.type === "countdown" ? " Sa logique est verrouillée." : ""}
         </p>
       ) : null}
       {s.type === "program2" ? <ProgramV2Editor section={s} onChange={onChange} /> : null}
+      {s.type === "scratch" ? <ScratchOptionsEditor section={s} themeColors={themeColors} onChange={onChange} /> : null}
       {s.type === "venues" ? <VenuesOptionsEditor section={s} themeColors={themeColors} onChange={onChange} /> : null}
       <Field label="Apparition du contenu">
         <select aria-label="Apparition du contenu" className={inputCls} value={s.animation} onChange={(e) => onChange({ animation: e.target.value as InvitationSection["animation"] })}>
@@ -1956,6 +1966,32 @@ function VenuesOptionsEditor({ section: s, themeColors, onChange }: { section: I
           </div>
         </div>
       ))}
+    </fieldset>
+  );
+}
+
+function ScratchOptionsEditor({ section: s, themeColors, onChange }: { section: InvitationSection; themeColors: InvitationContent["theme"]["colors"]; onChange: (patch: Partial<InvitationSection>) => void }) {
+  return (
+    <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
+      <legend className="mb-1 font-serif text-lg">Date à gratter</legend>
+      <p className="text-xs text-stone">Le jour, le mois et l&apos;année viennent de la date de l&apos;invitation. Dans l&apos;éditeur les cartes restent couvertes : grattez-les dans l&apos;aperçu ou la démo.</p>
+      <Field label="Consigne" hint="Vide = « Grattez pour découvrir la date », traduit selon la langue.">
+        <input aria-label="Consigne" className="field text-sm" maxLength={120} value={s.kicker} onChange={(e) => onChange({ kicker: e.target.value })} placeholder="Grattez pour découvrir la date" />
+      </Field>
+      <Field label="Message une fois la date découverte" hint="Vide = « Vous êtes invités ! », traduit selon la langue.">
+        <input aria-label="Message une fois la date découverte" className="field text-sm" maxLength={200} value={s.body} onChange={(e) => onChange({ body: e.target.value })} placeholder="Vous êtes invités !" />
+      </Field>
+      <div className="flex items-center gap-3">
+        <ColorInput value={s.coverColor || themeColors.accentSoft} onChange={(e) => onChange({ coverColor: e.target.value })} className="h-9 w-11 cursor-pointer rounded-sm border border-line" aria-label="Couleur de la pellicule à gratter" />
+        <div className="text-xs">
+          <span className="block text-sm">Couleur de la pellicule</span>
+          {s.coverColor ? (
+            <span className="text-stone">{s.coverColor.toUpperCase()} · <button type="button" className="underline" onClick={() => onChange({ coverColor: "" })}>couleur du thème</button></span>
+          ) : (
+            <span className="text-stone">Couleur du thème</span>
+          )}
+        </div>
+      </div>
     </fieldset>
   );
 }

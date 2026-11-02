@@ -102,6 +102,7 @@ export const SECTION_TYPES = [
   "text",
   "decor",
   "program2",
+  "scratch",
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
@@ -117,6 +118,7 @@ export const SECTION_LABELS: Record<SectionType, string> = {
   text: "Texte libre",
   decor: "Bande décorative",
   program2: "Programme v2 (frise fleurie)",
+  scratch: "Date à gratter",
 };
 
 /** Sections qu'on peut ajouter plusieurs fois (les autres sont uniques). */
@@ -138,7 +140,7 @@ export const ENTER_ANIMATION_LABELS: Record<EnterAnimation, string> = {
   draw: "Éclosion (fleurs)",
 };
 /** Mouvements liés au défilement de l'écran */
-export const SCROLL_MOTIONS = ["none", "move", "parallax", "rotate", "fade", "zoom"] as const;
+export const SCROLL_MOTIONS = ["none", "move", "parallax", "rotate", "fade", "zoom", "part"] as const;
 export type ScrollMotion = (typeof SCROLL_MOTIONS)[number];
 export const SCROLL_MOTION_LABELS: Record<ScrollMotion, string> = {
   none: "Aucun",
@@ -147,6 +149,7 @@ export const SCROLL_MOTION_LABELS: Record<ScrollMotion, string> = {
   rotate: "Tourne en défilant",
   fade: "Apparaît en défilant",
   zoom: "Grandit en défilant",
+  part: "S'écarte comme un rideau (nuages)",
 };
 
 /** Tiges de la frise du programme v2 (public/decor/tiges/<clé>.svg) */
@@ -311,6 +314,8 @@ export const sectionSchema = z.object({
   itemsFrom: z.enum(["events", "custom"]).default("events"),
   marker: cssUrl,
   stem: z.enum(STEM_STYLES).default("feuilles"),
+  /** Date à gratter : couleur de la pellicule (vide = couleur du thème) */
+  coverColor: hexColor.or(z.literal("")).default(""),
   /** Lieux et accès : bouton « Calendrier » et couleurs (vide = couleurs du thème) */
   venueOptions: z
     .object({
@@ -334,7 +339,7 @@ const shortId = (prefix: string) => `${prefix}-${Math.random().toString(36).slic
 
 export function newSection(type: SectionType): InvitationSection {
   if (type === "program2") return programV2Section();
-  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], itemsFrom: "events", marker: "", stem: "feuilles", venueOptions: { ...DEFAULT_VENUE_OPTIONS } };
+  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], itemsFrom: "events", marker: "", stem: "feuilles", venueOptions: { ...DEFAULT_VENUE_OPTIONS }, coverColor: "" };
 }
 
 export function newLayer(kind: InvitationLayer["kind"], patch: Partial<InvitationLayer> = {}): InvitationLayer {
@@ -490,6 +495,7 @@ export function programV2Section(): InvitationSection {
     items: items.map(([time, title, detail], i) => ({ id: `m${i + 1}`, time, title, detail })),
     itemsFrom: "events",
     venueOptions: { ...DEFAULT_VENUE_OPTIONS },
+    coverColor: "",
     marker: "/decor/rose.svg",
     stem: "feuilles",
     layers: [

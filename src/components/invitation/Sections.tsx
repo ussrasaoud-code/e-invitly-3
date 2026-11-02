@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { Arch, CornerSpray, Divider, Sprig } from "@/components/ornaments";
 import { EVENT_TYPE_LABELS, programV2Items, type InvitationContent, type InvitationEvent, type InvitationSection, type RendererKey } from "@/lib/invitation/schema";
 import { calendarHref } from "@/lib/ics";
+import { ScratchCard } from "./ScratchCard";
+import { LayerEditorContext } from "./editor-context";
 import { LOCALES, formatDotDate, formatLongDate, formatTime, zonedToUtc } from "@/lib/time";
 import type { PublicRsvpConfig } from "@/lib/rsvp";
 import type { Labels } from "./i18n";
@@ -367,6 +369,89 @@ export function CountdownSection({ content, renderer, labels, title }: SectionPr
       )}
       </El>
     </Shell>
+  );
+}
+
+/* ── Date à gratter ────────────────────────────────────────────────── */
+export function ScratchSection({ content, renderer, labels, title, section }: SectionProps & { section: InvitationSection }) {
+  const editor = useContext(LayerEditorContext);
+  const [found, setFound] = useState<Set<number>>(new Set());
+  if (!content.eventAt) return null;
+  const d = new Date(`${content.eventAt.slice(0, 10)}T12:00:00Z`);
+  const locale = LOCALES[content.language];
+  const parts = [
+    { v: new Intl.DateTimeFormat(locale, { day: "numeric", timeZone: "UTC" }).format(d), l: labels.scratchDay },
+    { v: new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }).format(d), l: labels.scratchMonth },
+    { v: new Intl.DateTimeFormat(locale, { year: "numeric", timeZone: "UTC" }).format(d), l: labels.scratchYear },
+  ];
+  const cover = section.coverColor || "var(--inv-soft)";
+  const all = found.size >= parts.length;
+  return (
+    <Shell renderer={renderer}>
+      <SectionTitle renderer={renderer}>{title || labels.scratchTitle}</SectionTitle>
+      <El id="hint">
+        <p className="-mt-2 mb-6 text-center text-[0.85rem] tracking-wide" style={{ color: "var(--inv-accent)" }}>
+          ✦ {section.kicker || labels.scratchHint} ✦
+        </p>
+      </El>
+      <El id="cards">
+        <div className="mx-auto grid max-w-[330px] grid-cols-3 gap-3">
+          {parts.map((p, i) => (
+            <div key={p.l} className="text-center">
+              <div className="aspect-[4/4.6] overflow-hidden rounded-xl shadow-[0_6px_18px_-8px_rgb(0_0_0/0.25)]" style={{ backgroundColor: "var(--inv-surface, #fff)" }}>
+                <ScratchCover
+                  cover={cover}
+                  label={p.l}
+                  revealLabel={labels.scratchReveal}
+                  disabled={!!editor}
+                  onReveal={() => setFound((f) => new Set(f).add(i))}
+                >
+                  <span
+                    className={`flex h-full w-full items-center justify-center px-1 leading-none ${i === 1 ? "text-[clamp(0.85rem,4.6cqw,1.25rem)]" : "text-[clamp(1.4rem,8cqw,2.1rem)]"}`}
+                    style={{ ...css.display, color: "var(--inv-ink)" }}
+                  >
+                    {p.v}
+                  </span>
+                </ScratchCover>
+              </div>
+              <span className="mt-2 block text-[0.6rem] uppercase tracking-[0.28em]" style={{ color: "var(--inv-muted)" }}>{p.l}</span>
+            </div>
+          ))}
+        </div>
+      </El>
+      <El id="done">
+        <p
+          aria-live="polite"
+          className={`mt-8 text-center text-[2rem] leading-tight transition-all duration-1000 ${all || editor ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"}`}
+          style={{ ...css.script, color: "var(--inv-ink)" }}
+        >
+          {all || editor ? section.body || labels.scratchDone : "\u00a0"}
+        </p>
+      </El>
+    </Shell>
+  );
+}
+
+/** La pellicule a besoin d'une vraie couleur : on lit la variable du thème si besoin. */
+function ScratchCover(props: { cover: string; label: string; revealLabel: string; disabled: boolean; onReveal: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [color, setColor] = useState(props.cover.startsWith("var(") ? "" : props.cover);
+  useEffect(() => {
+    if (!props.cover.startsWith("var(")) return setColor(props.cover);
+    const name = props.cover.slice(4, -1).split(",")[0].trim();
+    const v = ref.current ? getComputedStyle(ref.current).getPropertyValue(name).trim() : "";
+    setColor(v || "#cfdce6");
+  }, [props.cover]);
+  return (
+    <span ref={ref} className="block h-full w-full">
+      {color ? (
+        <ScratchCard cover={color} label={props.label} revealLabel={props.revealLabel} disabled={props.disabled} onReveal={props.onReveal}>
+          {props.children}
+        </ScratchCard>
+      ) : (
+        <span className="block h-full w-full" style={{ backgroundColor: "#cfdce6" }} />
+      )}
+    </span>
   );
 }
 
