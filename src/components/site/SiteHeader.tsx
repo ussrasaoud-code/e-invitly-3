@@ -30,13 +30,13 @@ export function SiteHeader({ t }: { t: SiteDict["nav"] }) {
               {n.label}
             </Link>
           ))}
-          <LanguageSwitcher label={t.language} />
+          <LanguageSwitcher label={t.language} title={t.languageTitle} />
           <Link href={href("/invitations")} className="btn btn-primary btn-sm">
             {t.choose}
           </Link>
         </nav>
         <div className="-me-2 flex items-center md:hidden">
-        <LanguageSwitcher label={t.language} />
+        <LanguageSwitcher label={t.language} title={t.languageTitle} />
         <button
           type="button"
           className="flex h-11 w-11 items-center justify-center"

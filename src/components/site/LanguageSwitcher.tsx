@@ -14,7 +14,7 @@ export function rememberLang(lang: SiteLang) {
 }
 
 /** Sélecteur « FR ▾ » : une liste des langues ouvertes, chacune écrite dans sa propre langue. */
-export function LanguageSwitcher({ label, className = "" }: { label: string; className?: string }) {
+export function LanguageSwitcher({ label, title, className = "" }: { label: string; title: string; className?: string }) {
   const { lang, enabled, path } = useLang();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -32,40 +32,45 @@ export function LanguageSwitcher({ label, className = "" }: { label: string; cla
   if (enabled.length < 2) return null;
 
   return (
-    <div ref={box} className={`relative ${className}`}>
+    <div ref={box} className={`md:relative ${className}`}>
       <button
         type="button"
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={`${label} : ${LANG_META[lang].native}`}
         onClick={() => setOpen((o) => !o)}
-        className="flex min-h-11 items-center gap-1.5 px-2 text-[0.78rem] tracking-[0.14em] text-charcoal/80 hover:text-forest"
+        className={`flex min-h-11 items-center gap-2 rounded-xl border px-3.5 text-[0.78rem] font-medium tracking-[0.16em] transition-colors ${
+          open ? "border-forest text-forest" : "border-line bg-white/60 text-charcoal hover:border-forest hover:text-forest"
+        }`}
       >
-        <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.3">
+        <svg viewBox="0 0 24 24" className="h-[1.1rem] w-[1.1rem]" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4">
           <circle cx="12" cy="12" r="9" />
           <path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18" />
         </svg>
         {LANG_META[lang].short}
-        <span aria-hidden="true" className="text-[0.6rem]">▾</span>
       </button>
       {open ? (
-        <ul className="absolute end-0 top-full z-50 mt-1 min-w-44 border border-line bg-ivory py-1 shadow-lg">
-          {enabled.map((l) => (
-            <li key={l}>
-              <a
-                href={localePath(l, path)}
-                hrefLang={l}
-                lang={l}
-                aria-current={l === lang ? "true" : undefined}
-                onClick={() => rememberLang(l)}
-                className={`flex min-h-11 items-center justify-between gap-4 px-4 text-sm hover:bg-paper ${l === lang ? "text-forest" : "text-charcoal"}`}
-              >
-                <span>{LANG_META[l].native}</span>
-                <span className="text-[0.7rem] text-stone">{LANG_META[l].short}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
+        <div className="absolute inset-x-4 top-full z-50 mt-2 rounded-2xl md:inset-x-auto md:end-0 md:mt-3 md:w-[21rem] border border-line bg-paper p-5 shadow-[0_24px_60px_-20px_rgb(40_35_30/0.35)]">
+          <p className="mb-3 px-1 text-[0.68rem] font-medium uppercase tracking-[0.22em] text-stone">{title}</p>
+          <ul className="grid grid-cols-2 gap-1.5">
+            {enabled.map((l) => (
+              <li key={l}>
+                <a
+                  href={localePath(l, path)}
+                  hrefLang={l}
+                  lang={l}
+                  aria-current={l === lang ? "true" : undefined}
+                  onClick={() => rememberLang(l)}
+                  className={`flex min-h-12 items-center rounded-xl px-4 text-[1rem] transition-colors ${
+                    l === lang ? "bg-forest text-ivory" : "text-charcoal hover:bg-ivory"
+                  }`}
+                >
+                  {LANG_META[l].native}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </div>
   );

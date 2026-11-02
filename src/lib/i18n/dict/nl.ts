@@ -19,6 +19,7 @@ export const nl: SiteDict = {
     close: "Menu sluiten",
     skip: "Naar de inhoud",
     language: "Taal van de website",
+    languageTitle: "Taal",
   },
   footer: {
     discover: "Ontdekken",

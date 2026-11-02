@@ -19,6 +19,7 @@ export const it: SiteDict = {
     close: "Chiudi il menu",
     skip: "Vai al contenuto",
     language: "Lingua del sito",
+    languageTitle: "Lingua",
   },
   footer: {
     discover: "Scopri",

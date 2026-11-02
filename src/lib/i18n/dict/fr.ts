@@ -22,6 +22,7 @@ export const fr = {
     close: "Fermer le menu",
     skip: "Aller au contenu",
     language: "Langue du site",
+    languageTitle: "Langue",
   },
   footer: {
     discover: "Découvrir",

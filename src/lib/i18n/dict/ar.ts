@@ -18,6 +18,7 @@ export const ar: SiteDict = {
     close: "إغلاق القائمة",
     skip: "الانتقال إلى المحتوى",
     language: "لغة الموقع",
+    languageTitle: "اللغة",
   },
   footer: {
     discover: "اكتشف",

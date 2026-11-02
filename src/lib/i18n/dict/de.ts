@@ -19,6 +19,7 @@ export const de: SiteDict = {
     close: "Menü schließen",
     skip: "Zum Inhalt springen",
     language: "Sprache der Website",
+    languageTitle: "Sprache",
   },
   footer: {
     discover: "Entdecken",
