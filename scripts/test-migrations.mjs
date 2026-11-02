@@ -346,6 +346,18 @@ await test("langues : 7 langues acceptées, fiche traduite et langues ouvertes l
   assert.deepEqual(s[0].value.enabled, ["fr"]);
 });
 
+await test("paiements : réservés à l'équipe ; le couple lit ceux de son invitation, jamais ceux d'un autre", async () => {
+  await db.query(`insert into public.payments (invitation_id, token, amount_cents) values ($1, 'jeton-de-test-0123456789abcdef', 17500)`, [markAlice]);
+  assert.equal((await as("anon", null, () => rows(`select * from public.payments`))).length, 0);
+  assert.equal((await as("authenticated", stranger.id, () => rows(`select * from public.payments`))).length, 0);
+  assert.equal((await as("authenticated", mark.id, () => rows(`select amount_cents from public.payments`)))[0].amount_cents, 17500);
+  await assert.rejects(as("authenticated", mark.id, () => rows(`update public.payments set status = 'paid' returning id`)).then((r) => { if (!r.length) throw new Error("aucune ligne"); }));
+  await assert.rejects(db.query(`insert into public.payments (invitation_id, token, amount_cents) values ($1, 'court', 100)`, [markAlice]));
+  await assert.rejects(db.query(`insert into public.payments (invitation_id, token, amount_cents) values ($1, 'jeton-de-test-negatif-0123456789', -5)`, [markAlice]));
+  const staff = await as("authenticated", admin.id, () => rows(`select status from public.payments`));
+  assert.equal(staff[0].status, "pending");
+});
+
 await test("deux invitations ne peuvent pas partager un slug (insensible à la casse)", async () => {
   await assert.rejects(
     db.query(

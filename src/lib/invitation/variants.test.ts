@@ -45,3 +45,14 @@ describe("versions par langue d'un modèle", () => {
     expect(translatePrice("Sur devis", "es")).toBe("Sur devis");
   });
 });
+
+import { amountFromPriceLabel, formatMoney } from "@/lib/payment-amount";
+describe("montant à payer", () => {
+  it("lit le prix du modèle", () => {
+    expect(amountFromPriceLabel("À partir de 175 €")).toBe(17500);
+    expect(amountFromPriceLabel("89,90 €")).toBe(8990);
+    expect(amountFromPriceLabel("Sur devis")).toBeNull();
+    expect(amountFromPriceLabel(null)).toBeNull();
+    expect(formatMoney(17500, "EUR", "en-GB")).toBe("€175.00");
+  });
+});

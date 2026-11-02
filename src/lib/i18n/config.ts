@@ -23,7 +23,7 @@ export const LANG_META: Record<SiteLang, { native: string; short: string; dir: "
 export const isSiteLang = (v: unknown): v is SiteLang => typeof v === "string" && (SITE_LANGS as readonly string[]).includes(v);
 
 /** Pages du site vitrine qui existent dans chaque langue. */
-const SITE_PATHS = [/^\/$/, /^\/invitations(\/[^/]+)?$/, /^\/personnalisation(\/[^/]+)?$/, /^\/demo\/[^/]+$/, /^\/(cgv|confidentialite|mentions-legales|connexion)$/];
+const SITE_PATHS = [/^\/$/, /^\/invitations(\/[^/]+)?$/, /^\/personnalisation(\/[^/]+)?$/, /^\/demo\/[^/]+$/, /^\/paiement\/[^/]+$/, /^\/(cgv|confidentialite|mentions-legales|connexion)$/];
 export const isSitePath = (path: string) => SITE_PATHS.some((re) => re.test(path));
 
 /** /invitations → /en/invitations ; "/" → "/en" ; "/#faq" → "/en#faq". Le français reste sans préfixe. */

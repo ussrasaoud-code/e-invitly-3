@@ -117,9 +117,16 @@ export async function publishInvitation(form: FormData) {
   const invitationId = uuid.parse(form.get("id"));
   const note = z.string().trim().max(200).parse(form.get("note") ?? "");
   const supabase = (await createClient())!;
-  const { data: inv } = await supabase.from("invitations").select("slug, title, status, draft_content").eq("id", invitationId).single();
+  const { data: inv } = await supabase.from("invitations").select("slug, title, status, draft_content, published_version_id").eq("id", invitationId).single();
   if (!inv) throw new Error("Invitation introuvable.");
   if (inv.status === "archived") throw new Error("Restaurez l'invitation avant de la publier.");
+  // Première publication : le paiement doit être reçu (sauf choix explicite « publier sans paiement »)
+  if (!inv.published_version_id && form.get("sans_paiement") !== "on") {
+    const { data: paid, error: payErr } = await supabase.from("payments").select("id").eq("invitation_id", invitationId).eq("status", "paid").limit(1);
+    if (!payErr && !paid?.length) {
+      throw new Error("Le paiement n'a pas encore été reçu. Envoyez le lien de paiement au client, ou cochez « Publier sans paiement ».");
+    }
+  }
   const parsed = invitationContentSchema.safeParse(inv.draft_content);
   if (!parsed.success) throw new Error("Le brouillon contient des valeurs invalides : corrigez-les dans l'éditeur avant de publier.");
   const content = parsed.data;

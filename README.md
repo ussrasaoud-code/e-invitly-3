@@ -20,19 +20,50 @@ au DNS ou au déploiement.
 | 4 — Publication | Page publique `/[adresse]`, aperçu privé (7 jours), publier / dépublier, historique, redirections, code d'accès, noindex | ✅ fait et testé |
 | 5 — RSVP | Formulaire réel dans l'invitation, réglages par invitation, questions personnalisées, invités nominatifs avec codes, statistiques par moment, corrections tracées, exports Excel/CSV, espace couple, notifications | ✅ fait et testé |
 | 6 — Éditeur visuel | Éditeur 3 colonnes (invitations et modèles) : éléments du modèle sélectionnables (titres, prénoms, ornements : modifier, déplacer, recolorer, retirer), calques d'illustrations et de textes libres déplaçables, redimensionnables, pivotables, opacité, miroir, devant/derrière, teinte, verrouillage, copier-coller ; animations par élément ; sections texte libre et bande décorative, dupliquer / supprimer ; historique du brouillon avec restauration ; modèle vierge « page blanche » ; 12 polices au choix par texte ; sections agrandies à la souris ; éléments dégroupables (prénoms, listes) et calques groupables ; formes (cadres, arches, cercles, lignes…) avec 18 formats prêts à l'emploi | ✅ fait et testé |
+| 7b — Paiement | Lien de paiement par commande (au prix du modèle) envoyé après validation de l'aperçu ; page de paiement en 7 langues ; carte bancaire, Apple Pay et Google Pay (Stripe Checkout) et PayPal ; montant toujours fixé par le serveur et vérifié à l'encaissement ; webhook Stripe signé ; confirmation par e-mail au client et à l'équipe ; « Marquer comme payé » (virement, espèces) ; première publication bloquée tant que la commande n'est pas payée (sauf « Publier sans paiement ») | ✅ fait et testé (mode test) |
 | 7 — Langues et finalisation | Site vitrine et invitations en 7 langues (FR, EN, AR, ES, IT, DE, NL), adresses /en /ar…, sélecteur, suggestion selon le téléphone et le pays, langues ouvertes une à une (Paramètres → Langues), page de relecture des traductions ; versions par langue des modèles (un design, des textes traduits, synchronisation du design), fiche catalogue traduite, prix traduits, démo multilingue, langue choisie dans la demande et reprise à la conversion ; audit d'accessibilité (axe, WCAG 2.1 AA) ; plan du site et hreflang | ✅ fait et testé — reste la liste de mise en ligne ci-dessous |
 
 Les fonctions pas encore disponibles sont signalées comme telles dans l'administration : aucun bouton
 factice.
 
-**Tests réalisés** : 28 tests de sécurité de la base, 48 tests unitaires (langues, versions par langue, prix, adresses, fuseaux horaires,
-conversion demande → invitation, règles RSVP, médias, calques, formes, alignement, programme v2), 66 vérifications de bout en bout dans un vrai
+**Tests réalisés** : 29 tests de sécurité de la base, 51 tests unitaires (paiements, signature Stripe, langues, versions par langue, prix, adresses, fuseaux horaires,
+conversion demande → invitation, règles RSVP, médias, calques, formes, alignement, programme v2), 68 vérifications de bout en bout dans un vrai
 navigateur (demande, connexion, conversion, éditeur, aperçu, publication, code d'accès, réponses RSVP,
 codes invités, corrections, exports, espace couple, médias, éditeur visuel, historique, accès refusés).
 
+### Paiements en ligne (PayPal et carte bancaire)
+
+**Fonctionnement** : demande → aperçu validé → *Invitation → onglet Publication → Paiement →
+« Créer le lien de paiement »* (montant = prix du modèle) → « Envoyer au client par e-mail » (ou copier
+le lien) → le client paie par carte ou PayPal → vous recevez un e-mail → vous publiez.
+
+**PayPal**
+1. Créez un compte **PayPal Business** (gratuit) sur paypal.com.
+2. Sur [developer.paypal.com](https://developer.paypal.com) → *Apps & Credentials* → onglet **Sandbox** (test)
+   → *Create App*. Copiez le **Client ID** et le **Secret**.
+3. Dans Netlify → *Site configuration → Environment variables* :
+   `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` (laissez `PAYPAL_ENV` vide = mode test).
+4. Testez avec un compte acheteur de test (*Sandbox → Accounts*).
+5. Pour les vrais paiements : onglet **Live** → nouvelle app → remplacez les deux clés et ajoutez
+   `PAYPAL_ENV=live`, puis redéployez.
+
+**Carte bancaire, Apple Pay, Google Pay (Stripe)**
+1. Créez un compte sur [stripe.com](https://stripe.com) (gratuit, commission par paiement).
+2. *Développeurs → Clés API* (mode test) : copiez la **clé secrète** `sk_test_…` → `STRIPE_SECRET_KEY` dans Netlify.
+3. *Développeurs → Webhooks → Ajouter un point de terminaison* :
+   `https://e-invitly.com/api/stripe/webhook`, événement `checkout.session.completed`.
+   Copiez la **clé secrète de signature** `whsec_…` → `STRIPE_WEBHOOK_SECRET`.
+4. *Paramètres → Moyens de paiement* : activez Apple Pay, Google Pay (et Bancontact, iDEAL… si vous le souhaitez).
+5. Pour les vrais paiements : activez le compte (identité, IBAN), puis remplacez par les clés `sk_live_…`
+   et le webhook du mode réel.
+
+Tant qu'aucune clé n'est renseignée, la page de paiement indique au client de vous contacter.
+⚠️ Les clés secrètes vont uniquement dans Netlify, jamais dans le code ni par message.
+
 ### Liste de mise en ligne (phase 7)
 
-- [ ] **Supabase** : exécuter `20261105000001_languages.sql` (après `20261104000001_template_drafts.sql`).
+- [ ] **Supabase** : exécuter `20261105000001_languages.sql` puis `20261106000001_payments.sql`.
+- [ ] **Paiements** : comptes PayPal Business et Stripe, clés dans Netlify (voir ci-dessus), un paiement de test complet.
 - [ ] **Langues** : relire chaque langue dans *Admin → Paramètres → Relire tous les textes traduits*
       (idéalement par un locuteur natif), puis l'ouvrir dans *Paramètres → Langues*.
 - [ ] **Modèles** : pour chaque modèle, *Éditeur visuel → + Langue*, traduire les textes de démo,
@@ -65,7 +96,7 @@ Comptez environ une heure. Vous aurez besoin de quatre comptes gratuits : **GitH
 2. Ouvrez **SQL Editor** → *New query*. Copiez-collez tout le contenu du fichier
    `supabase/migrations/20261026000001_init.sql`, puis cliquez sur **Run**. Faites de même, dans
    l'ordre, avec chaque fichier suivant du dossier `supabase/migrations`
-   (`20261031000001_publication.sql`, `20261101000001_rsvp.sql`, `20261102000001_media.sql`, `20261103000001_editor.sql`, `20261104000001_template_drafts.sql`, `20261105000001_languages.sql`…). Chaque fichier ne s'exécute qu'une seule fois.
+   (`20261031000001_publication.sql`, `20261101000001_rsvp.sql`, `20261102000001_media.sql`, `20261103000001_editor.sql`, `20261104000001_template_drafts.sql`, `20261105000001_languages.sql`, `20261106000001_payments.sql`…). Chaque fichier ne s'exécute qu'une seule fois.
 3. Nouvelle requête : copiez-collez `supabase/seed.sql`, puis **Run**. Les modèles *The Garden* et
    *Province* sont créés.
 4. **Authentication → Sign In / Providers** : laissez *Email* activé et **désactivez « Allow new

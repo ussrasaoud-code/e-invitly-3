@@ -59,6 +59,8 @@ api("DELETE", "/rest/v1/rate_limits?bucket=not.is.null", prefer="return=minimal"
 api("PATCH", "/rest/v1/templates?slug=in.(the-garden,province)", {"status": "published"}, prefer="return=minimal")
 api("POST", "/rest/v1/settings?on_conflict=key", {"key": "languages", "value": {"enabled": ["fr", "en", "ar"]}, "is_public": True}, prefer="resolution=merge-duplicates,return=minimal")
 api("DELETE", "/rest/v1/template_drafts?template_id=not.is.null", prefer="return=minimal")
+api("PATCH", "/rest/v1/templates?slug=eq.the-garden", {"price_label": "À partir de 175 €"}, prefer="return=minimal")
+api("PATCH", "/rest/v1/templates?slug=eq.province", {"price_label": "À partir de 175 €"}, prefer="return=minimal")
 api("PATCH", "/rest/v1/settings?key=eq.brand", {"value": {"name": "E-Invitly", "tagline": "Invitations digitales élégantes", "contactEmail": "", "contactPhone": "", "instagram": "", "facebook": "", "pinterest": ""}}, prefer="return=minimal")
 
 with sync_playwright() as p:
@@ -235,6 +237,29 @@ with sync_playwright() as p:
     expect(page.get_by_text("Aperçu indisponible")).to_be_visible()
     ok("aperçu privé : le lien montre le brouillon ; un faux lien ne montre rien")
 
+    # Paiement : publication refusée tant que rien n'est payé
+    a.get_by_role("button", name="Publier", exact=True).click()
+    a.wait_for_timeout(1500)
+    assert api("GET", f"/rest/v1/invitations?id=eq.{inv_id}&select=status")[0]["status"] != "published"
+    a.goto(f"{BASE}/admin/invitations/{inv_id}?onglet=publication")
+    a.get_by_role("button", name=re.compile("Créer le lien de paiement")).click()
+    expect(a.get_by_text("En attente de paiement")).to_be_visible(timeout=10000)
+    pay = api("GET", f"/rest/v1/payments?invitation_id=eq.{inv_id}&select=token,amount_cents")[0]
+    assert pay["amount_cents"] == 17500, pay
+    page.goto(f"{BASE}/paiement/{pay['token']}")
+    expect(page.get_by_text("175,00 €")).to_be_visible()
+    page.screenshot(path=SHOTS / "41-paiement.png", full_page=True)
+    page.get_by_role("button", name="Payer avec PayPal (test)").click()
+    expect(page.get_by_role("heading", name="Paiement reçu, merci !")).to_be_visible(timeout=15000)
+    paid = api("GET", f"/rest/v1/payments?invitation_id=eq.{inv_id}&select=status,method,provider_ref")[0]
+    assert paid["status"] == "paid" and paid["method"] == "paypal" and paid["provider_ref"], paid
+    # Un faux jeton ne montre rien ; un second paiement est refusé
+    assert page.goto(f"{BASE}/paiement/jeton-invente-0123456789abcdef").status == 404
+    r = page.request.post(f"{BASE}/api/paiement/{pay['token']}/paypal", data={"action": "create"})
+    assert r.status == 409, r.status
+    ok("paiement : publication bloquée avant paiement ; lien au prix du modèle ; PayPal encaissé et vérifié ; pas de double paiement")
+    a.goto(f"{BASE}/admin/invitations/{inv_id}?onglet=publication")
+    expect(a.get_by_text("Payé", exact=True)).to_be_visible()
     a.locator("input[name=note]").fill("Première publication")
     a.get_by_role("button", name="Publier", exact=True).click()
     a.wait_for_url(re.compile(r"publiee=1"), timeout=20000)
@@ -1036,6 +1061,27 @@ with sync_playwright() as p:
     expect(en.get_by_role("heading", name="Vos coordonnées")).to_be_visible()
     en.context.close()
     ok("langues : bandeau dans la langue du téléphone, site en arabe (droite à gauche), choix mémorisé, langue fermée, formulaire traduit")
+
+    # Paiement par carte (faux Stripe), page en anglais
+    tv = api("GET", "/rest/v1/templates?slug=eq.the-garden&select=id,current_version_id")[0]
+    tdef = api("GET", f"/rest/v1/template_versions?id=eq.{tv['current_version_id']}&select=definition,renderer")[0]
+    card_inv = api("POST", "/rest/v1/invitations", {
+        "slug": f"emma-et-noah-{int(time.time())}", "title": "Emma & Noah", "partner_one": "Emma", "partner_two": "Noah",
+        "renderer": tdef["renderer"], "template_id": tv["id"], "template_version_id": tv["current_version_id"],
+        "draft_content": {**tdef["definition"]["sample"], "language": "en"}, "client_email": "emma@example.test", "language": "en", "status": "customizing",
+    })[0]["id"]
+    a.goto(f"{BASE}/admin/invitations/{card_inv}?onglet=publication")
+    a.get_by_role("button", name=re.compile("Créer le lien de paiement")).click()
+    expect(a.locator("p.break-all").filter(has_text="/en/paiement/")).to_be_visible(timeout=10000)
+    ctok = api("GET", f"/rest/v1/payments?invitation_id=eq.{card_inv}&select=token")[0]["token"]
+    page.goto(f"{BASE}/en/paiement/{ctok}")
+    expect(page.get_by_text("€175.00")).to_be_visible()
+    page.get_by_role("button", name="Pay by card").click()
+    page.wait_for_url(re.compile(r"stripe=retour"), timeout=20000)
+    expect(page.get_by_role("heading", name="Payment received, thank you!")).to_be_visible(timeout=15000)
+    cp = api("GET", f"/rest/v1/payments?invitation_id=eq.{card_inv}&select=status,method,provider_ref")[0]
+    assert cp["status"] == "paid" and cp["method"] == "stripe" and cp["provider_ref"].startswith("pi_"), cp
+    ok("paiement par carte : session Stripe au bon montant, retour vérifié auprès de Stripe, page en anglais")
 
     gid = api("GET", "/rest/v1/templates?slug=eq.the-garden&select=id")[0]["id"]
     a.goto(f"{BASE}/admin/modeles/{gid}/editeur")

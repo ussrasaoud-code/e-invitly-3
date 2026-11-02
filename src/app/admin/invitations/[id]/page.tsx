@@ -15,6 +15,10 @@ import { invitationContentSchema, type RendererKey } from "@/lib/invitation/sche
 import { INVITATION_STATUS, MANUAL_INVITATION_STATUSES, type InvitationStatus } from "@/lib/status";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatShortDate } from "@/lib/time";
+import { PaymentCard } from "./PaymentCard";
+import { isEmailConfigured } from "@/lib/email";
+import type { PaymentRow } from "@/lib/payments";
+import type { SiteLang } from "@/lib/i18n/config";
 import { deleteInvitation, duplicateInvitation, publishInvitation, restoreVersionToDraft, revokePreviewLinks, saveInvitationDraft, setAccessCode, setNoindex, unpublishInvitation, saveInvitationNotes, setInvitationArchived, updateInvitationStatus, updateSlug } from "../actions";
 import { InvitationEditor } from "@/components/admin/InvitationEditor";
 import { SlugField } from "./SlugField";
@@ -39,23 +43,26 @@ export default async function InvitationPage({ params, searchParams }: Props) {
 
   const { data: inv } = await supabase
     .from("invitations")
-    .select("*, templates(name, slug), template_versions(version), client_requests!invitations_request_id_fkey(reference, id)")
+    .select("*, templates(name, slug, price_label), template_versions(version), client_requests!invitations_request_id_fkey(reference, id)")
     .eq("id", id)
     .maybeSingle();
   if (!inv) notFound();
 
   if (onglet === "rsvp") await getOrCreateRsvpForm(supabase, id);
-  const [{ data: access }, { data: versions }, { data: redirects }, { count: activePreviews }, rsvpOverview] = await Promise.all([
+  const [{ data: access }, { data: versions }, { data: redirects }, { count: activePreviews }, rsvpOverview, { data: payments }] = await Promise.all([
     supabase.from("invitation_access").select("email, role, user_id, created_at").eq("invitation_id", id),
     supabase.from("invitation_versions").select("id, version, published_at, note").eq("invitation_id", id).order("version", { ascending: false }),
     supabase.from("slug_redirects").select("old_slug").eq("invitation_id", id),
     supabase.from("preview_tokens").select("token_hash", { count: "exact", head: true }).eq("invitation_id", id).gt("expires_at", new Date().toISOString()),
     onglet === "rsvp" ? loadRsvpOverview(supabase, id) : Promise.resolve(null),
+    supabase.from("payments").select("*").eq("invitation_id", id).order("created_at", { ascending: false }),
   ]);
 
   const parsed = invitationContentSchema.safeParse(inv.draft_content);
   const status = inv.status as InvitationStatus;
-  const tpl = inv.templates as unknown as { name: string; slug: string } | null;
+  const tpl = inv.templates as unknown as { name: string; slug: string; price_label: string | null } | null;
+  const paymentList = (payments ?? []) as PaymentRow[];
+  const isPaid = paymentList.some((p) => p.status === "paid");
   const tplVersion = inv.template_versions as unknown as { version: number } | null;
   const req = inv.client_requests as unknown as { reference: string; id: string } | null;
   const host = env.siteUrl.replace(/^https?:\/\//, "");
@@ -151,6 +158,15 @@ export default async function InvitationPage({ params, searchParams }: Props) {
             </p>
           ) : null}
 
+          <PaymentCard
+            invitationId={inv.id}
+            payments={paymentList}
+            templatePrice={tpl?.price_label ?? null}
+            clientEmail={inv.client_email}
+            lang={(inv.language as SiteLang) ?? "fr"}
+            emailReady={isEmailConfigured()}
+          />
+
           <section className="card p-5 lg:col-span-2">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -197,6 +213,12 @@ export default async function InvitationPage({ params, searchParams }: Props) {
                     <span className="field-label !text-xs">Note de version (facultatif)</span>
                     <input name="note" maxLength={200} className="field min-h-10 w-64 text-sm" placeholder="ex. horaire du dîner corrigé" />
                   </label>
+                  {!inv.published_version_id && !isPaid ? (
+                    <label className="flex min-h-10 items-center gap-2 text-sm text-stone">
+                      <input type="checkbox" name="sans_paiement" className="h-4 w-4 accent-forest" />
+                      Publier sans paiement (offert, payé autrement…)
+                    </label>
+                  ) : null}
                   <SubmitButton
                     className="btn btn-primary btn-sm"
                     pendingLabel="Publication…"

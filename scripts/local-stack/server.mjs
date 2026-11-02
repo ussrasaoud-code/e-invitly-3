@@ -567,6 +567,63 @@ function send(res, status, data, headers = {}) {
   res.end(payload);
 }
 
+// ── Faux PayPal et faux Stripe (tests de bout en bout, aucun vrai paiement) ──
+const mockOrders = new Map();
+const mockSessions = new Map();
+function handlePaymentMocks(req, res, url, raw) {
+  const p = url.pathname;
+  if (p === "/paypal-mock/v1/oauth2/token") return send(res, 200, { access_token: "mock-token", expires_in: 3600 });
+  if (p === "/paypal-mock/v2/checkout/orders" && req.method === "POST") {
+    const b = JSON.parse(raw || "{}");
+    const unit = b.purchase_units?.[0] ?? {};
+    const id = `MOCK${Math.random().toString(36).slice(2, 12).toUpperCase()}`;
+    mockOrders.set(id, { id, status: "CREATED", unit });
+    return send(res, 201, { id, status: "CREATED" });
+  }
+  const m = /^\/paypal-mock\/v2\/checkout\/orders\/([A-Z0-9]+)(\/capture)?$/.exec(p);
+  if (m) {
+    const o = mockOrders.get(m[1]);
+    if (!o) return send(res, 404, { name: "RESOURCE_NOT_FOUND" });
+    if (m[2]) {
+      if (o.status === "COMPLETED") return send(res, 422, { name: "UNPROCESSABLE_ENTITY", details: [{ issue: "ORDER_ALREADY_CAPTURED" }] });
+      o.status = "COMPLETED";
+    }
+    const done = o.status === "COMPLETED";
+    return send(res, done && m[2] ? 201 : 200, {
+      id: o.id,
+      status: o.status,
+      payer: { email_address: "payeur@example.test" },
+      purchase_units: [
+        {
+          custom_id: o.unit.custom_id,
+          payments: done ? { captures: [{ id: `CAP-${o.id}`, status: "COMPLETED", custom_id: o.unit.custom_id, amount: o.unit.amount }] } : undefined,
+        },
+      ],
+    });
+  }
+  if (p === "/stripe-mock/v1/checkout/sessions" && req.method === "POST") {
+    const f = Object.fromEntries(new URLSearchParams(raw));
+    const id = `cs_test_${Math.random().toString(36).slice(2, 14)}`;
+    const session = {
+      id,
+      status: "complete",
+      payment_status: "paid",
+      amount_total: Number(f["line_items[0][price_data][unit_amount]"]),
+      currency: f["line_items[0][price_data][currency]"],
+      client_reference_id: f.client_reference_id,
+      payment_intent: `pi_test_${id.slice(8)}`,
+      customer_details: { email: f.customer_email || "carte@example.test" },
+      // Le faux Stripe « paie » tout de suite et renvoie vers la page de retour
+      url: f.success_url.replace("{CHECKOUT_SESSION_ID}", id),
+    };
+    mockSessions.set(id, session);
+    return send(res, 200, session);
+  }
+  const s = /^\/stripe-mock\/v1\/checkout\/sessions\/(cs_[A-Za-z0-9_]+)$/.exec(p);
+  if (s) return mockSessions.has(s[1]) ? send(res, 200, mockSessions.get(s[1])) : send(res, 404, { error: { message: "No such session" } });
+  return send(res, 404, { message: "mock inconnu" });
+}
+
 const server = http.createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204, { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*" });
@@ -584,6 +641,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
   const raw = buf.toString("utf8");
+  if (url.pathname.startsWith("/paypal-mock/") || url.pathname.startsWith("/stripe-mock/")) return handlePaymentMocks(req, res, url, raw);
   let body = {};
   try {
     body = raw ? JSON.parse(raw) : {};
