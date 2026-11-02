@@ -100,6 +100,10 @@ with sync_playwright() as p:
     ics = page.context.request.get(f"{BASE}{cal_href}")
     assert ics.status == 200 and "text/calendar" in ics.headers["content-type"] and "BEGIN:VEVENT" in ics.text(), ics.status
     ok("lieux et accès : boutons Itinéraire et Calendrier (.ics)")
+    ov = page.evaluate("getComputedStyle(document.querySelector('[data-section=hero] section')).overflowY")
+    assert ov == "visible", ov
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "défilement horizontal"
+    ok("éléments déplacés : plus coupés en bas de la section d'accueil, sans défilement horizontal")
 
     page.goto(f"{BASE}/demo/province")
     page.get_by_role("button", name="Ouvrir l'invitation").first.click()

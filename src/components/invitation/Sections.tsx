@@ -191,7 +191,7 @@ export function HeroSection({ content, renderer }: SectionProps) {
     );
   }
   return (
-    <section className={`relative overflow-hidden px-7 pb-20 text-center ${renderer === "the-garden" ? "pt-24" : "pt-20"}`}>
+    <section className={`relative overflow-x-clip px-7 pb-20 text-center ${renderer === "the-garden" ? "pt-24" : "pt-20"}`}>
       {renderer === "the-garden" ? (
         <>
           <El id="corner-left" className="pointer-events-none absolute -left-4 -top-6 w-36">
@@ -668,7 +668,7 @@ export function ClosingSection({ content, renderer }: SectionProps) {
   const { title, text } = content.closing;
   if (!title && !text) return null;
   return (
-    <section className="relative overflow-hidden px-7 pb-24 pt-16 text-center">
+    <section className="relative overflow-x-clip px-7 pb-24 pt-16 text-center">
       {renderer === "the-garden" ? (
         <El id="sprig" className="mx-auto mb-6 h-24 w-14">
           <Sprig className="h-full w-full" stroke="var(--inv-accent)" fill="var(--inv-soft)" />
