@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Arch, CornerSpray, Divider, Sprig } from "@/components/ornaments";
 import { EVENT_TYPE_LABELS, programV2Items, type InvitationContent, type InvitationEvent, type InvitationSection, type RendererKey } from "@/lib/invitation/schema";
+import { calendarHref } from "@/lib/ics";
 import { LOCALES, formatDotDate, formatLongDate, formatTime, zonedToUtc } from "@/lib/time";
 import type { PublicRsvpConfig } from "@/lib/rsvp";
 import type { Labels } from "./i18n";
@@ -403,7 +404,7 @@ function mapLinks(e: InvitationEvent) {
   };
 }
 
-export function VenuesSection({ content, renderer, labels, title }: SectionProps) {
+export function VenuesSection({ content, renderer, labels, title, section }: SectionProps & { section?: InvitationSection }) {
   // Un lieu par adresse distincte
   const seen = new Set<string>();
   const venues = content.events.filter((e) => {
@@ -421,41 +422,66 @@ export function VenuesSection({ content, renderer, labels, title }: SectionProps
     { k: labels.lodging, v: p.lodging },
   ].filter((x) => x.v);
   if (!venues.length && !practical.length) return null;
+  const opts = section?.venueOptions ?? { calendar: true, buttonBg: "", buttonInk: "", detail: "" };
+  const detail = opts.detail || "var(--inv-accent)";
+  const btnStyle = { backgroundColor: opts.buttonBg || "var(--inv-accent)", color: opts.buttonInk || "var(--inv-bg)", fontFamily: "var(--inv-display)" };
+  const btnCls = "inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-[0.95rem] transition hover:brightness-110 active:scale-[0.98]";
+  const date = content.eventAt.slice(0, 10);
+  const couple = [content.couple.partnerOne, content.couple.partnerTwo].filter(Boolean).join(" & ");
   return (
     <Shell renderer={renderer}>
       <SectionTitle renderer={renderer}>{title || labels.venues}</SectionTitle>
       <El id="list">
-      <div className="mx-auto max-w-[320px] space-y-6">
-        {venues.map((e) => {
+      <div className="mx-auto max-w-[320px]">
+        {venues.map((e, i) => {
           const links = mapLinks(e);
           const k = `list.${elKey(e.id)}`;
+          const eventTitle = e.title || EVENT_TYPE_LABELS[e.type];
+          const time = e.startTime || e.arrivalTime;
+          const cal = opts.calendar
+            ? calendarHref({ date, time, timeZone: content.timezone, title: couple ? `${couple} · ${eventTitle}` : eventTitle, location: [e.venueName, e.address].filter(Boolean).join(", ") })
+            : null;
           return (
-            <El id={k} key={e.id} className="inv-border-soft border p-5 text-center">
+            <El id={k} key={e.id} className="text-center">
+              {i > 0 ? <div aria-hidden="true" className="mx-auto my-8 h-px w-10" style={{ backgroundColor: detail, opacity: 0.45 }} /> : null}
               <El id={`${k}.title`}>
-                <p className="text-[0.75rem] uppercase tracking-[0.22em]" style={{ color: "var(--inv-accent)" }}>
-                  {e.title || EVENT_TYPE_LABELS[e.type]}
-                  {e.arrivalTime ? ` · ${labels.arrival} ${formatTime(e.arrivalTime, content.language)}` : ""}
-                </p>
+                <p className="text-[0.75rem] uppercase tracking-[0.24em]" style={{ color: detail }}>{eventTitle}</p>
               </El>
-              <El id={`${k}.place`}><p className="mt-2 text-[1.05rem]" style={{ color: "var(--inv-ink)" }}>{e.venueName}</p></El>
-              <El id={`${k}.address`}><p className="mt-1 text-sm" style={{ color: "var(--inv-muted)" }}>{e.address}</p></El>
-              <El id={`${k}.maps`} className="mt-4 flex justify-center gap-2">
-                <a href={links.google} target="_blank" rel="noopener noreferrer" className="inv-border-accent inline-flex min-h-10 items-center border px-3 text-[0.68rem] uppercase tracking-[0.18em]" style={{ color: "var(--inv-accent)" }}>
-                  {labels.googleMaps}
+              <El id={`${k}.place`}>
+                <p className="mt-2 text-[1.7rem] leading-tight" style={{ color: "var(--inv-ink)", fontFamily: "var(--inv-display)" }}>{e.venueName}</p>
+              </El>
+              <El id={`${k}.address`}><p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--inv-muted)" }}>{e.address}</p></El>
+              {time ? (
+                <El id={`${k}.time`}>
+                  <p className="mt-2 inline-flex items-center gap-1.5 text-sm" style={{ color: "var(--inv-muted)" }}>
+                    <ClockIcon color={detail} />
+                    <bdi dir="ltr">
+                      {e.arrivalTime && e.startTime && e.arrivalTime !== e.startTime
+                        ? `${labels.arrival} ${formatTime(e.arrivalTime, content.language)} · ${formatTime(e.startTime, content.language)}`
+                        : formatTime(time, content.language)}
+                    </bdi>
+                  </p>
+                </El>
+              ) : null}
+              <El id={`${k}.maps`} className="mt-4 flex flex-wrap justify-center gap-2">
+                <a href={links.google} target="_blank" rel="noopener noreferrer" className={btnCls} style={btnStyle}>
+                  <PinIcon /> {labels.directions}
                 </a>
-                <a href={links.apple} target="_blank" rel="noopener noreferrer" className="inv-border-accent inline-flex min-h-10 items-center border px-3 text-[0.68rem] uppercase tracking-[0.18em]" style={{ color: "var(--inv-accent)" }}>
-                  {labels.appleMaps}
-                </a>
+                {cal ? (
+                  <a href={cal} className={btnCls} style={btnStyle}>
+                    <CalendarIcon /> {labels.calendar}
+                  </a>
+                ) : null}
               </El>
             </El>
           );
         })}
         {practical.length ? (
           <El id="list.practical">
-          <dl className="space-y-4 pt-2">
+          <dl className={`space-y-4 text-center ${venues.length ? "mt-10" : ""}`}>
             {practical.map((x) => (
               <div key={x.k}>
-                <dt className="text-[0.7rem] uppercase tracking-[0.22em]" style={{ color: "var(--inv-accent)" }}>{x.k}</dt>
+                <dt className="text-[0.7rem] uppercase tracking-[0.22em]" style={{ color: detail }}>{x.k}</dt>
                 <dd className="mt-1 text-[0.95rem] leading-relaxed" style={{ color: "var(--inv-ink)" }}>{x.v}</dd>
               </div>
             ))}
@@ -465,6 +491,28 @@ export function VenuesSection({ content, renderer, labels, title }: SectionProps
       </div>
       </El>
     </Shell>
+  );
+}
+
+function ClockIcon({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round">
+      <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+function PinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round">
+      <path d="M12 21s-6.5-5.6-6.5-11A6.5 6.5 0 0 1 18.5 10c0 5.4-6.5 11-6.5 11z" /><circle cx="12" cy="10" r="2.3" />
+    </svg>
+  );
+}
+function CalendarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round">
+      <rect x="4" y="5.5" width="16" height="14" rx="2" /><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
+    </svg>
   );
 }
 

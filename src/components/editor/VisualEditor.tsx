@@ -1243,6 +1243,7 @@ function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHre
         </p>
       ) : null}
       {s.type === "program2" ? <ProgramV2Editor section={s} onChange={onChange} /> : null}
+      {s.type === "venues" ? <VenuesOptionsEditor section={s} themeColors={themeColors} onChange={onChange} /> : null}
       <Field label="Apparition du contenu">
         <select aria-label="Apparition du contenu" className={inputCls} value={s.animation} onChange={(e) => onChange({ animation: e.target.value as InvitationSection["animation"] })}>
           <option value="inherit">Par défaut (montée douce)</option>
@@ -1919,5 +1920,42 @@ function ProgramV2Editor({ section: s, onChange }: { section: InvitationSection;
         ) : null}
       </fieldset>
     </div>
+  );
+}
+
+function VenuesOptionsEditor({ section: s, themeColors, onChange }: { section: InvitationSection; themeColors: InvitationContent["theme"]["colors"]; onChange: (patch: Partial<InvitationSection>) => void }) {
+  const o = s.venueOptions;
+  const set = (patch: Partial<InvitationSection["venueOptions"]>) => onChange({ venueOptions: { ...o, ...patch } });
+  const colors: Array<{ key: "buttonBg" | "buttonInk" | "detail"; label: string; fallback: string }> = [
+    { key: "buttonBg", label: "Fond des boutons", fallback: themeColors.accent },
+    { key: "buttonInk", label: "Texte et icônes des boutons", fallback: themeColors.background },
+    { key: "detail", label: "Intitulés, horloge et séparateurs", fallback: themeColors.accent },
+  ];
+  return (
+    <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
+      <legend className="mb-1 font-serif text-lg">Boutons et couleurs</legend>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-0.5 h-4 w-4 accent-forest" checked={o.calendar} onChange={(e) => set({ calendar: e.target.checked })} />
+        <span>
+          Afficher le bouton « Calendrier »
+          <span className="block text-xs text-stone">Ajoute le moment à l&apos;agenda de l&apos;invité (date de l&apos;invitation + heure du moment). Masqué automatiquement s&apos;il manque la date ou l&apos;heure.</span>
+        </span>
+      </label>
+      {colors.map((c) => (
+        <div key={c.key} className="flex items-center gap-3">
+          <ColorInput value={o[c.key] || c.fallback} onChange={(e) => set({ [c.key]: e.target.value })} className="h-9 w-11 cursor-pointer rounded-sm border border-line" aria-label={c.label} />
+          <div className="text-xs">
+            <span className="block text-sm">{c.label}</span>
+            {o[c.key] ? (
+              <span className="text-stone">
+                {o[c.key].toUpperCase()} · <button type="button" className="underline" onClick={() => set({ [c.key]: "" })}>couleur du thème</button>
+              </span>
+            ) : (
+              <span className="text-stone">Couleur du thème</span>
+            )}
+          </div>
+        </div>
+      ))}
+    </fieldset>
   );
 }

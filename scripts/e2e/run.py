@@ -92,6 +92,14 @@ with sync_playwright() as p:
     page.screenshot(path=SHOTS / "05-demo-programme.png")
     expect(page.get_by_role("timer")).to_be_visible()
     ok("démo : enveloppe → invitation, compte à rebours")
+    itin = page.get_by_role("link", name="Itinéraire").first
+    itin.scroll_into_view_if_needed(); page.wait_for_timeout(1200)
+    expect(itin).to_be_visible()
+    page.screenshot(path=SHOTS / "05b-demo-lieux.png")
+    cal_href = page.get_by_role("link", name="Calendrier").first.get_attribute("href")
+    ics = page.context.request.get(f"{BASE}{cal_href}")
+    assert ics.status == 200 and "text/calendar" in ics.headers["content-type"] and "BEGIN:VEVENT" in ics.text(), ics.status
+    ok("lieux et accès : boutons Itinéraire et Calendrier (.ics)")
 
     page.goto(f"{BASE}/demo/province")
     page.get_by_role("button", name="Ouvrir l'invitation").first.click()

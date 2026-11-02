@@ -122,6 +122,7 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
             else if (s.type === "text") inner = <TextSection {...props} body={s.body} />;
             else if (s.type === "decor") inner = <DecorSection height={s.height} />;
             else if (s.type === "program2") inner = <ProgramV2Section {...props} section={s} />;
+            else if (s.type === "venues") inner = <VenuesSection {...props} section={s} />;
             else {
               const Component = SECTION_COMPONENTS[s.type];
               inner = <Component {...props} />;

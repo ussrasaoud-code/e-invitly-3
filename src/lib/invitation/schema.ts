@@ -287,6 +287,8 @@ export const sectionBackgroundSchema = z
   })
   .default(DEFAULT_SECTION_BACKGROUND);
 
+export const DEFAULT_VENUE_OPTIONS = { calendar: true, buttonBg: "", buttonInk: "", detail: "" };
+
 export const sectionSchema = z.object({
   id: z.string().min(1).max(40),
   type: z.enum(SECTION_TYPES),
@@ -309,6 +311,15 @@ export const sectionSchema = z.object({
   itemsFrom: z.enum(["events", "custom"]).default("events"),
   marker: cssUrl,
   stem: z.enum(STEM_STYLES).default("feuilles"),
+  /** Lieux et accès : bouton « Calendrier » et couleurs (vide = couleurs du thème) */
+  venueOptions: z
+    .object({
+      calendar: z.boolean().default(true),
+      buttonBg: hexColor.or(z.literal("")).default(""),
+      buttonInk: hexColor.or(z.literal("")).default(""),
+      detail: hexColor.or(z.literal("")).default(""),
+    })
+    .default({ calendar: true, buttonBg: "", buttonInk: "", detail: "" }),
   /** Animation d'apparition du contenu ("inherit" = réglage du thème) */
   animation: z.enum(["inherit", ...ENTER_ANIMATIONS]).default("inherit"),
   layers: z.array(layerSchema).max(40).default([]),
@@ -323,7 +334,7 @@ const shortId = (prefix: string) => `${prefix}-${Math.random().toString(36).slic
 
 export function newSection(type: SectionType): InvitationSection {
   if (type === "program2") return programV2Section();
-  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], itemsFrom: "events", marker: "", stem: "feuilles" };
+  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], itemsFrom: "events", marker: "", stem: "feuilles", venueOptions: { ...DEFAULT_VENUE_OPTIONS } };
 }
 
 export function newLayer(kind: InvitationLayer["kind"], patch: Partial<InvitationLayer> = {}): InvitationLayer {
@@ -478,6 +489,7 @@ export function programV2Section(): InvitationSection {
     kicker: "Le fil de notre journée",
     items: items.map(([time, title, detail], i) => ({ id: `m${i + 1}`, time, title, detail })),
     itemsFrom: "events",
+    venueOptions: { ...DEFAULT_VENUE_OPTIONS },
     marker: "/decor/rose.svg",
     stem: "feuilles",
     layers: [

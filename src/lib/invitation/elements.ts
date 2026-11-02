@@ -85,10 +85,11 @@ function venueItems(c: InvitationContent): ElementDef[] {
       label: e.venueName || e.title || "Lieu",
       kind: "block",
       children: [
-        { id: `${k}.title`, label: "Intitulé et heure d'arrivée", kind: "text", edit: { event: e.id, field: "title" } },
+        { id: `${k}.title`, label: "Intitulé", kind: "text", edit: { event: e.id, field: "title" } },
         { id: `${k}.place`, label: EVENT_LABEL.venueName, kind: "text", edit: { event: e.id, field: "venueName" } },
         { id: `${k}.address`, label: EVENT_LABEL.address, kind: "text", edit: { event: e.id, field: "address" } },
-        { id: `${k}.maps`, label: "Boutons d'itinéraire", kind: "block" },
+        { id: `${k}.time`, label: "Horaire", kind: "text" },
+        { id: `${k}.maps`, label: "Boutons (itinéraire, calendrier)", kind: "block" },
       ],
     });
   }
