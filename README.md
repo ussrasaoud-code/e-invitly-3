@@ -27,9 +27,19 @@ Les fonctions pas encore disponibles sont signalées comme telles dans l'adminis
 factice.
 
 **Tests réalisés** : 29 tests de sécurité de la base, 52 tests unitaires (paiements, signature Stripe, langues, versions par langue, prix, adresses, fuseaux horaires,
-conversion demande → invitation, règles RSVP, médias, calques, formes, alignement, programme v2), 68 vérifications de bout en bout dans un vrai
+conversion demande → invitation, règles RSVP, médias, calques, formes, alignement, programme v2), 69 vérifications de bout en bout dans un vrai
 navigateur (demande, connexion, conversion, éditeur, aperçu, publication, code d'accès, réponses RSVP,
 codes invités, corrections, exports, espace couple, médias, éditeur visuel, historique, accès refusés).
+
+### Espace mariés et e-mails de connexion
+
+- À la conversion d'une demande, le compte du client est créé et il reçoit un **e-mail de bienvenue**
+  (dans la langue de son invitation) avec un lien de connexion à son espace.
+- *Invitation → Publication → Espace mariés* : renvoyer l'accès, **ajouter une personne** (le conjoint),
+  retirer un accès.
+- Les liens de connexion partent par **Resend** (pas par le service d'e-mails de Supabase, limité à quelques
+  envois par heure). Indispensable : `RESEND_API_KEY` et `EMAIL_FROM` (domaine vérifié) dans Netlify.
+- L'espace mariés existe dans les 7 langues (sélecteur en haut de page).
 
 ### Paiements en ligne (PayPal et carte bancaire)
 

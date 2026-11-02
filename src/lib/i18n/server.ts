@@ -40,3 +40,11 @@ export async function getDict(): Promise<{ lang: SiteLang; t: SiteDict }> {
   const lang = await getSiteLang();
   return { lang, t: dictFor(lang) };
 }
+
+/** Langue préférée hors site vitrine (espace mariés) : choix mémorisé, sinon la langue donnée. */
+export async function getPreferredLang(fallback?: string | null): Promise<SiteLang> {
+  const { cookies } = await import("next/headers");
+  const c = (await cookies()).get("ei-lang")?.value;
+  if (isSiteLang(c)) return c;
+  return isSiteLang(fallback) ? fallback : DEFAULT_LANG;
+}

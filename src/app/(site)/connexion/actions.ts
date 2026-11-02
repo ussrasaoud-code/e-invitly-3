@@ -1,7 +1,9 @@
 "use server";
 
 import { z } from "zod";
+import { isEmailConfigured } from "@/lib/email";
 import { env } from "@/lib/env";
+import { sendLoginEmail } from "@/lib/login-link";
 import { isSiteLang } from "@/lib/i18n/config";
 import { dictFor } from "@/lib/i18n/server";
 import { hashedClientIp } from "@/lib/net";
@@ -33,20 +35,23 @@ export async function sendMagicLink(_prev: LoginState, form: FormData): Promise<
   }
 
   const next = safeNext(form.get("suite"));
-  const { error } = await supabase.auth.signInWithOtp({
-    email: email.data,
-    options: {
-      shouldCreateUser: false,
-      emailRedirectTo: `${env.siteUrl}/auth/callback?suite=${encodeURIComponent(next)}`,
-    },
-  });
-  // Même réponse que le compte existe ou non : on ne révèle pas qui est inscrit.
-  if (error && !/not found|signups not allowed|otp_disabled/i.test(error.message)) {
-    console.error("[login]", error.message);
-    if (/rate limit/i.test(error.message)) {
-      return { status: "error", message: t.tooManyLinks };
+  const lang = isSiteLang(uiLang) ? uiLang : "fr";
+  if (isEmailConfigured()) {
+    // Notre service d'e-mails (Resend) : fiable et dans la langue du visiteur
+    const r = await sendLoginEmail(email.data, next, lang);
+    if (!r.sent && r.error !== "compte inconnu") console.error("[login] e-mail", r.error);
+  } else {
+    // Repli : e-mail envoyé par Supabase (limité à quelques envois par heure)
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.data,
+      options: { shouldCreateUser: false, emailRedirectTo: `${env.siteUrl}/auth/callback?suite=${encodeURIComponent(next)}` },
+    });
+    if (error && !/not found|signups not allowed|otp_disabled/i.test(error.message)) {
+      console.error("[login]", error.message);
+      if (/rate limit/i.test(error.message)) return { status: "error", message: t.tooManyLinks };
     }
   }
+  // Même réponse que le compte existe ou non : on ne révèle pas qui est inscrit.
   return {
     status: "sent",
     message: t.sent,

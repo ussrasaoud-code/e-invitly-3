@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Logo } from "@/components/brand/Logo";
+import { CoupleHeader } from "@/components/couple/CoupleHeader";
 import { getCurrentUser } from "@/lib/auth";
 import { env } from "@/lib/env";
+import { LANG_META, fmt, localePath } from "@/lib/i18n/config";
+import { dictFor, getPreferredLang } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
-import { formatShortDate } from "@/lib/time";
 
-export const metadata: Metadata = { title: "Mon espace", robots: { index: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getPreferredLang();
+  return { title: dictFor(lang).couple.metaTitle, robots: { index: false } };
+}
 
 /** Espace des mariés : uniquement LEURS invitations (règles RLS côté base). */
 export default async function ClientSpace() {
@@ -15,24 +19,21 @@ export default async function ClientSpace() {
   if (!user) redirect("/connexion?suite=/mon-espace");
   const supabase = (await createClient())!;
   const [{ data: invitations }, { data: stats }] = await Promise.all([
-    supabase.from("invitations").select("id, title, slug, status, event_at").neq("status", "archived").order("event_at"),
+    supabase.from("invitations").select("id, title, slug, status, event_at, language").neq("status", "archived").order("event_at"),
     supabase.from("rsvp_stats").select("*"),
   ]);
+  const lang = await getPreferredLang(invitations?.[0]?.language);
+  const t = dictFor(lang).couple;
   const byId = new Map((stats ?? []).map((s) => [s.invitation_id, s]));
   const host = env.siteUrl.replace(/^https?:\/\//, "");
-
+  const date = (v: string | null) => (v ? new Intl.DateTimeFormat(LANG_META[lang].intl, { dateStyle: "long", timeZone: "Europe/Paris" }).format(new Date(v)) : "");
   return (
-    <div className="min-h-dvh bg-ivory">
-      <header className="flex items-center justify-between border-b border-line px-5 py-4">
-        <Logo className="h-8" />
-        <form action="/auth/deconnexion" method="post">
-          <button className="text-sm text-stone hover:text-danger">Déconnexion</button>
-        </form>
-      </header>
+    <div className="min-h-dvh bg-ivory" lang={lang} dir={LANG_META[lang].dir}>
+      <CoupleHeader lang={lang} logout={t.logout} languageLabel={t.language} />
       <main className="mx-auto max-w-3xl px-5 py-12">
-        <p className="eyebrow">Espace mariés</p>
-        <h1 className="mt-3 font-serif text-4xl">Bonjour</h1>
-        <p className="mt-2 text-sm text-stone">Connecté·e avec {user.email}</p>
+        <p className="eyebrow">{t.eyebrow}</p>
+        <h1 className="mt-3 font-serif text-4xl">{t.hello}</h1>
+        <p className="mt-2 text-sm text-stone">{fmt(t.connectedAs, { email: user.email })}</p>
         {invitations?.length ? (
           <ul className="mt-8 space-y-4">
             {invitations.map((i) => {
@@ -41,20 +42,22 @@ export default async function ClientSpace() {
               return (
                 <li key={i.id} className="card p-5">
                   <h2 className="font-serif text-2xl">{i.title}</h2>
-                  <p className="text-sm text-stone">{formatShortDate(i.event_at)}</p>
+                  <p className="text-sm text-stone">{date(i.event_at)}</p>
                   <p className="mt-3 text-sm">
                     {live ? (
-                      <>Votre lien : <a className="text-forest underline" href={`/${i.slug}`}>{host}/{i.slug}</a></>
+                      <>
+                        {t.yourLink} <a className="text-forest underline" dir="ltr" href={`/${i.slug}`}>{host}/{i.slug}</a>
+                      </>
                     ) : (
-                      "Votre invitation est en cours de préparation : vous recevrez un aperçu avant sa publication."
+                      t.preparing
                     )}
                   </p>
                   <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {[
-                      ["Réponses", s?.responses ?? 0],
-                      ["Personnes confirmées", s?.confirmed_people ?? 0],
-                      ["Accompagnants", s?.companions ?? 0],
-                      ["Refus", s?.declined_responses ?? 0],
+                      [t.sResponses, s?.responses ?? 0],
+                      [t.sConfirmed, s?.confirmed_people ?? 0],
+                      [t.sCompanions, s?.companions ?? 0],
+                      [t.sDeclined, s?.declined_responses ?? 0],
                     ].map(([k, v]) => (
                       <div key={k as string}>
                         <dt className="text-xs text-stone">{k}</dt>
@@ -62,15 +65,15 @@ export default async function ClientSpace() {
                       </div>
                     ))}
                   </dl>
-                  <Link href={`/mon-espace/${i.id}`} className="btn btn-primary btn-sm mt-5">Voir toutes les réponses</Link>
+                  <Link href={`/mon-espace/${i.id}`} className="btn btn-primary btn-sm mt-5">{t.seeAll}</Link>
                 </li>
               );
             })}
           </ul>
         ) : (
           <p className="card mt-8 p-6 text-sm text-stone">
-            Aucune invitation n&apos;est associée à cette adresse pour l&apos;instant.{" "}
-            <Link href="/" className="text-forest underline">Retour au site</Link>
+            {t.none}{" "}
+            <Link href={localePath(lang, "/")} className="text-forest underline">{t.backSite}</Link>
           </p>
         )}
       </main>

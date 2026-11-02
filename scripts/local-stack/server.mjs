@@ -411,6 +411,7 @@ async function handleRest(req, res, url, body) {
 // ── Auth (GoTrue minimal) ─────────────────────────────────────────────
 const pendingCodes = new Map(); // code → { email, challenge }
 const refreshTokens = new Map(); // token → userId
+const hashedTokens = new Map(); // jeton de lien → { email, exp }
 
 async function userById(id) {
   const r = await serial(() => db.query(`select id, email, created_at from auth.users where id = $1`, [id]));
@@ -468,11 +469,32 @@ async function handleAuth(req, res, url, body) {
     if (!u) throw new ApiError(404, "user_not_found", "User not found");
     return send(res, 200, userJson(u));
   }
+  // Lien de connexion généré côté serveur (équivalent auth.admin.generateLink)
+  if (route === "/admin/generate_link" && req.method === "POST") {
+    const claims = claimsFrom(req);
+    if (claims.role !== "service_role") throw new ApiError(403, "not_admin", "service_role requis");
+    const email = String(body.email ?? "").toLowerCase();
+    const u = (await serial(() => db.query(`select id, email, created_at from auth.users where lower(email) = $1`, [email]))).rows[0];
+    if (!u) throw new ApiError(404, "user_not_found", "User not found");
+    const hashed = randomBytes(20).toString("hex");
+    hashedTokens.set(hashed, { email, exp: Date.now() + 3600_000 });
+    return send(res, 200, { ...userJson(u), action_link: `http://127.0.0.1:${PORT}/auth/v1/verify?token=${hashed}&type=magiclink`, email_otp: "000000", hashed_token: hashed, redirect_to: body.redirect_to ?? "", verification_type: "magiclink" });
+  }
+  // Vérification du jeton (verifyOtp avec token_hash) → session
+  if (route === "/verify" && req.method === "POST") {
+    const h = hashedTokens.get(String(body.token_hash ?? ""));
+    if (!h || h.exp < Date.now()) throw new ApiError(403, "otp_expired", "Email link is invalid or has expired");
+    hashedTokens.delete(body.token_hash);
+    const u = (await serial(() => db.query(`select id, email, created_at from auth.users where lower(email) = $1`, [h.email]))).rows[0];
+    return send(res, 200, session(u));
+  }
   if (route === "/logout") return send(res, 204, null);
   // Outil de test : création d'utilisateur (équivalent « Add user » du tableau de bord)
   if (route === "/admin/users" && req.method === "POST") {
     const claims = claimsFrom(req);
     if (claims.role !== "service_role") throw new ApiError(403, "not_admin", "service_role requis");
+    const exists = (await serial(() => db.query(`select 1 from auth.users where lower(email) = $1`, [String(body.email).toLowerCase()]))).rows[0];
+    if (exists) throw new ApiError(422, "email_exists", "A user with this email address has already been registered");
     const r = await serial(() => db.query(`insert into auth.users (email) values ($1) returning id, email, created_at`, [String(body.email).toLowerCase()]));
     return send(res, 200, userJson(r.rows[0]));
   }

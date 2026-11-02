@@ -16,6 +16,7 @@ import { INVITATION_STATUS, MANUAL_INVITATION_STATUSES, type InvitationStatus } 
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatShortDate } from "@/lib/time";
 import { PaymentCard } from "./PaymentCard";
+import { addCoupleAccess, removeCoupleAccess, sendCoupleAccess } from "../access-actions";
 import { isEmailConfigured } from "@/lib/email";
 import type { PaymentRow } from "@/lib/payments";
 import type { SiteLang } from "@/lib/i18n/config";
@@ -32,12 +33,12 @@ const TABS = [
   { value: "notes", label: "Notes internes" },
 ] as const;
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ onglet?: string; nouvelle?: string; publiee?: string; q?: string; presence?: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ onglet?: string; nouvelle?: string; acces?: string; publiee?: string; q?: string; presence?: string }> };
 
 export default async function InvitationPage({ params, searchParams }: Props) {
   await requireStaff();
   const { id } = await params;
-  const { onglet = "contenu", nouvelle, publiee, q, presence } = await searchParams;
+  const { onglet = "contenu", nouvelle, acces, publiee, q, presence } = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const supabase = (await createClient())!;
 
@@ -117,6 +118,12 @@ export default async function InvitationPage({ params, searchParams }: Props) {
       {nouvelle ? (
         <p role="status" className="mb-6 border border-sage bg-sage-soft px-4 py-3 text-sm text-forest-deep">
           Invitation créée à partir de la demande. Les points à reprendre (témoins, programme détaillé…) sont listés dans l&apos;onglet Notes internes.
+          {acces === "1" ? " L'accès à l'espace mariés a été envoyé au client par e-mail." : null}
+        </p>
+      ) : null}
+      {nouvelle && acces === "0" ? (
+        <p role="alert" className="mb-6 border border-warning/40 bg-[#fbf3e2] px-4 py-3 text-sm">
+          L&apos;e-mail d&apos;accès à l&apos;espace mariés n&apos;a pas pu partir (service d&apos;e-mails non configuré ?). Renvoyez-le depuis l&apos;onglet Publication → « Espace mariés ».
         </p>
       ) : null}
 
@@ -350,18 +357,49 @@ export default async function InvitationPage({ params, searchParams }: Props) {
                 <SubmitButton className="btn btn-secondary btn-sm">OK</SubmitButton>
               </form>
             )}
-            <h3 className="mt-6 text-sm font-medium">Accès du couple (espace mariés)</h3>
+            <h3 className="mt-6 text-sm font-medium">Espace mariés</h3>
+            <p className="mt-1 text-xs text-stone">
+              Les personnes ci-dessous se connectent avec leur e-mail (lien sans mot de passe) et voient le lien de l&apos;invitation et les réponses des invités.
+            </p>
             {access?.length ? (
-              <ul className="mt-2 space-y-1 text-sm">
+              <ul className="mt-2 divide-y divide-line text-sm">
                 {access.map((a) => (
-                  <li key={a.email}>
-                    {a.email} <span className="text-xs text-stone">· {a.role === "owner" ? "propriétaire" : "lecture"}{a.user_id ? " · compte actif" : " · compte à créer"}</span>
+                  <li key={a.email} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                    <span>
+                      {a.email} <span className="text-xs text-stone">· {a.user_id ? "compte actif" : "accès pas encore envoyé"}</span>
+                    </span>
+                    <span className="flex gap-2">
+                      <form action={sendCoupleAccess}>
+                        <input type="hidden" name="id" value={inv.id} />
+                        <input type="hidden" name="email" value={a.email} />
+                        <SubmitButton className="btn btn-secondary btn-sm" pendingLabel="Envoi…" confirm={`Envoyer à ${a.email} un e-mail avec son lien de connexion à l'espace mariés ?`}>
+                          {a.user_id ? "Renvoyer l'accès" : "Donner l'accès et envoyer"}
+                        </SubmitButton>
+                      </form>
+                      <form action={removeCoupleAccess}>
+                        <input type="hidden" name="id" value={inv.id} />
+                        <input type="hidden" name="email" value={a.email} />
+                        <SubmitButton className="btn btn-ghost btn-sm text-danger" pendingLabel="…" confirm={`Retirer l'accès de ${a.email} ?`}>Retirer</SubmitButton>
+                      </form>
+                    </span>
                   </li>
                 ))}
               </ul>
             ) : (
               <p className="mt-2 text-sm text-stone">Aucun accès défini.</p>
             )}
+            <form action={addCoupleAccess} className="mt-3 flex flex-wrap items-end gap-2">
+              <input type="hidden" name="id" value={inv.id} />
+              <label className="text-sm">
+                <span className="field-label !text-xs">Ajouter une personne (ex. le conjoint)</span>
+                <input name="email" type="email" required placeholder="email@exemple.com" className="field min-h-10 w-64 text-sm" />
+              </label>
+              <label className="flex min-h-10 items-center gap-2 text-sm">
+                <input type="checkbox" name="envoyer" defaultChecked className="h-4 w-4 accent-forest" />
+                Lui envoyer son accès
+              </label>
+              <SubmitButton className="btn btn-secondary btn-sm" pendingLabel="Ajout…">Ajouter</SubmitButton>
+            </form>
           </section>
 
           <section className="card border-danger/30 p-5 lg:col-span-2">

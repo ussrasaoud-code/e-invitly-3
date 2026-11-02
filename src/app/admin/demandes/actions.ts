@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/audit";
 import { requireStaff } from "@/lib/auth";
 import { buildInvitationFromRequest, type RequestFormData } from "@/lib/invitation/from-request";
 import { contentFor } from "@/lib/invitation/variants";
+import { sendWelcomeEmail } from "@/lib/login-link";
 import { templateDefinitionSchema } from "@/lib/invitation/schema";
 import { slugFromNames } from "@/lib/slug";
 import { suggestSlug } from "@/lib/slug-db";
@@ -138,7 +139,11 @@ export async function convertRequestToInvitation(form: FormData) {
     resourceId: invitationId,
     summary: `Invitation créée pour ${req.partner_one} & ${req.partner_two} depuis ${req.reference}`,
   });
+  // Espace mariés : compte créé et e-mail de bienvenue envoyé au client, dans la langue de son invitation
+  const welcome = await sendWelcomeEmail(req.email, `${req.partner_one} & ${req.partner_two}`, req.language);
+  if (!welcome.sent) console.warn("[convert] accès espace mariés non envoyé :", welcome.error);
+  else await logActivity({ actorId: user.id, action: "access.sent", resourceType: "invitation", resourceId: invitationId, summary: `Accès à l'espace mariés envoyé à ${req.email}` });
   revalidatePath("/admin/demandes");
   revalidatePath("/admin/invitations");
-  redirect(`/admin/invitations/${invitationId}?nouvelle=1`);
+  redirect(`/admin/invitations/${invitationId}?nouvelle=1&acces=${welcome.sent ? "1" : "0"}`);
 }

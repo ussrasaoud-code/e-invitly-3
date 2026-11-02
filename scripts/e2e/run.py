@@ -45,7 +45,7 @@ def magic_login(page, email, suite="/mon-espace"):
     for _ in range(30):
         text = MAILBOX.read_text() if MAILBOX.exists() else ""
         new = text[len(before):]
-        m = re.findall(rf"{re.escape(email)} (\S+)", new)
+        m = re.findall(rf"{re.escape(email)} (\S*/auth/(?:callback|confirm)\S*)", new)
         if m:
             page.goto(m[-1])
             return
@@ -179,9 +179,14 @@ with sync_playwright() as p:
     ok("demande : toutes les réponses affichées, notes enregistrées")
 
     # ── Scénario 2 : conversion ──────────────────────────────────────
+    outbox_before = MAILBOX.read_text() if MAILBOX.exists() else ""
     a.get_by_role("button", name="Transformer en invitation").click()
     a.wait_for_url(re.compile(r"/admin/invitations/[0-9a-f-]+"), timeout=20000)
     inv_id = re.search(r"/admin/invitations/([0-9a-f-]+)", a.url).group(1)
+    expect(a.get_by_text("L'accès à l'espace mariés a été envoyé au client par e-mail.")).to_be_visible()
+    welcome = (MAILBOX.read_text())[len(outbox_before):]
+    assert re.search(r"mark@example\.test \S*/auth/confirm\?token_hash=", welcome), welcome
+    ok("conversion : compte du couple créé et e-mail de bienvenue (lien de connexion) envoyé automatiquement")
     expect(a.get_by_text("mark-alice")).to_be_visible()
     a.wait_for_timeout(1200)
     a.screenshot(path=SHOTS / "13-admin-invitation-editeur.png", full_page=True)

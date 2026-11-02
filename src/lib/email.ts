@@ -11,13 +11,20 @@ const escape = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export function isEmailConfigured() {
-  return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
+  return Boolean((process.env.RESEND_API_KEY && process.env.EMAIL_FROM) || process.env.EMAIL_OUTBOX_FILE);
 }
 
 export async function sendEmail(msg: { to: string; subject: string; heading: string; paragraphs: string[]; replyTo?: string; lang?: string }): Promise<EmailResult> {
   const lang = msg.lang ?? "fr";
   const dir = lang === "ar" ? "rtl" : "ltr";
   if (!isEmailConfigured()) return { sent: false, error: "Service e-mail non configuré" };
+  // Développement et tests : les e-mails sont écrits dans un fichier au lieu d'être envoyés
+  if (process.env.EMAIL_OUTBOX_FILE && !process.env.RESEND_API_KEY) {
+    const { appendFileSync } = await import("node:fs");
+    const urls = msg.paragraphs.join(" ").match(/https?:\/\/\S+/g) ?? [];
+    appendFileSync(process.env.EMAIL_OUTBOX_FILE, `${new Date().toISOString()} ${msg.to} ${urls[0] ?? "-"} ${JSON.stringify(msg.subject)}\n`);
+    return { sent: true };
+  }
   const html = `<!doctype html><html lang="${lang}" dir="${dir}"><body dir="${dir}" style="margin:0;background:#FAF8F4;font-family:Georgia,serif;color:#323330">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #DDD2C3">
