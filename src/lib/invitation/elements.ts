@@ -94,7 +94,30 @@ function venueItems(c: InvitationContent): ElementDef[] {
     });
   }
   const p = c.practical;
-  if (p.parking || p.shuttles || p.transport || p.lodging) items.push({ id: "list.practical", label: "Infos pratiques", kind: "block" });
+  const practical = (
+    [
+      ["parking", "Stationnement", p.parking],
+      ["shuttles", "Navettes", p.shuttles],
+      ["transport", "Transports", p.transport],
+      ["lodging", "Hébergement", p.lodging],
+    ] as const
+  ).filter(([, , v]) => v);
+  if (practical.length) {
+    items.push({
+      id: "list.practical",
+      label: "Infos pratiques",
+      kind: "block",
+      children: practical.map(([id, label]) => ({
+        id: `list.practical.${id}`,
+        label,
+        kind: "block" as const,
+        children: [
+          { id: `list.practical.${id}.label`, label: `${label} · intitulé`, kind: "text" as const },
+          { id: `list.practical.${id}.text`, label: `${label} · texte`, kind: "text" as const },
+        ],
+      })),
+    });
+  }
   return items;
 }
 

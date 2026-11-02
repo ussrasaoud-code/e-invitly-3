@@ -66,7 +66,7 @@ export function El({ id, children, className = "", style, as: Tag = "div" }: { i
     if (st.color) Object.assign(css, { "--inv-ink": st.color, "--inv-accent": st.color, "--inv-muted": st.color, "--inv-soft": st.color });
     if (st.font) {
       const stack = FONTS[st.font].stack;
-      Object.assign(css, { "--inv-display": stack, "--inv-script": stack, "--inv-body": stack, fontFamily: stack });
+      Object.assign(css, { "--inv-display": stack, "--inv-script": stack, "--inv-body": stack, "--el-font": stack, fontFamily: stack });
     }
     if (entering) {
       if (play) css.animation = `inv-in-${st.enter.type} ${st.enter.duration}ms cubic-bezier(.22,.61,.36,1) ${st.enter.delay}ms both`;

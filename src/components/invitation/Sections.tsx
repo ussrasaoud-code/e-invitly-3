@@ -416,10 +416,10 @@ export function VenuesSection({ content, renderer, labels, title, section }: Sec
   });
   const p = content.practical;
   const practical = [
-    { k: labels.parking, v: p.parking },
-    { k: labels.shuttles, v: p.shuttles },
-    { k: labels.transport, v: p.transport },
-    { k: labels.lodging, v: p.lodging },
+    { id: "parking", k: labels.parking, v: p.parking },
+    { id: "shuttles", k: labels.shuttles, v: p.shuttles },
+    { id: "transport", k: labels.transport, v: p.transport },
+    { id: "lodging", k: labels.lodging, v: p.lodging },
   ].filter((x) => x.v);
   if (!venues.length && !practical.length) return null;
   const opts = section?.venueOptions ?? { calendar: true, buttonBg: "", buttonInk: "", detail: "" };
@@ -478,12 +478,17 @@ export function VenuesSection({ content, renderer, labels, title, section }: Sec
         })}
         {practical.length ? (
           <El id="list.practical">
-          <dl className={`space-y-4 text-center ${venues.length ? "mt-10" : ""}`}>
+          <dl className={`space-y-6 text-center ${venues.length ? "mt-12" : ""}`}>
+            {venues.length ? <div aria-hidden="true" className="mx-auto -mt-2 mb-8 h-px w-10" style={{ backgroundColor: detail, opacity: 0.45 }} /> : null}
             {practical.map((x) => (
-              <div key={x.k}>
-                <dt className="text-[0.7rem] uppercase tracking-[0.22em]" style={{ color: detail }}>{x.k}</dt>
-                <dd className="mt-1 text-[0.95rem] leading-relaxed" style={{ color: "var(--inv-ink)" }}>{x.v}</dd>
-              </div>
+              <El id={`list.practical.${x.id}`} key={x.id}>
+                <El id={`list.practical.${x.id}.label`}>
+                  <dt className="text-[0.68rem] uppercase tracking-[0.26em]" style={{ color: detail }}>{x.k}</dt>
+                </El>
+                <El id={`list.practical.${x.id}.text`}>
+                  <dd className="mt-1.5 text-[1.18rem] leading-snug" style={{ color: "var(--inv-ink)", fontFamily: 'var(--el-font, "Cormorant Garamond", Georgia, serif)' }}>{x.v}</dd>
+                </El>
+              </El>
             ))}
           </dl>
           </El>
