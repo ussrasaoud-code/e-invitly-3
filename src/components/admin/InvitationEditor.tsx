@@ -4,6 +4,7 @@ import { MediaUrlField } from "@/components/media/MediaUrlField";
 import { FONTS } from "@/lib/fonts";
 import { useEffect, useState, type ReactNode } from "react";
 import { InvitationView } from "@/components/invitation/InvitationView";
+import { ScaledPhone } from "@/components/site/ScaledPhone";
 import { PhoneFrame } from "@/components/site/PhoneFrame";
 import {
   EVENT_TYPES,
@@ -105,11 +106,11 @@ export function InvitationEditor({
   /** Langue imposée (modèles : les autres langues sont des versions à part) — texte d'explication */
   lockLanguage?: string;
   /** Publie le contenu comme nouvelle version (modèles : le brouillon s'enregistre automatiquement) */
-  publish?: (content: InvitationContentInput) => Promise<SaveResult>;
+  publish?: (content: InvitationContentInput, base?: string) => Promise<SaveResult>;
   /** Copie de secours locale (récupérable après une fermeture accidentelle) */
   backupKey?: string;
   /** Action serveur liée à l'élément édité (brouillon d'invitation ou nouvelle version de modèle) */
-  save: (content: InvitationContentInput) => Promise<SaveResult>;
+  save: (content: InvitationContentInput, base?: string) => Promise<SaveResult>;
   /** true : sauvegarde automatique ; false : bouton « Enregistrer » */
   autosave?: boolean;
   initial: InvitationContent;
@@ -183,7 +184,7 @@ export function InvitationEditor({
                 onClick={async () => {
                   setPublishing(true);
                   const snapshot = content;
-                  const res = await publish(snapshot).catch(() => ({ ok: false as const, message: "Connexion perdue." }));
+                  const res = await publish(snapshot, ed.baseAt()).catch(() => ({ ok: false as const, message: "Connexion perdue." }));
                   setPublishing(false);
                   if (res.ok) ed.markSaved(snapshot, res.savedAt);
                   setNotice(res.ok ? "Nouvelle version du modèle enregistrée." : `Version non enregistrée : ${res.message}`);
@@ -459,7 +460,9 @@ export function InvitationEditor({
           ) : null}
         </div>
         <PhoneFrame label="Aperçu du brouillon">
-          <InvitationView key={previewKey} content={content} renderer={renderer} mode="preview" framed skipEnvelope={!showEnvelope} />
+          <ScaledPhone>
+            <InvitationView key={previewKey} content={content} renderer={renderer} mode="preview" framed skipEnvelope={!showEnvelope} />
+          </ScaledPhone>
         </PhoneFrame>
         <p className="mt-3 text-center text-xs text-stone">{previewNote}</p>
       </div>

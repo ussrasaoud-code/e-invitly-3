@@ -20,7 +20,8 @@ export function useEditorState({
 }: {
   initial: InvitationContent;
   initialSavedAt: string;
-  save: (content: InvitationContentInput) => Promise<SaveResult>;
+  /** base : date du dernier enregistrement connu (détecte un autre onglet qui aurait enregistré entre-temps) */
+  save: (content: InvitationContentInput, base?: string) => Promise<SaveResult>;
   autosave: boolean;
   /** Copie de secours dans le navigateur (récupérable après une fermeture accidentelle) */
   backupKey?: string;
@@ -81,7 +82,7 @@ export function useEditorState({
     setSave({ kind: "saving" });
     try {
       const snapshot = latest.current;
-      const res = await saveAction(snapshot);
+      const res = await saveAction(snapshot, savedAt.current);
       if (res.ok) {
         savedJson.current = JSON.stringify(snapshot);
         savedAt.current = res.savedAt;
@@ -210,6 +211,7 @@ export function useEditorState({
   return {
     content, update, undo, redo, canUndo: past.current.length > 0, canRedo: future.current.length > 0, save, runSave, reset,
     flush, markSaved, recovered, restoreBackup, dismissBackup,
+    baseAt: () => savedAt.current,
   };
 }
 

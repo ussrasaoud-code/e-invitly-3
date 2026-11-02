@@ -171,17 +171,33 @@ type Supa = NonNullable<Awaited<ReturnType<typeof createClient>>>;
 async function loadWorking(supabase: Supa, templateId: string) {
   const { data: tpl } = await supabase
     .from("templates")
-    .select("name, current:template_versions!templates_current_version_fk(renderer, definition)")
+    .select("name, current:template_versions!templates_current_version_fk(renderer, definition, created_at)")
     .eq("id", templateId)
     .maybeSingle();
   if (!tpl) return null;
-  const { data: draft } = await supabase.from("template_drafts").select("definition").eq("template_id", templateId).maybeSingle();
-  const cur = tpl.current as { renderer?: string; definition?: unknown } | null;
+  const { data: draft } = await supabase.from("template_drafts").select("definition, updated_at").eq("template_id", templateId).maybeSingle();
+  const cur = tpl.current as { renderer?: string; definition?: unknown; created_at?: string } | null;
   const fromDraft = draft ? templateDefinitionSchema.safeParse(draft.definition) : null;
   const fromCur = cur?.definition ? templateDefinitionSchema.safeParse(cur.definition) : null;
   const def: TemplateDefinition | null = fromDraft?.success ? fromDraft.data : fromCur?.success ? fromCur.data : null;
   const renderer = z.enum(RENDERERS).catch("the-garden").parse(cur?.renderer ?? def?.renderer);
-  return { name: tpl.name as string, def, renderer };
+  const changedAt = Math.max(draft?.updated_at ? Date.parse(draft.updated_at) : 0, cur?.created_at ? Date.parse(cur.created_at) : 0);
+  return { name: tpl.name as string, def, renderer, changedAt };
+}
+
+/**
+ * Deux onglets ouverts sur le même modèle (formulaire « Design » et éditeur visuel, par exemple) :
+ * celui qui a été chargé avant le dernier enregistrement ne doit pas écraser le travail de l'autre.
+ */
+function staleMessage(changedAt: number, base?: string): SaveResult | null {
+  if (!base) return null;
+  const b = Date.parse(base);
+  if (!Number.isFinite(b) || changedAt <= b + 1000) return null;
+  const at = new Intl.DateTimeFormat("fr-FR", { timeStyle: "short", timeZone: "Europe/Paris" }).format(new Date(changedAt));
+  return {
+    ok: false,
+    message: `Ce modèle a été modifié ailleurs à ${at} (autre onglet ou autre personne). Pour ne pas écraser ce travail, rien n'a été enregistré ici : rechargez la page pour repartir de la dernière version.`,
+  };
 }
 
 /** Intègre le contenu d'une langue dans la définition de travail. */
@@ -238,7 +254,7 @@ const langOrNull = (v: unknown): Language | null => (LANGUAGES as readonly strin
  * Brouillon automatique du modèle, pour la langue éditée (enregistré à chaque modification).
  * Les invitations et le catalogue n'en voient rien tant qu'une version n'est pas créée.
  */
-export async function saveTemplateDraft(templateId: string, lang: string | null, sample: InvitationContentInput): Promise<SaveResult> {
+export async function saveTemplateDraft(templateId: string, lang: string | null, sample: InvitationContentInput, base?: string): Promise<SaveResult> {
   const user = await requireStaff();
   if (!uuid.safeParse(templateId).success) return { ok: false, message: "Modèle inconnu." };
   const c = parseContent(sample, "brouillon");
@@ -246,11 +262,13 @@ export async function saveTemplateDraft(templateId: string, lang: string | null,
   const supabase = (await createClient())!;
   const w = await loadWorking(supabase, templateId);
   if (!w) return { ok: false, message: "Modèle introuvable." };
+  const stale = staleMessage(w.changedAt, base);
+  if (stale) return stale;
   return saveDraftDefinition(supabase, templateId, mergeContent(w.def, w.renderer, langOrNull(lang), c.data), user.id);
 }
 
 /** Enregistre une nouvelle version (toutes les langues) à partir du contenu affiché, puis vide le brouillon. */
-export async function publishTemplateDraft(templateId: string, lang: string | null, sample: InvitationContentInput): Promise<SaveResult> {
+export async function publishTemplateDraft(templateId: string, lang: string | null, sample: InvitationContentInput, base?: string): Promise<SaveResult> {
   const user = await requireStaff();
   if (!uuid.safeParse(templateId).success) return { ok: false, message: "Modèle inconnu." };
   const c = parseContent(sample, "version");
@@ -258,6 +276,8 @@ export async function publishTemplateDraft(templateId: string, lang: string | nu
   const supabase = (await createClient())!;
   const w = await loadWorking(supabase, templateId);
   if (!w) return { ok: false, message: "Modèle introuvable." };
+  const stale = staleMessage(w.changedAt, base);
+  if (stale) return stale;
   const res = await insertVersion(supabase, templateId, w.name, mergeContent(w.def, w.renderer, langOrNull(lang), c.data), user.id);
   if (res.ok) await supabase.from("template_drafts").delete().eq("template_id", templateId);
   return res;

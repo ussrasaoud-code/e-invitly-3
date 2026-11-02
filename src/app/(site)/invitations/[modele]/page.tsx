@@ -1,3 +1,4 @@
+import { ScaledPhone } from "@/components/site/ScaledPhone";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -83,7 +84,9 @@ export default async function TemplatePage({ params }: { params: Params }) {
             {definition ? (
               <>
                 <PhoneFrame label={fmt(t.template.phoneLabel, { name: template.name })}>
+                  <ScaledPhone>
                   <InvitationView content={contentFor(definition, lang)} renderer={definition.renderer} mode="demo" framed />
+                  </ScaledPhone>
                 </PhoneFrame>
                 <p className="mt-4 text-center text-xs italic text-stone">{t.template.phoneNote}</p>
               </>

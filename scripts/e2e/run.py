@@ -997,6 +997,22 @@ with sync_playwright() as p:
     expect(page.get_by_text(welcome)).to_have_count(1)
     ok("modèles : décors ajoutés dans l'éditeur visuel → nouvelle version, visible sur la démo")
 
+    # Deux onglets sur le même modèle : l'onglet resté ouvert n'écrase pas le travail de l'autre
+    b = a.context.new_page()
+    b.goto(f"{BASE}/admin/modeles/{garden['id']}?onglet=design")
+    b.get_by_text("Programme et lieux").click()
+    a.goto(f"{BASE}/admin/modeles/{garden['id']}/editeur")
+    left.get_by_role("button", name=re.compile(r"^Invitation principale")).click()
+    left.get_by_role("button", name="+ Texte").click()
+    expect(a.get_by_role("status").filter(has_text="Brouillon enregistré")).to_be_visible(timeout=10000)
+    a.wait_for_timeout(2500)
+    b.locator("input[type=time]").nth(2).fill("16:45")
+    expect(b.get_by_text("modifié ailleurs").first).to_be_visible(timeout=15000)
+    dr = api("GET", f"/rest/v1/template_drafts?template_id=eq.{garden['id']}&select=definition")[0]
+    assert all(e.get("startTime") != "16:45" for e in dr["definition"]["sample"]["events"]), "l'onglet périmé a écrasé le brouillon"
+    b.close()
+    ok("modèles : un onglet resté ouvert n'écrase pas le brouillon enregistré ailleurs")
+
     # Modèle vierge : partir de zéro
     a.goto(f"{BASE}/admin/editeur")
     blank_name = f"Page test {int(time.time())}"

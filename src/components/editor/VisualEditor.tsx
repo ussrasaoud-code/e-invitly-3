@@ -198,12 +198,12 @@ export function VisualEditor({
   backupKey,
 }: {
   /** Modèles : crée une version à partir du brouillon enregistré automatiquement */
-  publish?: (content: InvitationContentInput) => Promise<SaveResult>;
+  publish?: (content: InvitationContentInput, base?: string) => Promise<SaveResult>;
   /** Identifiant de la copie de secours locale */
   backupKey?: string;
   initial: InvitationContent;
   renderer: RendererKey;
-  save: (content: InvitationContentInput) => Promise<SaveResult>;
+  save: (content: InvitationContentInput, base?: string) => Promise<SaveResult>;
   autosave?: boolean;
   initialSavedAt: string;
   savedLabel?: string;
@@ -664,7 +664,7 @@ export function VisualEditor({
               onClick={async () => {
                 setPublishing(true);
                 const snapshot = c;
-                const res = await publish(snapshot).catch(() => ({ ok: false as const, message: "Connexion perdue." }));
+                const res = await publish(snapshot, ed.baseAt()).catch(() => ({ ok: false as const, message: "Connexion perdue." }));
                 setPublishing(false);
                 if (res.ok) ed.markSaved(snapshot, res.savedAt);
                 flash(res.ok ? "Nouvelle version du modèle enregistrée." : `Version non enregistrée : ${res.message}`);

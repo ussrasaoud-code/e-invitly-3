@@ -1,4 +1,5 @@
 "use client";
+import { ScaledPhone } from "@/components/site/ScaledPhone";
 
 import { useState } from "react";
 import { InvitationView } from "@/components/invitation/InvitationView";
@@ -31,7 +32,9 @@ export function InteractiveDemo({ items, initial = 0, showTabs = true, labels }:
         <span className="pointer-events-none absolute end-3 top-9 z-50 rounded-full bg-charcoal/75 px-2 py-0.5 text-[0.6rem] uppercase tracking-widest text-ivory">
           {labels.badge}
         </span>
+        <ScaledPhone>
         <InvitationView key={current.slug} content={current.sample} renderer={current.renderer} mode="demo" framed />
+        </ScaledPhone>
       </PhoneFrame>
     </div>
   );
