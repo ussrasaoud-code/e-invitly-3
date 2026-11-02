@@ -499,6 +499,15 @@ export const it: SiteDict = {
     fix: "Una risposta da correggere? Scriveteci: la modifichiamo noi e la modifica resta tracciata.",
     language: "Lingua",
   },
+  previewEmail: {
+    subject: "Il vostro invito è pronto da scoprire — {couple}",
+    heading: "La vostra anteprima è pronta",
+    text: "Buone notizie: l'anteprima del vostro invito è pronta. Prendetevi il tempo di sfogliarla con calma, meglio dallo smartphone, come faranno i vostri ospiti.",
+    button: "Scopri il mio invito",
+    validUntil: "Questo link privato è valido fino al {date}. Lo vedete solo voi.",
+    changes: "Qualcosa da modificare, un testo da cambiare? Rispondete semplicemente a questa e-mail: faremo le modifiche e vi rimanderemo l'anteprima. Nulla sarà pubblicato senza il vostro consenso.",
+    noteLabel: "Un pensiero da parte nostra:",
+  },
   notFound: {
     title: "Pagina non trovata",
     text: "Questa pagina non esiste o non è più disponibile. Se cerchi un invito, controlla il link che hai ricevuto.",

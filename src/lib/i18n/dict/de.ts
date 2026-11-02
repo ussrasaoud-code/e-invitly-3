@@ -499,6 +499,15 @@ export const de: SiteDict = {
     fix: "Eine Antwort korrigieren? Schreibt uns: Wir ändern sie für euch, und die Änderung bleibt nachvollziehbar.",
     language: "Sprache",
   },
+  previewEmail: {
+    subject: "Eure Einladung ist bereit – {couple}",
+    heading: "Eure Vorschau ist fertig",
+    text: "Gute Nachrichten: Die Vorschau eurer Einladung ist fertig. Nehmt euch Zeit, sie in Ruhe anzusehen – am besten auf dem Smartphone, so wie eure Gäste.",
+    button: "Meine Einladung ansehen",
+    validUntil: "Dieser private Link ist bis zum {date} gültig. Nur ihr könnt ihn sehen.",
+    changes: "Etwas zu ändern oder ein Text anzupassen? Antwortet einfach auf diese E-Mail: Wir passen alles an und schicken euch die Vorschau erneut. Ohne eure Zustimmung wird nichts veröffentlicht.",
+    noteLabel: "Ein paar Worte von uns:",
+  },
   notFound: {
     title: "Seite nicht gefunden",
     text: "Diese Seite gibt es nicht oder nicht mehr. Wenn du eine Einladung suchst, prüfe bitte den erhaltenen Link.",

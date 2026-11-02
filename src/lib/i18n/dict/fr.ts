@@ -502,6 +502,15 @@ export const fr = {
     fix: "Une réponse à corriger ? Écrivez-nous : nous la modifions pour vous, et la modification reste tracée.",
     language: "Langue",
   },
+  previewEmail: {
+    subject: "Votre invitation est prête à être découverte — {couple}",
+    heading: "Votre aperçu est prêt",
+    text: "Bonne nouvelle : l'aperçu de votre invitation est prêt. Prenez le temps de la parcourir tranquillement, sur votre téléphone de préférence, comme le feront vos invités.",
+    button: "Découvrir mon invitation",
+    validUntil: "Ce lien privé est valable jusqu'au {date}. Il n'est visible que par vous.",
+    changes: "Une modification à faire, un texte à changer ? Répondez simplement à cet e-mail : nous ajustons et vous renvoyons l'aperçu. Rien ne sera publié sans votre accord.",
+    noteLabel: "Un mot de notre part :",
+  },
   notFound: {
     title: "Page introuvable",
     text: "Cette page n'existe pas ou n'est plus disponible. Si vous cherchez une invitation, vérifiez le lien reçu.",

@@ -232,6 +232,16 @@ with sync_playwright() as p:
     a.goto(f"{BASE}/admin/invitations/{inv_id}?onglet=publication")
     a.get_by_role("button", name="Créer un lien d'aperçu").click()
     preview_url = a.locator("p.break-all").filter(has_text="/apercu/").inner_text(timeout=10000).strip()
+    a.get_by_role("button", name="Envoyer l'aperçu au couple par e-mail").click()
+    expect(a.get_by_text("Renseignez d'abord votre e-mail de contact")).to_be_visible()
+    brand_on = {"name": "E-Invitly", "tagline": "Invitations digitales élégantes", "contactEmail": "bonjour@e-invitly.com", "contactPhone": "", "instagram": "", "facebook": "", "pinterest": ""}
+    api("PATCH", "/rest/v1/settings?key=eq.brand", {"value": brand_on}, prefer="return=minimal")
+    a.locator("#preview-note").fill("Voici une première version, dites-moi ce que vous en pensez.")
+    a.get_by_role("button", name="Envoyer l'aperçu au couple par e-mail").click()
+    expect(a.get_by_text("E-mail envoyé à")).to_be_visible(timeout=15000)
+    assert preview_url in MAILBOX.read_text(), "l'e-mail d'aperçu n'est pas parti"
+    api("PATCH", "/rest/v1/settings?key=eq.brand", {"value": {**brand_on, "contactEmail": ""}}, prefer="return=minimal")
+    ok("aperçu : e-mail au couple avec bouton, réponses vers l'e-mail de contact")
     page.goto(preview_url)
     expect(page.get_by_text("Aperçu privé")).to_be_visible()
     page.get_by_role("button", name="Ouvrir l'invitation").first.click()

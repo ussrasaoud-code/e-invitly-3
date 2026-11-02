@@ -14,6 +14,10 @@ import { createClient } from "@/lib/supabase/server";
 import { zonedToUtc } from "@/lib/time";
 import { env } from "@/lib/env";
 import { hashAccessCode, newPreviewToken, normalizeAccessCode } from "@/lib/publication";
+import { sendEmail } from "@/lib/email";
+import { fmt, isSiteLang, LANG_META } from "@/lib/i18n/config";
+import { dictFor } from "@/lib/i18n/server";
+import { getSettings } from "@/lib/settings";
 
 const uuid = z.string().uuid();
 
@@ -373,4 +377,43 @@ async function snapshotBeforeSession(supabase: Db, invitationId: string, previou
     .maybeSingle();
   if (last && Date.now() - new Date(last.created_at).getTime() < 10 * 60_000) return;
   await supabase.from("invitation_draft_history").insert({ invitation_id: invitationId, content: previous, kind: "auto", created_by: userId });
+}
+
+/**
+ * Envoie l'aperçu au couple (tous les e-mails ayant accès à l'espace mariés),
+ * dans la langue de l'invitation, avec un mot personnel facultatif.
+ * Les réponses arrivent sur l'e-mail de contact (Paramètres → Marque et contact).
+ */
+export async function sendPreviewEmail(invitationId: string, url: string, expiresAt: string, note: string): Promise<{ ok: true; to: string[] } | { ok: false; message: string }> {
+  const user = await requireStaff();
+  if (!uuid.safeParse(invitationId).success) return { ok: false, message: "Invitation inconnue." };
+  if (!url.startsWith(`${env.siteUrl}/apercu/`)) return { ok: false, message: "Lien d'aperçu invalide." };
+  const supabase = (await createClient())!;
+  const { data: inv } = await supabase.from("invitations").select("title, partner_one, partner_two, client_email, language").eq("id", invitationId).single();
+  if (!inv) return { ok: false, message: "Invitation introuvable." };
+  const { data: access } = await supabase.from("invitation_access").select("email").eq("invitation_id", invitationId);
+  const to = [...new Set([...(access ?? []).map((a) => String(a.email).toLowerCase()), ...(inv.client_email ? [String(inv.client_email).toLowerCase()] : [])])];
+  if (!to.length) return { ok: false, message: "Aucun e-mail pour ce couple : ajoutez-en un dans « Espace mariés »." };
+  const settings = await getSettings();
+  if (!settings.brand.contactEmail) return { ok: false, message: "Renseignez d'abord votre e-mail de contact (Paramètres → Marque et contact) : c'est là qu'arriveront les réponses du couple." };
+  const lang = isSiteLang(inv.language) ? inv.language : "fr";
+  const t = dictFor(lang).previewEmail;
+  const couple = inv.partner_one && inv.partner_two ? `${inv.partner_one} & ${inv.partner_two}` : inv.title;
+  const date = new Intl.DateTimeFormat(LANG_META[lang].intl, { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Paris" }).format(new Date(expiresAt));
+  const cleanNote = note.trim().slice(0, 1500);
+  for (const address of to) {
+    const res = await sendEmail({
+      to: address,
+      subject: fmt(t.subject, { couple }),
+      heading: t.heading,
+      paragraphs: [t.text, ...(cleanNote ? [`${t.noteLabel} ${cleanNote}`] : [])],
+      action: { label: t.button, url },
+      after: [fmt(t.validUntil, { date }), t.changes, fmt(dictFor(lang).access.signature, { brand: settings.brand.name })],
+      replyTo: settings.brand.contactEmail,
+      lang,
+    });
+    if (!res.sent) return { ok: false, message: `E-mail non envoyé à ${address} : ${res.error ?? "service e-mail"}.` };
+  }
+  await logActivity({ actorId: user.id, action: "preview.sent", resourceType: "invitation", resourceId: invitationId, summary: `Aperçu envoyé à ${to.join(", ")}` });
+  return { ok: true, to };
 }

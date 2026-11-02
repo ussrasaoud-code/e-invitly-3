@@ -499,6 +499,15 @@ export const en: SiteDict = {
     fix: "Need to correct a reply? Write to us: we'll update it for you, and the change is recorded.",
     language: "Language",
   },
+  previewEmail: {
+    subject: "Your invitation is ready to view — {couple}",
+    heading: "Your preview is ready",
+    text: "Good news: the preview of your invitation is ready. Take your time to look through it, ideally on your phone, just as your guests will.",
+    button: "View my invitation",
+    validUntil: "This private link is valid until {date}. Only you can see it.",
+    changes: "Anything to change, any wording to adjust? Simply reply to this email: we'll make the changes and send you the preview again. Nothing will be published without your approval.",
+    noteLabel: "A note from us:",
+  },
   notFound: {
     title: "Page not found",
     text: "This page doesn't exist or is no longer available. If you're looking for an invitation, please check the link you received.",

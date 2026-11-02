@@ -499,6 +499,15 @@ export const nl: SiteDict = {
     fix: "Moet een antwoord worden gecorrigeerd? Schrijf ons: wij passen het aan en de wijziging blijft vastgelegd.",
     language: "Taal",
   },
+  previewEmail: {
+    subject: "Jullie uitnodiging is klaar om te bekijken — {couple}",
+    heading: "Jullie voorbeeld is klaar",
+    text: "Goed nieuws: het voorbeeld van jullie uitnodiging is klaar. Neem de tijd om het rustig te bekijken, het liefst op je telefoon, zoals jullie gasten dat ook zullen doen.",
+    button: "Mijn uitnodiging bekijken",
+    validUntil: "Deze privélink is geldig tot {date}. Alleen jullie kunnen hem zien.",
+    changes: "Iets aanpassen of een tekst wijzigen? Beantwoord gewoon deze e-mail: wij passen het aan en sturen het voorbeeld opnieuw. Zonder jullie akkoord wordt niets gepubliceerd.",
+    noteLabel: "Een berichtje van ons:",
+  },
   notFound: {
     title: "Pagina niet gevonden",
     text: "Deze pagina bestaat niet of is niet meer beschikbaar. Zoek je een uitnodiging? Controleer dan de link die je hebt ontvangen.",
