@@ -1017,6 +1017,17 @@ with sync_playwright() as p:
     b.close()
     ok("modèles : un onglet resté ouvert n'écrase pas le brouillon enregistré ailleurs")
 
+    old = api("POST", "/rest/v1/templates", {"slug": "ancien-modele", "name": "Ancien modèle", "status": "archived"})[0]
+    api("POST", "/rest/v1/template_versions", {"template_id": old["id"], "version": 1, "renderer": "the-garden", "definition": {}})
+    a.goto(f"{BASE}/admin/modeles?archives=1")
+    card = a.locator("li.card").filter(has_text="Ancien modèle")
+    card.get_by_role("button", name="Supprimer").click()
+    card.get_by_role("button", name="Oui, supprimer").click()
+    expect(a.get_by_text("Modèle « Ancien modèle » supprimé définitivement.")).to_be_visible(timeout=10000)
+    assert api("GET", f"/rest/v1/templates?id=eq.{old['id']}&select=id") == []
+    assert api("GET", f"/rest/v1/template_versions?template_id=eq.{old['id']}&select=id") == []
+    ok("modèles : suppression définitive d'un modèle archivé (versions comprises)")
+
     # Modèle vierge : partir de zéro
     a.goto(f"{BASE}/admin/editeur")
     blank_name = f"Page test {int(time.time())}"

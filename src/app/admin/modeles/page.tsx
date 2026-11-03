@@ -8,14 +8,15 @@ import { TEMPLATE_STATUS } from "@/lib/status";
 import { createClient } from "@/lib/supabase/server";
 import { LANGUAGES, LANGUAGE_LABELS } from "@/lib/invitation/schema";
 import { createTemplate, moveTemplate, setTemplateStatus, toggleFeatured } from "./actions";
+import { DeleteTemplateButton } from "./DeleteTemplateButton";
 
 export const metadata = { title: "Modèles" };
 
 const RENDERER_LABEL: Record<string, string> = { blank: "Page blanche (partir de zéro)", "the-garden": "The Garden", province: "Province" };
 
-export default async function TemplatesPage({ searchParams }: { searchParams: Promise<{ archives?: string }> }) {
-  await requireStaff();
-  const { archives } = await searchParams;
+export default async function TemplatesPage({ searchParams }: { searchParams: Promise<{ archives?: string; supprime?: string }> }) {
+  const user = await requireStaff();
+  const { archives, supprime } = await searchParams;
   const supabase = (await createClient())!;
   let q = supabase
     .from("templates")
@@ -35,6 +36,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
         actions={<Link href={archives ? "/admin/modeles" : "/admin/modeles?archives=1"} className="btn btn-ghost btn-sm">{archives ? "← Modèles actifs" : "Archives"}</Link>}
       />
       {error ? <p role="alert" className="text-danger">{error.message}</p> : null}
+      {supprime ? <p role="status" className="mb-4 rounded-sm bg-sage-soft px-4 py-2 text-sm">Modèle « {supprime.slice(0, 80)} » supprimé définitivement.</p> : null}
       {!data?.length ? (
         <EmptyState title="Aucun modèle">Créez votre premier modèle ci-dessous.</EmptyState>
       ) : (
@@ -82,6 +84,8 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
                           <SubmitButton name="dir" value="down" className="btn btn-ghost btn-sm">↓</SubmitButton>
                         </form>
                       </>
+                    ) : user.role === "admin" ? (
+                      <DeleteTemplateButton id={t.id} name={t.name} usage={usageCount.get(t.id) ?? 0} />
                     ) : null}
                     <span className="sr-only">Position {i + 1}</span>
                   </div>

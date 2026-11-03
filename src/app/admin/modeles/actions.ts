@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { logActivity } from "@/lib/audit";
-import { requireStaff } from "@/lib/auth";
+import { requireAdmin, requireStaff } from "@/lib/auth";
 import { CATEGORIES, STYLES } from "@/lib/catalog";
 import { PRESETS } from "@/lib/invitation/presets";
 import {
@@ -414,4 +414,25 @@ export async function createTemplate(form: FormData) {
   if (v) await supabase.from("templates").update({ current_version_id: v.id }).eq("id", t.id);
   await logActivity({ actorId: user.id, action: "template.created", resourceType: "template", resourceId: t.id, summary: `Modèle ${name} créé${renderer === "blank" ? " (page blanche)" : ""}` });
   redirect(form.get("ouvrir") === "editeur" ? `/admin/modeles/${t.id}/editeur` : `/admin/modeles/${t.id}`);
+}
+
+/**
+ * Suppression définitive d'un modèle archivé (administrateurs).
+ * Les invitations déjà créées avec ce modèle ne sont pas touchées : elles gardent leur propre contenu.
+ */
+export async function deleteTemplate(form: FormData) {
+  const user = await requireAdmin();
+  const id = uuid.parse(form.get("id"));
+  const supabase = (await createClient())!;
+  const { data: t } = await supabase.from("templates").select("name, slug, status").eq("id", id).maybeSingle();
+  if (!t) redirect("/admin/modeles?archives=1");
+  if (t.status !== "archived") throw new Error("Archivez d'abord ce modèle avant de le supprimer.");
+  // La version courante pointe vers template_versions : on la détache avant la suppression en cascade
+  await supabase.from("templates").update({ current_version_id: null }).eq("id", id);
+  const { error } = await supabase.from("templates").delete().eq("id", id);
+  if (error) throw new Error(`Suppression impossible : ${error.message}`);
+  await logActivity({ actorId: user.id, action: "template.deleted", resourceType: "template", resourceId: id, summary: `Modèle ${t.name} supprimé définitivement` });
+  refreshCatalog(id);
+  revalidatePath("/admin/modeles");
+  redirect(`/admin/modeles?archives=1&supprime=${encodeURIComponent(t.name)}`);
 }
