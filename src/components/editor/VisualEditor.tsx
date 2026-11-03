@@ -688,7 +688,7 @@ export function VisualEditor({
           </button>
           <label className="sr-only" htmlFor="ve-width">Largeur du téléphone</label>
           <select id="ve-width" value={width} onChange={(e) => setWidth(Number(e.target.value) as (typeof WIDTHS)[number])} className="field min-h-8 w-auto py-0.5 text-xs">
-            {WIDTHS.map((w) => <option key={w} value={w}>{w === 360 ? "Petit téléphone" : w === 390 ? "Téléphone" : "Grand téléphone"} · {w}px</option>)}
+            {WIDTHS.map((w) => <option key={w} value={w}>{w === 360 ? "Petit téléphone" : w === 390 ? "Téléphone (référence)" : "Grand téléphone"} · {w}px</option>)}
           </select>
           {history ? (
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowHistory(true)}>Historique</button>
@@ -865,7 +865,10 @@ export function VisualEditor({
               </div>
             ) : (
               <LayerEditorContext.Provider value={editorApi}>
-                <InvitationView key={`${replay}-${animate}`} content={c} renderer={renderer} mode="preview" framed skipEnvelope animations={animate} />
+                {/* Composée sur 390 px puis mise à l'échelle, comme sur les vrais téléphones */}
+                <div style={width === 390 ? undefined : { width: 390, zoom: width / 390 }}>
+                  <InvitationView key={`${replay}-${animate}`} content={c} renderer={renderer} mode="preview" framed skipEnvelope animations={animate} />
+                </div>
               </LayerEditorContext.Provider>
             )}
           </div>

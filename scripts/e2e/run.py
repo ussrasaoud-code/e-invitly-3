@@ -791,7 +791,7 @@ with sync_playwright() as p:
     a.locator('[data-section="hero"] [data-el="kicker"]').click()
     expect(props.get_by_role("heading", name="Accroche")).to_be_visible()
     expect(props.get_by_label("Police", exact=True).locator("option").first).to_contain_text("police d'origine")
-    assert "Jost" in props.get_by_label("Police", exact=True).locator("option").first.inner_text()
+    expect(props.get_by_label("Police", exact=True).locator("option").first).to_contain_text("Jost")
     props.get_by_role("button", name="Gras").click()
     props.get_by_role("button", name="Texte aligné à gauche").click()
     props.get_by_label("Taille du texte (valeur)").fill("150")

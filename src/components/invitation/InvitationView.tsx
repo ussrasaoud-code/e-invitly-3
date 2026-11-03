@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useRef, useState, type CSSProperties, useLayoutEffect } from "react";
 import type { FontKey, InvitationContent, RendererKey, SectionType } from "@/lib/invitation/schema";
 import type { PublicRsvpConfig } from "@/lib/rsvp";
 import { FONTS } from "@/lib/fonts";
@@ -23,6 +23,9 @@ import {
   ScratchSection,
   type SectionProps,
 } from "./Sections";
+
+/** Largeur de composition des invitations (celle du téléphone de l'éditeur visuel) */
+const DESIGN_WIDTH = 390;
 
 const FONT_STACKS = Object.fromEntries(Object.entries(FONTS).map(([k, f]) => [k, f.stack])) as Record<FontKey, string>;
 
@@ -61,6 +64,25 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
   const [playing, setPlaying] = useState(false);
   const isArabic = content.language === "ar";
 
+  // Mise à l'échelle : l'invitation est composée sur 390 px (largeur de l'éditeur) puis
+  // agrandie ou réduite à la largeur réelle de l'écran (au plus 480 px). Les textes et
+  // les décors gardent ainsi exactement leurs positions relatives sur tous les téléphones.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (framed) return;
+    const el = rootRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = Math.min(el.clientWidth, 480);
+      setScale(w > 0 ? Math.round((w / DESIGN_WIDTH) * 1000) / 1000 : null);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [framed]);
+
   const startMusic = useCallback(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -91,6 +113,7 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
 
   return (
     <div
+      ref={rootRef}
       className={`relative ${framed ? "min-h-full" : "min-h-dvh"} paper-texture`}
       style={vars}
       dir={isArabic ? "rtl" : "ltr"}
@@ -109,7 +132,10 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
 
       <main
         className="mx-auto max-w-[480px] transition-opacity duration-1000"
-        style={opened ? { opacity: 1 } : { opacity: 0, height: 0, overflow: "hidden" }}
+        style={{
+          ...(opened ? { opacity: 1 } : { opacity: 0, height: 0, overflow: "hidden" }),
+          ...(!framed && scale ? { width: DESIGN_WIDTH, maxWidth: "none", zoom: scale } : {}),
+        }}
         // Contenu caché derrière l'enveloppe : ni lu, ni atteignable au clavier
         inert={!opened}
       >
