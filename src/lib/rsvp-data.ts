@@ -18,8 +18,8 @@ export type RsvpResponseRow = {
   comment: string | null;
   submitted_at: string;
   updated_at: string;
-  /** « henna » : réponse venue du lien « henné + soirée » */
-  audience?: "all" | "henna";
+  /** « all » : lien principal ; sinon identifiant du groupe dont le lien privé a été utilisé */
+  audience?: string;
 };
 
 export type GuestRow = { id: string; display_name: string; code: string; max_companions: number };
@@ -29,6 +29,8 @@ export type RsvpOverview = {
   slug: string;
   status: string;
   events: Array<{ id: string; title: string }>;
+  /** Groupes d'invités (liens privés) : identifiant → nom */
+  groups: Record<string, string>;
   responses: RsvpResponseRow[];
   guests: GuestRow[];
   editedIds: Set<string>;
@@ -82,6 +84,7 @@ export async function loadRsvpOverview(db: SupabaseClient, invitationId: string)
     slug: inv.slug,
     status: inv.status,
     events,
+    groups: content.success ? Object.fromEntries(content.data.guestGroups.map((g) => [g.id, g.name])) : {},
     responses: rows,
     guests: (guests ?? []) as GuestRow[],
     editedIds: new Set((edits ?? []).map((e) => e.response_id)),
@@ -119,7 +122,7 @@ export function exportRows(o: RsvpOverview, includeDietary: boolean): Array<Arra
     "Présence",
     "Personnes",
     "Accompagnants",
-    ...(o.responses.some((r) => r.audience === "henna") ? ["Lien"] : []),
+    ...(o.responses.some((r) => r.audience && r.audience !== "all") ? ["Lien"] : []),
     ...o.events.map((e) => e.title),
     "Menus enfant",
     ...(includeDietary ? ["Régime / allergies"] : []),
@@ -135,7 +138,7 @@ export function exportRows(o: RsvpOverview, includeDietary: boolean): Array<Arra
     r.attending ? "Oui" : "Non",
     r.attending ? 1 + r.companions_count : 0,
     r.companions.join(", "),
-    ...(o.responses.some((x) => x.audience === "henna") ? [r.audience === "henna" ? "Henné + soirée" : "Soirée"] : []),
+    ...(o.responses.some((x) => x.audience && x.audience !== "all") ? [r.audience && r.audience !== "all" ? o.groups[r.audience] ?? r.audience : "Principal"] : []),
     ...o.events.map((e) => (r.attending && r.events.includes(e.id) ? "Oui" : "")),
     r.child_menus || "",
     ...(includeDietary ? [r.dietary ?? ""] : []),

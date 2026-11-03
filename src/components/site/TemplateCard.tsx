@@ -37,12 +37,8 @@ export function TemplateCard({ template, priority = false, offset = false, t, la
         <span aria-hidden="true" className="absolute left-1/2 top-3 h-[1.35rem] w-[32%] -translate-x-1/2 rounded-full bg-black/85" />
       </Link>
       <div className="flex flex-1 flex-col items-center pt-7">
-        {template.is_featured || template.cultures.some((c) => c !== "europeen") ? (
-          <span className="mb-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[0.62rem] uppercase tracking-[0.25em] text-forest">
-            {template.is_featured ? <span>{t.cards.featured}</span> : null}
-            {template.cultures.includes("maghrebin") ? <span>{t.request.mag.badge}</span> : null}
-            {template.cultures.includes("mixte") ? <span>{t.request.wtype.mixBadge}</span> : null}
-          </span>
+        {template.is_featured ? (
+          <span className="mb-2 text-[0.62rem] uppercase tracking-[0.25em] text-forest">{t.cards.featured}</span>
         ) : null}
         <h3 className="font-display text-[0.95rem] uppercase tracking-[0.32em] text-stone">
           <Link href={href(`/invitations/${template.slug}`)} className="hover:text-forest">{template.name}</Link>

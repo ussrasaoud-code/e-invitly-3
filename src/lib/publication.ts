@@ -20,20 +20,23 @@ export function hashAccessCode(invitationId: string, code: string) {
 }
 export const accessCookieName = (invitationId: string) => `ei_acces_${invitationId.replace(/-/g, "").slice(0, 16)}`;
 
-/* ── Lien « henné + soirée » ───────────────────────────────────────── */
-/** Jeton du lien privé des invités du henné : <adresse>?h=<jeton> (16 caractères). */
-export const newHennaToken = () => randomBytes(12).toString("base64url");
-export const hennaUrl = (slug: string, token: string) => `${env.siteUrl}/${slug}?h=${encodeURIComponent(token)}`;
+/* ── Liens privés des groupes d'invités ─────────────────────────────── */
+/** Jeton d'un lien privé : <adresse>?g=<jeton> (16 caractères). */
+export const newGroupToken = () => randomBytes(12).toString("base64url");
+export const groupUrl = (slug: string, token: string) => `${env.siteUrl}/${slug}?g=${encodeURIComponent(token)}`;
 
-/** Le jeton du lien « henné + soirée » correspond-il à cette invitation ? (lecture serveur uniquement) */
-export async function isValidHennaToken(invitationId: string, token: string | undefined | null): Promise<boolean> {
-  if (!token || token.length < 12 || token.length > 64) return false;
+/** Groupe correspondant au jeton d'un lien privé de cette invitation (lecture serveur uniquement), sinon null. */
+export async function groupForToken(invitationId: string, token: string | undefined | null): Promise<string | null> {
+  if (!token || token.length < 12 || token.length > 64) return null;
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const db = createAdminClient();
-  if (!db) return false;
-  const { data, error } = await db.from("invitations").select("henna_token").eq("id", invitationId).maybeSingle();
-  if (error || !data?.henna_token) return false;
-  return sameHash(String(data.henna_token), token);
+  if (!db) return null;
+  const { data, error } = await db.from("invitations").select("private_links").eq("id", invitationId).maybeSingle();
+  if (error || !data?.private_links) return null;
+  for (const [group, t] of Object.entries(data.private_links as Record<string, string>)) {
+    if (typeof t === "string" && sameHash(t, token)) return group;
+  }
+  return null;
 }
 
 /* ── Jetons d'aperçu ───────────────────────────────────────────────── */

@@ -9,7 +9,6 @@ import { createClient } from "@/lib/supabase/server";
 import { LANGUAGES, LANGUAGE_LABELS } from "@/lib/invitation/schema";
 import { createTemplate, moveTemplate, setTemplateStatus, toggleFeatured } from "./actions";
 import { DeleteTemplateButton } from "./DeleteTemplateButton";
-import { normalizeCultures } from "@/lib/validation/request";
 
 export const metadata = { title: "Modèles" };
 
@@ -21,7 +20,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
   const supabase = (await createClient())!;
   let q = supabase
     .from("templates")
-    .select("*, current:template_versions!templates_current_version_fk(version)")
+    .select("id, slug, name, category, status, is_featured, price_label, sort_order, cover_image, updated_at, current:template_versions!templates_current_version_fk(version)")
     .order("sort_order")
     .order("name");
   q = archives ? q.eq("status", "archived") : q.neq("status", "archived");
@@ -58,7 +57,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
                     <div>
                       <Link href={`/admin/modeles/${t.id}`} className="font-serif text-2xl hover:text-forest">{t.name}</Link>
                       <p className="text-xs text-stone">
-                        {categoryLabel(t.category)}{(() => { const c = normalizeCultures((t as { cultures?: unknown }).cultures); return c.length === 1 && c[0] === "europeen" ? "" : ` · ${c.map((x) => (x === "europeen" ? "européen" : x === "maghrebin" ? "maghrébin" : "franco-maghrébin")).join(" / ")}`; })()}{t.price_label ? ` · ${t.price_label}` : " · sans prix"} · version {current?.version ?? "—"} · utilisé par {usageCount.get(t.id) ?? 0} invitation(s)
+                        {categoryLabel(t.category)}{t.price_label ? ` · ${t.price_label}` : " · sans prix"} · version {current?.version ?? "—"} · utilisé par {usageCount.get(t.id) ?? 0} invitation(s)
                       </p>
                     </div>
                     <StatusBadge {...st} />

@@ -1,7 +1,7 @@
 "use server";
 
-import { hasHennaEvents } from "@/lib/invitation/audience";
-import { newHennaToken } from "@/lib/publication";
+import { usedGroups } from "@/lib/invitation/audience";
+import { newGroupToken } from "@/lib/publication";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -122,10 +122,12 @@ export async function convertRequestToInvitation(form: FormData) {
   }
   if (!invitationId) throw new Error("Impossible de réserver une adresse libre. Réessayez.");
 
-  // Mariage maghrébin : lien privé « henné + soirée » si des moments sont réservés aux invités du henné
-  if (hasHennaEvents(content)) {
-    const { error: hErr } = await supabase.from("invitations").update({ henna_token: newHennaToken() }).eq("id", invitationId);
-    if (hErr) console.error("[convert] lien henné", hErr.message);
+  // Moments réservés à une partie des invités : un lien privé par groupe
+  const groups = usedGroups(content);
+  if (groups.length) {
+    const private_links = Object.fromEntries(groups.map((g) => [g.id, newGroupToken()]));
+    const { error: gErr } = await supabase.from("invitations").update({ private_links }).eq("id", invitationId);
+    if (gErr) console.error("[convert] liens privés", gErr.message);
   }
 
   const deadline = content.rsvp.deadline ? zonedToUtc(`${content.rsvp.deadline}T23:59`, content.timezone)?.toISOString() : null;

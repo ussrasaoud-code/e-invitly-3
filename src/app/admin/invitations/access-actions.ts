@@ -6,7 +6,7 @@ import { logActivity } from "@/lib/audit";
 import { requireStaff } from "@/lib/auth";
 import { sendWelcomeEmail } from "@/lib/login-link";
 import { createClient } from "@/lib/supabase/server";
-import { newHennaToken } from "@/lib/publication";
+import { newGroupToken } from "@/lib/publication";
 
 const uuid = z.string().uuid();
 const email = z.string().trim().toLowerCase().email("Adresse e-mail invalide").max(200);
@@ -57,13 +57,17 @@ export async function removeCoupleAccess(form: FormData) {
   revalidatePath(`/admin/invitations/${invitationId}`);
 }
 
-/** Crée (ou remplace) le lien privé « henné + soirée » d'une invitation. */
-export async function createHennaLink(form: FormData) {
+/** Crée (ou remplace) le lien privé d'un groupe d'invités. L'ancien lien de ce groupe cesse de fonctionner. */
+export async function createGroupLink(form: FormData) {
   const user = await requireStaff();
   const invitationId = z.string().uuid().parse(form.get("id"));
+  const group = z.string().regex(/^[a-z0-9-]{1,40}$/).parse(form.get("group"));
   const supabase = (await createClient())!;
-  const { data, error } = await supabase.from("invitations").update({ henna_token: newHennaToken() }).eq("id", invitationId).select("title").single();
-  if (error) throw new Error(`Lien non créé : ${error.message}. Avez-vous exécuté la migration 20261107000001_maghreb.sql ?`);
-  await logActivity({ actorId: user.id, action: "invitation.henna_link", resourceType: "invitation", resourceId: invitationId, summary: `Lien « henné + soirée » créé pour ${data.title}` });
+  const { data: inv, error: readErr } = await supabase.from("invitations").select("title, private_links").eq("id", invitationId).single();
+  if (readErr) throw new Error(`Lien non créé : ${readErr.message}. Avez-vous exécuté la migration 20261109000001_groupes_invites.sql ?`);
+  const private_links = { ...((inv.private_links as Record<string, string>) ?? {}), [group]: newGroupToken() };
+  const { error } = await supabase.from("invitations").update({ private_links }).eq("id", invitationId);
+  if (error) throw new Error(`Lien non créé : ${error.message}`);
+  await logActivity({ actorId: user.id, action: "invitation.group_link", resourceType: "invitation", resourceId: invitationId, summary: `Lien privé « ${group} » créé pour ${inv.title}` });
   revalidatePath(`/admin/invitations/${invitationId}`);
 }

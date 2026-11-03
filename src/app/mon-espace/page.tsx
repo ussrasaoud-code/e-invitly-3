@@ -23,10 +23,16 @@ export default async function ClientSpace() {
   const [{ data: invitations }, { data: stats }, { data: tokens }] = await Promise.all([
     supabase.from("invitations").select("id, title, slug, status, event_at, language").neq("status", "archived").order("event_at"),
     supabase.from("rsvp_stats").select("*"),
-    // Lien « henné + soirée » (colonne ajoutée par la migration « maghreb » ; ignorée si absente)
-    supabase.from("invitations").select("id, henna_token").not("henna_token", "is", null),
+    // Liens privés des groupes d'invités (colonne ajoutée par la migration « groupes_invites » ; ignorée si absente)
+    supabase.from("invitations").select("id, private_links, groups:draft_content->guestGroups"),
   ]);
-  const hennaToken = new Map((tokens ?? []).map((x) => [x.id as string, x.henna_token as string]));
+  const privateLinks = new Map(
+    (tokens ?? []).map((x) => {
+      const links = (x.private_links ?? {}) as Record<string, string>;
+      const names = new Map(((x.groups ?? []) as Array<{ id: string; name: string }>).map((g) => [g.id, g.name]));
+      return [x.id as string, Object.entries(links).map(([id, token]) => ({ name: names.get(id) ?? id, token }))];
+    }),
+  );
   const lang = await getPreferredLang(invitations?.[0]?.language);
   const t = dictFor(lang).couple;
   const { brand } = await getSettings();
@@ -50,11 +56,15 @@ export default async function ClientSpace() {
                   <h2 className="font-serif text-2xl">{i.title}</h2>
                   <p className="text-sm text-stone">{date(i.event_at)}</p>
                   <p className="mt-3 text-sm">
-                    {live && hennaToken.get(i.id) ? (
+                    {live && privateLinks.get(i.id)?.length ? (
                       <span className="block space-y-1">
-                        <span className="block">{t.soireeLink} <a className="text-forest underline" dir="ltr" href={`/${i.slug}`}>{host}/{i.slug}</a></span>
-                        <span className="block">{t.hennaLink} <a className="break-all text-forest underline" dir="ltr" href={`/${i.slug}?h=${encodeURIComponent(hennaToken.get(i.id)!)}`}>{host}/{i.slug}?h={hennaToken.get(i.id)}</a></span>
-                        <span className="block text-xs text-stone">{t.hennaHint}</span>
+                        <span className="block">{t.mainLink} <a className="text-forest underline" dir="ltr" href={`/${i.slug}`}>{host}/{i.slug}</a></span>
+                        {privateLinks.get(i.id)!.map((l) => (
+                          <span key={l.token} className="block">
+                            {fmt(t.groupLink, { name: l.name })} <a className="break-all text-forest underline" dir="ltr" href={`/${i.slug}?g=${encodeURIComponent(l.token)}`}>{host}/{i.slug}?g={l.token}</a>
+                          </span>
+                        ))}
+                        <span className="block text-xs text-stone">{t.groupHint}</span>
                       </span>
                     ) : live ? (
                       <>

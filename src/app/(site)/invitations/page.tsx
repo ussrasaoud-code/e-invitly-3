@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return pageMetadata(lang, "/invitations", { title: t.catalog.metaTitle, description: t.catalog.metaDescription });
 }
 
-type Search = Promise<{ categorie?: string; style?: string; mariage?: string }>;
+type Search = Promise<{ categorie?: string; style?: string }>;
 
 function FilterLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
   return (
@@ -33,21 +33,16 @@ function FilterLink({ href, active, children }: { href: string; active: boolean;
 export default async function CatalogPage({ searchParams }: { searchParams: Search }) {
   const { lang, t } = await getDict();
   const c = t.catalog;
-  const { categorie, style, mariage } = await searchParams;
+  const { categorie, style } = await searchParams;
   const { data, configured } = await listPublishedTemplates();
   const templates = data.map((x) => localizeTemplate(x, lang));
 
   // Uniquement les filtres qui correspondent à au moins un modèle
   const categories = CATEGORIES.filter((x) => templates.some((tp) => tp.category === x.value));
   const styles = STYLES.filter((x) => templates.some((tp) => tp.styles.includes(x.value)));
-  const tradition = mariage === "maghrebin" || mariage === "europeen" || mariage === "mixte" ? mariage : "";
-  const traditions = (["europeen", "maghrebin", "mixte"] as const).filter((x) => templates.some((tp) => tp.cultures.includes(x)));
-  const tradLabel = { europeen: c.tradEurope, maghrebin: t.request.mag.badge, mixte: t.request.wtype.mixBadge };
-  const filtered = templates.filter((tp) => (!categorie || tp.category === categorie) && (!style || tp.styles.includes(style)) && (!tradition || tp.cultures.includes(tradition)));
-  const qs = (next: { categorie?: string; style?: string; mariage?: string }) => {
+  const filtered = templates.filter((tp) => (!categorie || tp.category === categorie) && (!style || tp.styles.includes(style)));
+  const qs = (next: { categorie?: string; style?: string }) => {
     const p = new URLSearchParams();
-    const m = "mariage" in next ? next.mariage : tradition;
-    if (m) p.set("mariage", m);
     if (next.categorie) p.set("categorie", next.categorie);
     if (next.style) p.set("style", next.style);
     const s = p.toString();
@@ -69,16 +64,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Sear
           <div className="mt-14"><SetupNotice t={t.setup} /></div>
         ) : (
           <>
-            {(categories.length > 1 || styles.length > 1 || traditions.length > 1) && (
+            {(categories.length > 1 || styles.length > 1) && (
               <div className="mt-12 space-y-4">
-                {traditions.length > 1 ? (
-                  <div className="flex flex-wrap justify-center gap-2" aria-label={c.byTradition}>
-                    <FilterLink href={qs({ categorie, style, mariage: "" })} active={!tradition}>{c.allTraditions}</FilterLink>
-                    {traditions.map((x) => (
-                      <FilterLink key={x} href={qs({ categorie, style, mariage: x })} active={tradition === x}>{tradLabel[x]}</FilterLink>
-                    ))}
-                  </div>
-                ) : null}
                 {categories.length > 1 ? (
                   <div className="flex flex-wrap justify-center gap-2" aria-label={c.byEvent}>
                     <FilterLink href={qs({ style })} active={!categorie}>{c.allEvents}</FilterLink>

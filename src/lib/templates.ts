@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { templateDefinitionSchema, type Language, type TemplateDefinition } from "@/lib/invitation/schema";
 import { contentFor } from "@/lib/invitation/variants";
 import { translatePrice } from "@/lib/price";
-import { normalizeCultures, type Culture } from "@/lib/validation/request";
 
 export type CatalogTemplate = {
   id: string;
@@ -23,27 +22,18 @@ export type CatalogTemplate = {
   languages: string[];
   /** Fiche traduite par langue */
   translations: Record<string, Partial<Record<"name" | "short_description" | "description" | "price_label" | "features", string>>>;
-  /** Types de mariage proposés avec ce modèle (la cliente choisit le sien au début du formulaire) */
-  cultures: Culture[];
 };
 
 const BASE_COLUMNS =
   "id, slug, name, short_description, description, category, styles, features, cover_image, gallery, price_label, is_featured, sort_order";
-let CATALOG_COLUMNS = `${BASE_COLUMNS}, languages, translations, cultures`;
+let CATALOG_COLUMNS = `${BASE_COLUMNS}, languages, translations`;
 
 /** Colonnes ajoutées par la migration « languages » : on s'en passe si elle n'a pas encore été appliquée. */
 function missingColumns(error: { message?: string } | null) {
-  return !!error?.message && /languages|translations|cultures/.test(error.message) && /column|schema cache/i.test(error.message);
-}
-/** Retire seulement la colonne absente (migration pas encore appliquée). */
-function fallbackColumns(error: { message?: string } | null) {
-  if (/cultures/.test(error?.message ?? "") && CATALOG_COLUMNS.includes(", cultures")) return CATALOG_COLUMNS.replace(", cultures", "");
-  return BASE_COLUMNS;
+  return !!error?.message && /languages|translations/.test(error.message) && /column|schema cache/i.test(error.message);
 }
 function normalize<T extends Partial<CatalogTemplate>>(row: T): T & CatalogTemplate {
-  const t = { languages: ["fr"], translations: {}, ...row } as T & CatalogTemplate;
-  t.cultures = normalizeCultures(row.cultures);
-  return t;
+  return { languages: ["fr"], translations: {}, ...row } as T & CatalogTemplate;
 }
 
 /** Nom, descriptions et prix dans la langue demandée (repli sur le français). */
@@ -76,8 +66,8 @@ export async function listPublishedTemplates(): Promise<QueryResult<CatalogTempl
       .order("sort_order")
       .order("name");
   let { data, error } = await query();
-  for (let i = 0; i < 2 && missingColumns(error); i++) {
-    CATALOG_COLUMNS = fallbackColumns(error);
+  if (missingColumns(error)) {
+    CATALOG_COLUMNS = BASE_COLUMNS;
     ({ data, error } = await query());
   }
   if (error) console.error("[templates]", error.message);
@@ -98,8 +88,8 @@ export async function getPublishedTemplate(
       .eq("status", "published")
       .maybeSingle();
   let { data, error } = await query();
-  for (let i = 0; i < 2 && missingColumns(error); i++) {
-    CATALOG_COLUMNS = fallbackColumns(error);
+  if (missingColumns(error)) {
+    CATALOG_COLUMNS = BASE_COLUMNS;
     ({ data, error } = await query());
   }
   if (error) console.error("[template]", error.message);

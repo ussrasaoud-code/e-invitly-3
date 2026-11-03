@@ -5,6 +5,7 @@ import { FONTS } from "@/lib/fonts";
 import { useEffect, useState, type ReactNode } from "react";
 import { InvitationView } from "@/components/invitation/InvitationView";
 import { ScaledPhone } from "@/components/site/ScaledPhone";
+import { groupId } from "@/lib/invitation/audience";
 import { PhoneFrame } from "@/components/site/PhoneFrame";
 import {
   EVENT_TYPES,
@@ -279,12 +280,27 @@ export function InvitationEditor({
                   <L label="Lien carte (facultatif)"><input className={inputCls} value={ev.mapsUrl} onChange={(e) => setEvent(i, { mapsUrl: e.target.value })} placeholder="https://maps…" /></L>
                   <L label="Description" className="sm:col-span-3"><input className={inputCls} value={ev.description} onChange={(e) => setEvent(i, { description: e.target.value })} /></L>
                   <L label="Jour (si différent de la date principale)"><input type="date" className={inputCls} value={ev.date} onChange={(e) => setEvent(i, { date: e.target.value })} /></L>
-                  <L label="Visible par" className="sm:col-span-2">
-                    <select className={inputCls} value={ev.audience} onChange={(e) => setEvent(i, { audience: e.target.value as InvitationEvent["audience"] })}>
-                      <option value="all">Tous les invités (lien normal)</option>
-                      <option value="henna">Invités du henné seulement (lien « henné + soirée »)</option>
-                    </select>
-                  </L>
+                  <fieldset className="sm:col-span-2">
+                    <legend className="mb-1 block text-xs text-stone">Visible par</legend>
+                    {c.guestGroups.length ? (
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                        <span className={ev.groups.length ? "text-stone" : "font-medium text-forest-deep"}>{ev.groups.length ? "Réservé à :" : "Tous les invités"}</span>
+                        {c.guestGroups.map((g) => (
+                          <label key={g.id} className="flex items-center gap-1.5">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 accent-forest"
+                              checked={ev.groups.includes(g.id)}
+                              onChange={(e) => setEvent(i, { groups: e.target.checked ? [...ev.groups, g.id] : ev.groups.filter((x) => x !== g.id) })}
+                            />
+                            {g.name}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-stone">Tous les invités. Créez un groupe d&apos;invités (plus bas) pour réserver ce moment à une partie d&apos;entre eux.</p>
+                    )}
+                  </fieldset>
                 </div>
                 <div className="mt-3 flex gap-2">
                   <IconBtn label="Monter" onClick={() => update((x) => ({ ...x, events: move(x.events, i, -1) }))} disabled={i === 0}>↑</IconBtn>
@@ -300,11 +316,45 @@ export function InvitationEditor({
                 onClick={() =>
                   update((x) => ({
                     ...x,
-                    events: [...x.events, { id: `e-${Date.now().toString(36)}`, type: "other", title: "", venueName: "", address: "", mapsUrl: "", arrivalTime: "", startTime: "", description: "", date: "", audience: "all" }],
+                    events: [...x.events, { id: `e-${Date.now().toString(36)}`, type: "other", title: "", venueName: "", address: "", mapsUrl: "", arrivalTime: "", startTime: "", description: "", date: "", groups: [] }],
                   }))
                 }
               >
                 + Ajouter un moment
+              </button>
+            ) : null}
+          </Panel>
+
+          <Panel title="Groupes d'invités" badge={c.guestGroups.length ? `${c.guestGroups.length}` : "facultatif"}>
+            <p className="text-xs text-stone">
+              Pour un moment auquel tous les invités ne sont pas conviés (mairie, fiançailles, henné…) : créez un groupe, puis cochez-le sur ce moment.
+              Le lien principal ne montre que les moments ouverts à tous ; chaque groupe reçoit son propre lien privé (onglet Publication).
+            </p>
+            {c.guestGroups.map((g, gi) => (
+              <div key={g.id} className="flex items-center gap-2">
+                <input
+                  aria-label={`Nom du groupe ${gi + 1}`}
+                  className={inputCls}
+                  maxLength={60}
+                  value={g.name}
+                  onChange={(e) => update((x) => ({ ...x, guestGroups: x.guestGroups.map((y) => (y.id === g.id ? { ...y, name: e.target.value } : y)) }))}
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm text-danger"
+                  onClick={() => update((x) => ({ ...x, guestGroups: x.guestGroups.filter((y) => y.id !== g.id), events: x.events.map((ev) => ({ ...ev, groups: ev.groups.filter((id) => id !== g.id) })) }))}
+                >
+                  Supprimer
+                </button>
+              </div>
+            ))}
+            {c.guestGroups.length < 8 ? (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => update((x) => ({ ...x, guestGroups: [...x.guestGroups, { id: groupId(`groupe ${x.guestGroups.length + 1}`, x.guestGroups.map((y) => y.id)), name: `Groupe ${x.guestGroups.length + 1}` }] }))}
+              >
+                + Ajouter un groupe d&apos;invités
               </button>
             ) : null}
           </Panel>

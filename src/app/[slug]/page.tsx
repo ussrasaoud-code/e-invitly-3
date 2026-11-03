@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Sprig } from "@/components/ornaments";
 import { InvitationView } from "@/components/invitation/InvitationView";
-import { forAudience } from "@/lib/invitation/audience";
-import { isValidHennaToken, loadPublicInvitation } from "@/lib/publication";
+import { forGroup } from "@/lib/invitation/audience";
+import { groupForToken, loadPublicInvitation } from "@/lib/publication";
 import { getPublicRsvpConfig } from "@/lib/rsvp-server";
 import { CodeForm } from "./CodeForm";
 
@@ -13,7 +13,7 @@ import { CodeForm } from "./CodeForm";
  * jamais redéployer. Seule la version publiée est lue, jamais le brouillon.
  */
 type Params = Promise<{ slug: string }>;
-type Search = Promise<{ h?: string }>;
+type Search = Promise<{ g?: string }>;
 
 const load = loadPublicInvitation;
 
@@ -54,11 +54,11 @@ export default async function PublicInvitationPage({ params, searchParams }: { p
     );
   }
 
-  // Lien « henné + soirée » : le jeton est vérifié ici ; sinon seuls les moments ouverts à tous sont envoyés
-  const { h } = await searchParams;
-  const henna = await isValidHennaToken(inv.invitationId, h);
-  const content = forAudience(inv.content, henna ? "henna" : "all");
+  // Lien privé d'un groupe d'invités : le jeton est vérifié ici ; sinon seuls les moments ouverts à tous sont envoyés
+  const { g } = await searchParams;
+  const group = await groupForToken(inv.invitationId, g);
+  const content = forGroup(inv.content, group);
   const base = await getPublicRsvpConfig(inv.invitationId);
-  const rsvp = base && henna ? { ...base, hennaToken: h } : base;
+  const rsvp = base && group ? { ...base, groupToken: g } : base;
   return <InvitationView content={content} renderer={inv.renderer} mode="live" slug={inv.slug} rsvp={rsvp} />;
 }

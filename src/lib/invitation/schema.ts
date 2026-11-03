@@ -92,9 +92,15 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   cake: "Pièce montée",
 };
 
-/** Qui voit un moment : tous les invités, ou seulement ceux du lien « henné + soirée ». */
-export const AUDIENCES = ["all", "henna"] as const;
-export type Audience = (typeof AUDIENCES)[number];
+/**
+ * Groupe d'invités (ex. « Famille proche ») : les moments qui lui sont réservés ne
+ * s'affichent qu'avec son lien privé ; le lien principal montre les moments ouverts à tous.
+ */
+export const guestGroupSchema = z.object({
+  id: z.string().regex(/^[a-z0-9-]{1,40}$/),
+  name: z.string().trim().min(1).max(60),
+});
+export type GuestGroup = z.infer<typeof guestGroupSchema>;
 
 export const eventSchema = z.object({
   id: z.string().min(1).max(40),
@@ -108,8 +114,8 @@ export const eventSchema = z.object({
   description: optionalText(400),
   /** Jour du moment s'il diffère de la date principale (mariage sur plusieurs jours) */
   date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date au format AAAA-MM-JJ").optional().default(""),
-  /** « henna » : visible seulement avec le lien « henné + soirée » */
-  audience: z.enum(AUDIENCES).default("all"),
+  /** Groupes d'invités qui voient ce moment (vide = tous les invités) */
+  groups: z.array(z.string().max(40)).max(8).default([]),
 });
 export type InvitationEvent = z.infer<typeof eventSchema>;
 
@@ -446,6 +452,8 @@ export const invitationContentSchema = z.object({
   timezone: z.string().min(1).max(60).default("Europe/Paris"),
   mainVenue: z.object({ name: optionalText(120), city: optionalText(120) }),
   events: z.array(eventSchema).max(12),
+  /** Groupes d'invités ayant un lien privé (moments réservés) */
+  guestGroups: z.array(guestGroupSchema).max(8).default([]),
   dressCode: z.object({
     text: optionalText(600),
     palette: z.array(hexColor).max(8).default([]),

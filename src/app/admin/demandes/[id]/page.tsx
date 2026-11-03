@@ -82,13 +82,11 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
           <Block
             title="Le couple"
             rows={[
-              ["Type de mariage", f.culture === "mixte" ? "Franco-maghrébin" : f.culture === "maghrebin" ? "Maghrébin" : "Français / européen"],
               ["Prénoms", `${r.partner_one} & ${r.partner_two}`],
               ["Date", formatShortDate(r.event_date)],
               ["Texte d'introduction", f.introText],
             ]}
           />
-          {f.culture === "maghrebin" ? null : (<>
           <section className="card p-5">
             <h2 className="font-serif text-xl">Cérémonies</h2>
             {f.ceremonies?.length ? (
@@ -98,8 +96,9 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
                     <p className="font-medium">
                       {c.label || CEREMONY_LABELS[c.type]}{" "}
                       {!c.showOnInvitation ? <span className="text-xs font-normal text-warning">(ne pas afficher sur l&apos;invitation)</span> : null}
+                      {c.showOnInvitation && c.restricted ? <span className="text-xs font-normal text-forest">(réservé à une partie des invités : {c.guestGroup || "groupe sans nom"})</span> : null}
                     </p>
-                    <p className="text-stone">{[(c as { date?: string }).date ? formatShortDate((c as { date?: string }).date!) : "", c.venueName, c.address].filter(Boolean).join(" — ") || "Lieu non précisé"}</p>
+                    <p className="text-stone">{[c.venueName, c.address].filter(Boolean).join(" — ") || "Lieu non précisé"}</p>
                     <p className="text-stone">
                       {c.arrivalTime ? `Arrivée ${c.arrivalTime}` : ""}
                       {c.arrivalTime && c.startTime ? " · " : ""}
@@ -113,9 +112,6 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
               <p className="mt-2 text-sm text-stone">Aucune cérémonie indiquée.</p>
             )}
           </section>
-          </>)}
-          {(f.culture === "maghrebin" || f.culture === "mixte") && f.maghreb ? <MaghrebBlocks m={f.maghreb} /> : null}
-          {f.culture === "maghrebin" || f.culture === "mixte" ? null : (<>
           <Block
             title="Réception"
             rows={[
@@ -131,7 +127,6 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
               ["Hébergements", f.reception?.lodging],
             ]}
           />
-          </>)}
           <Block
             title="Autres informations"
             rows={[
@@ -218,74 +213,6 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
           </form>
         </aside>
       </div>
-    </>
-  );
-}
-
-const AUD: Record<string, string> = { all: "tous les invités", henna: "invités du henné seulement", hidden: "privé (non affiché)" };
-const day = (d?: string) => (d ? formatShortDate(d) : "");
-const join = (...xs: Array<string | undefined | false>) => xs.filter(Boolean).join(" · ");
-
-/** Demande « mariage maghrébin » : henné, soirée, autres moments, décoration. */
-function MaghrebBlocks({ m }: { m: NonNullable<RequestData["maghreb"]> }) {
-  const h = m.henna;
-  const s = m.soiree;
-  const extra = (x: { enabled: boolean; date: string; time: string; venueName: string; address: string; audience: string; notes: string }) =>
-    x.enabled ? join(day(x.date), x.time, x.venueName, x.address, AUD[x.audience], x.notes) : "";
-  return (
-    <>
-      <Block
-        title="Invités · mariage maghrébin"
-        rows={[
-          ["Invités seulement à la soirée ?", m.separateGuests === "yes" ? "Oui : deux liens (soirée / henné + soirée)" : m.separateGuests === "no" ? "Non : tout le monde au henné et à la soirée" : "Pas encore décidé"],
-        ]}
-      />
-      <Block
-        title="Jour du henné"
-        rows={
-          h.enabled
-            ? [
-                ["Date", day(h.date)],
-                ["Lieu", join(h.venueName, h.address)],
-                ["Lien carte", h.mapsUrl],
-                ["Hammam de la mariée", join(h.hammamTime, h.hammamPlace, h.hammamTime || h.hammamPlace ? AUD[h.hammamAudience] : "")],
-                ["Henné", h.hennaTime],
-                ["Chants du henné", h.chantTime],
-                ["Dîner", h.dinnerTime],
-                ["Précisions", h.notes],
-              ]
-            : [["Henné", "Pas de jour du henné"]]
-        }
-      />
-      <Block
-        title="Soirée"
-        rows={[
-          ["Salle", join(s.venueName, s.address)],
-          ["Lien carte", s.mapsUrl],
-          ["Accueil des invités", s.receptionTime],
-          ["Entrée de la mariée", s.brideTime],
-          ["Goûter", s.teaTime],
-          ["Dîner", s.dinnerTime],
-          ["Pièce montée", s.cakeTime],
-          ["Fin", s.endTime],
-          ["Précisions", s.notes],
-          ["Stationnement", s.parking],
-          ["Navettes / transports", s.shuttles],
-          ["Hébergements", s.lodging],
-        ]}
-      />
-      <Block
-        title="Autres moments"
-        rows={[
-          ["Fatiha / Katb el-kitab", extra(m.fatiha)],
-          ["Lendemain", extra(m.lendemain)],
-          ...m.others.map((o) => [o.label, extra(o)] as [string, string]),
-        ]}
-      />
-      <Block
-        title="Décoration de la salle"
-        rows={[["Couleurs / thème", m.decoration.known === "yes" ? join(m.decoration.colors, m.decoration.theme) || "Connus (non précisés)" : m.decoration.known === "no" ? "Pas encore choisis" : "Communiqués plus tard"]]}
-      />
     </>
   );
 }

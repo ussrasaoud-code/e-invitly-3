@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { CopyButton } from "@/components/admin/CopyButton";
-import { hennaUrl, publicUrl } from "@/lib/publication";
+import { groupUrl, publicUrl } from "@/lib/publication";
+import { usedGroups } from "@/lib/invitation/audience";
 import { PreviewLink } from "./PreviewLink";
 import { RsvpTab } from "./RsvpTab";
 import { loadRsvpOverview } from "@/lib/rsvp-data";
@@ -16,7 +17,7 @@ import { INVITATION_STATUS, MANUAL_INVITATION_STATUSES, type InvitationStatus } 
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, formatShortDate } from "@/lib/time";
 import { PaymentCard } from "./PaymentCard";
-import { addCoupleAccess, createHennaLink, removeCoupleAccess, sendCoupleAccess } from "../access-actions";
+import { addCoupleAccess, createGroupLink, removeCoupleAccess, sendCoupleAccess } from "../access-actions";
 import { isEmailConfigured } from "@/lib/email";
 import type { PaymentRow } from "@/lib/payments";
 import type { SiteLang } from "@/lib/i18n/config";
@@ -70,9 +71,10 @@ export default async function InvitationPage({ params, searchParams }: Props) {
   const tab = TABS.some((t) => t.value === onglet) ? onglet : "contenu";
   const isLive = status === "published";
   const liveUrl = publicUrl(inv.slug);
-  const hennaToken = (inv as { henna_token?: string | null }).henna_token ?? null;
-  const draftHasHenna = Array.isArray((inv.draft_content as { events?: unknown[] } | null)?.events)
-    && ((inv.draft_content as { events: Array<{ audience?: string }> }).events).some((e) => e?.audience === "henna");
+  // Groupes d'invités (moments réservés) : un lien privé par groupe
+  const privateLinks = ((inv as { private_links?: Record<string, string> | null }).private_links ?? {}) as Record<string, string>;
+  const draftParsed = invitationContentSchema.safeParse(inv.draft_content);
+  const guestGroups = draftParsed.success ? usedGroups(draftParsed.data) : [];
   const liveVersion = versions?.find((v) => v.id === inv.published_version_id)?.version ?? null;
   const hasUnpublishedChanges =
     isLive && inv.published_at && new Date(inv.draft_updated_at).getTime() > new Date(inv.published_at).getTime() + 1000;
@@ -193,7 +195,7 @@ export default async function InvitationPage({ params, searchParams }: Props) {
             </div>
 
             <div className="mt-5 rounded-sm border border-line bg-paper p-4">
-              <p className="text-xs uppercase tracking-wider text-stone">{hennaToken ? "Lien de l'invitation · soirée seulement" : "Lien de l'invitation"}</p>
+              <p className="text-xs uppercase tracking-wider text-stone">{guestGroups.length ? "Lien principal · tous les invités" : "Lien de l'invitation"}</p>
               <p className={`mt-1 break-all text-lg ${isLive ? "text-forest-deep" : "text-stone"}`}>{liveUrl}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {isLive ? (
@@ -207,39 +209,40 @@ export default async function InvitationPage({ params, searchParams }: Props) {
               </div>
             </div>
 
-            {hennaToken || draftHasHenna ? (
-              <div className="mt-3 rounded-sm border border-line bg-paper p-4">
-                <p className="text-xs uppercase tracking-wider text-stone">Lien henné + soirée (invités du henné)</p>
-                {hennaToken ? (
-                  <>
-                    <p className={`mt-1 break-all text-lg ${isLive ? "text-forest-deep" : "text-stone"}`}>{hennaUrl(inv.slug, hennaToken)}</p>
-                    <p className="mt-1 text-xs text-stone">Montre aussi les moments réservés aux invités du henné. À n&apos;envoyer qu&apos;à eux : le lien normal ne les affiche jamais.</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {isLive ? (
-                        <>
-                          <CopyButton text={hennaUrl(inv.slug, hennaToken)} className="btn btn-primary btn-sm" />
-                          <a href={`/${inv.slug}?h=${encodeURIComponent(hennaToken)}`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Ouvrir ↗</a>
-                        </>
-                      ) : (
-                        <p className="text-sm text-stone">Le lien fonctionnera dès la publication.</p>
-                      )}
-                      <form action={createHennaLink}>
-                        <input type="hidden" name="id" value={inv.id} />
-                        <SubmitButton className="btn btn-ghost btn-sm" pendingLabel="…">Changer le lien (l&apos;ancien ne marchera plus)</SubmitButton>
-                      </form>
-                    </div>
-                  </>
-                ) : (
-                  <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <p className="text-sm text-stone">Des moments sont réservés aux invités du henné : créez leur lien privé.</p>
-                    <form action={createHennaLink}>
+            {guestGroups.map((g) => {
+              const token = privateLinks[g.id];
+              const url = token ? groupUrl(inv.slug, token) : "";
+              return (
+                <div key={g.id} className="mt-3 rounded-sm border border-line bg-paper p-4">
+                  <p className="text-xs uppercase tracking-wider text-stone">Lien privé · {g.name}</p>
+                  {token ? (
+                    <>
+                      <p className={`mt-1 break-all text-lg ${isLive ? "text-forest-deep" : "text-stone"}`}>{url}</p>
+                      <p className="mt-1 text-xs text-stone">Montre aussi les moments réservés à « {g.name} ». À n&apos;envoyer qu&apos;à ces invités : le lien principal ne les affiche jamais.</p>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-sm text-stone">Des moments sont réservés à « {g.name} » : créez leur lien privé.</p>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {token && isLive ? (
+                      <>
+                        <CopyButton text={url} className="btn btn-primary btn-sm" />
+                        <a href={`/${inv.slug}?g=${encodeURIComponent(token)}`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Ouvrir ↗</a>
+                      </>
+                    ) : token ? (
+                      <p className="text-sm text-stone">Le lien fonctionnera dès la publication.</p>
+                    ) : null}
+                    <form action={createGroupLink}>
                       <input type="hidden" name="id" value={inv.id} />
-                      <SubmitButton className="btn btn-primary btn-sm" pendingLabel="Création…">Créer le lien henné + soirée</SubmitButton>
+                      <input type="hidden" name="group" value={g.id} />
+                      <SubmitButton className={token ? "btn btn-ghost btn-sm" : "btn btn-primary btn-sm"} pendingLabel="…">
+                        {token ? "Changer le lien (l'ancien ne marchera plus)" : `Créer le lien « ${g.name} »`}
+                      </SubmitButton>
                     </form>
                   </div>
-                )}
-              </div>
-            ) : null}
+                </div>
+              );
+            })}
 
             {hasUnpublishedChanges ? (
               <p className="mt-4 text-sm text-warning">

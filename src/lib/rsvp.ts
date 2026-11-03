@@ -54,8 +54,8 @@ export type PublicRsvpConfig = {
   maxCompanions: number;
   fields: RsvpFields;
   questions: CustomQuestion[];
-  /** Lien « henné + soirée » : jeton renvoyé avec la réponse (vérifié côté serveur) */
-  hennaToken?: string;
+  /** Lien privé d'un groupe d'invités : jeton renvoyé avec la réponse (vérifié côté serveur) */
+  groupToken?: string;
 };
 
 export function normalizeFields(raw: unknown): RsvpFields {
@@ -84,8 +84,8 @@ export const rsvpSubmissionSchema = z.object({
   idempotencyKey: z.string().uuid(),
   website: z.string().max(0).optional().default(""), // champ piège
   code: text(20).optional().default(""),
-  /** Jeton du lien « henné + soirée » (vérifié côté serveur) */
-  h: z.string().max(64).optional().default(""),
+  /** Jeton du lien privé d'un groupe d'invités (vérifié côté serveur) */
+  g: z.string().max(64).optional().default(""),
   firstName: text(60).min(1, "required"),
   lastName: text(60).optional().default(""),
   attending: z.boolean({ message: "required" }),
@@ -107,7 +107,7 @@ export type RsvpResult =
 export function sanitizeSubmission(
   data: z.output<typeof rsvpSubmissionSchema>,
   cfg: { fields: RsvpFields; maxCompanions: number; questions: CustomQuestion[]; eventIds: string[] },
-): { value: Omit<z.output<typeof rsvpSubmissionSchema>, "slug" | "idempotencyKey" | "website" | "code" | "h">; missing: string[] } {
+): { value: Omit<z.output<typeof rsvpSubmissionSchema>, "slug" | "idempotencyKey" | "website" | "code" | "g">; missing: string[] } {
   const f = cfg.fields;
   const attending = data.attending;
   const companionsCount = attending && f.companions ? Math.min(data.companionsCount, cfg.maxCompanions) : 0;

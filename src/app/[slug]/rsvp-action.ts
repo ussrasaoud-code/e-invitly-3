@@ -4,8 +4,8 @@ import { logActivity } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { env } from "@/lib/env";
 import { hashedClientIp } from "@/lib/net";
-import { forAudience } from "@/lib/invitation/audience";
-import { isValidHennaToken, loadPublicInvitation } from "@/lib/publication";
+import { forGroup } from "@/lib/invitation/audience";
+import { groupForToken, loadPublicInvitation } from "@/lib/publication";
 import { rsvpSubmissionSchema, sanitizeSubmission, type RsvpResult, type RsvpSubmission } from "@/lib/rsvp";
 import { getOrCreateRsvpForm, toPublicConfig } from "@/lib/rsvp-server";
 import { getSettings } from "@/lib/settings";
@@ -57,8 +57,8 @@ export async function submitRsvp(input: RsvpSubmission): Promise<RsvpResult> {
     guest = g;
   }
 
-  const henna = await isValidHennaToken(inv.invitationId, data.h);
-  const visible = forAudience(inv.content, henna ? "henna" : "all");
+  const group = await groupForToken(inv.invitationId, data.g);
+  const visible = forGroup(inv.content, group);
   const { value, missing } = sanitizeSubmission(data, {
     fields: cfg.fields,
     maxCompanions: guest ? guest.max_companions : cfg.maxCompanions,
@@ -82,7 +82,7 @@ export async function submitRsvp(input: RsvpSubmission): Promise<RsvpResult> {
     answers: value.answers,
     comment: value.comment || null,
     ip_hash: ipHash,
-    ...(henna ? { audience: "henna" } : {}),
+    ...(group ? { audience: group } : {}),
   };
 
   let updated = false;
@@ -106,7 +106,8 @@ export async function submitRsvp(input: RsvpSubmission): Promise<RsvpResult> {
 
   const who = `${value.firstName} ${value.lastName}`.trim();
   const people = value.attending ? 1 + value.companionsCount : 0;
-  const summary = `${henna ? "[henné + soirée] " : ""}${who} ${value.attending ? `présent·e (${people} pers.)` : "ne viendra pas"} — ${inv.content.couple.partnerOne} & ${inv.content.couple.partnerTwo}`;
+  const groupName = group ? inv.content.guestGroups.find((x) => x.id === group)?.name ?? group : "";
+  const summary = `${groupName ? `[${groupName}] ` : ""}${who} ${value.attending ? `présent·e (${people} pers.)` : "ne viendra pas"} — ${inv.content.couple.partnerOne} & ${inv.content.couple.partnerTwo}`;
   await logActivity({ action: updated ? "rsvp.updated" : "rsvp.created", resourceType: "rsvp_response", resourceId: inv.invitationId, summary: `${updated ? "Réponse modifiée" : "Nouvelle réponse RSVP"} : ${summary}` });
 
   try {
