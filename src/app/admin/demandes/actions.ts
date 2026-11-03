@@ -1,5 +1,7 @@
 "use server";
 
+import { hasHennaEvents } from "@/lib/invitation/audience";
+import { newHennaToken } from "@/lib/publication";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -119,6 +121,12 @@ export async function convertRequestToInvitation(form: FormData) {
     else if (insErr?.code !== "23505") throw new Error(`Création impossible : ${insErr?.message}`);
   }
   if (!invitationId) throw new Error("Impossible de réserver une adresse libre. Réessayez.");
+
+  // Mariage maghrébin : lien privé « henné + soirée » si des moments sont réservés aux invités du henné
+  if (hasHennaEvents(content)) {
+    const { error: hErr } = await supabase.from("invitations").update({ henna_token: newHennaToken() }).eq("id", invitationId);
+    if (hErr) console.error("[convert] lien henné", hErr.message);
+  }
 
   const deadline = content.rsvp.deadline ? zonedToUtc(`${content.rsvp.deadline}T23:59`, content.timezone)?.toISOString() : null;
   const [rsvpRes, accessRes, reqRes] = await Promise.all([

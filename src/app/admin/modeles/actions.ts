@@ -153,6 +153,11 @@ export async function updateTemplateMeta(form: FormData) {
     }
     if (Object.keys(entry).length) translations[l] = entry;
   }
+  if (form.has("culture")) {
+    const culture = z.enum(["europeen", "maghrebin"]).catch("europeen").parse(form.get("culture"));
+    const { error: cError } = await supabase.from("templates").update({ culture }).eq("id", d.id);
+    if (cError) throw new Error(`Type de mariage non enregistré : ${cError.message}. Avez-vous exécuté la migration 20261107000001_maghreb.sql ?`);
+  }
   if ([...form.keys()].some((k) => k.startsWith("tr_"))) {
     const { error: trError } = await supabase.from("templates").update({ translations }).eq("id", d.id);
     if (trError) throw new Error(`Traductions non enregistrées : ${trError.message}. Avez-vous exécuté la migration 20261105000001_languages.sql ?`);

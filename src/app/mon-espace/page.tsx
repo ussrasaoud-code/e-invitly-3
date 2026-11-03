@@ -20,10 +20,13 @@ export default async function ClientSpace() {
   const user = await getCurrentUser();
   if (!user) redirect("/connexion?suite=/mon-espace");
   const supabase = (await createClient())!;
-  const [{ data: invitations }, { data: stats }] = await Promise.all([
+  const [{ data: invitations }, { data: stats }, { data: tokens }] = await Promise.all([
     supabase.from("invitations").select("id, title, slug, status, event_at, language").neq("status", "archived").order("event_at"),
     supabase.from("rsvp_stats").select("*"),
+    // Lien « henné + soirée » (colonne ajoutée par la migration « maghreb » ; ignorée si absente)
+    supabase.from("invitations").select("id, henna_token").not("henna_token", "is", null),
   ]);
+  const hennaToken = new Map((tokens ?? []).map((x) => [x.id as string, x.henna_token as string]));
   const lang = await getPreferredLang(invitations?.[0]?.language);
   const t = dictFor(lang).couple;
   const { brand } = await getSettings();
@@ -47,7 +50,13 @@ export default async function ClientSpace() {
                   <h2 className="font-serif text-2xl">{i.title}</h2>
                   <p className="text-sm text-stone">{date(i.event_at)}</p>
                   <p className="mt-3 text-sm">
-                    {live ? (
+                    {live && hennaToken.get(i.id) ? (
+                      <span className="block space-y-1">
+                        <span className="block">{t.soireeLink} <a className="text-forest underline" dir="ltr" href={`/${i.slug}`}>{host}/{i.slug}</a></span>
+                        <span className="block">{t.hennaLink} <a className="break-all text-forest underline" dir="ltr" href={`/${i.slug}?h=${encodeURIComponent(hennaToken.get(i.id)!)}`}>{host}/{i.slug}?h={hennaToken.get(i.id)}</a></span>
+                        <span className="block text-xs text-stone">{t.hennaHint}</span>
+                      </span>
+                    ) : live ? (
                       <>
                         {t.yourLink} <a className="text-forest underline" dir="ltr" href={`/${i.slug}`}>{host}/{i.slug}</a>
                       </>

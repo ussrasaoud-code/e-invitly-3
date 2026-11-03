@@ -20,6 +20,22 @@ export function hashAccessCode(invitationId: string, code: string) {
 }
 export const accessCookieName = (invitationId: string) => `ei_acces_${invitationId.replace(/-/g, "").slice(0, 16)}`;
 
+/* ── Lien « henné + soirée » ───────────────────────────────────────── */
+/** Jeton du lien privé des invités du henné : <adresse>?h=<jeton> (16 caractères). */
+export const newHennaToken = () => randomBytes(12).toString("base64url");
+export const hennaUrl = (slug: string, token: string) => `${env.siteUrl}/${slug}?h=${encodeURIComponent(token)}`;
+
+/** Le jeton du lien « henné + soirée » correspond-il à cette invitation ? (lecture serveur uniquement) */
+export async function isValidHennaToken(invitationId: string, token: string | undefined | null): Promise<boolean> {
+  if (!token || token.length < 12 || token.length > 64) return false;
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const db = createAdminClient();
+  if (!db) return false;
+  const { data, error } = await db.from("invitations").select("henna_token").eq("id", invitationId).maybeSingle();
+  if (error || !data?.henna_token) return false;
+  return sameHash(String(data.henna_token), token);
+}
+
 /* ── Jetons d'aperçu ───────────────────────────────────────────────── */
 export function newPreviewToken() {
   const token = randomBytes(24).toString("base64url");

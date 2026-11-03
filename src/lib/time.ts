@@ -46,6 +46,15 @@ export function formatLongDate(local: string, lang: Lang = "fr"): string {
   return new Intl.DateTimeFormat(LOCALES[lang], { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(d);
 }
 
+/** « Vendredi 11 juin » : intitulé d'un jour dans un programme sur plusieurs jours */
+export function formatDayLabel(local: string, lang: Lang = "fr"): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(local);
+  if (!m) return "";
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12));
+  const s = new Intl.DateTimeFormat(LOCALES[lang], { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(d);
+  return s.charAt(0).toLocaleUpperCase(LOCALES[lang]) + s.slice(1);
+}
+
 /** « 12 . 06 . 2027 » */
 export function formatDotDate(local: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(local);

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Sprig } from "@/components/ornaments";
 import { InvitationView } from "@/components/invitation/InvitationView";
-import { loadPublicInvitation } from "@/lib/publication";
+import { forAudience } from "@/lib/invitation/audience";
+import { isValidHennaToken, loadPublicInvitation } from "@/lib/publication";
 import { getPublicRsvpConfig } from "@/lib/rsvp-server";
 import { CodeForm } from "./CodeForm";
 
@@ -12,6 +13,7 @@ import { CodeForm } from "./CodeForm";
  * jamais redéployer. Seule la version publiée est lue, jamais le brouillon.
  */
 type Params = Promise<{ slug: string }>;
+type Search = Promise<{ h?: string }>;
 
 const load = loadPublicInvitation;
 
@@ -29,7 +31,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   };
 }
 
-export default async function PublicInvitationPage({ params }: { params: Params }) {
+export default async function PublicInvitationPage({ params, searchParams }: { params: Params; searchParams: Search }) {
   const { slug: raw } = await params;
   const slug = decodeURIComponent(raw).toLowerCase();
   const inv = await load(slug);
@@ -52,6 +54,11 @@ export default async function PublicInvitationPage({ params }: { params: Params 
     );
   }
 
-  const rsvp = await getPublicRsvpConfig(inv.invitationId);
-  return <InvitationView content={inv.content} renderer={inv.renderer} mode="live" slug={inv.slug} rsvp={rsvp} />;
+  // Lien « henné + soirée » : le jeton est vérifié ici ; sinon seuls les moments ouverts à tous sont envoyés
+  const { h } = await searchParams;
+  const henna = await isValidHennaToken(inv.invitationId, h);
+  const content = forAudience(inv.content, henna ? "henna" : "all");
+  const base = await getPublicRsvpConfig(inv.invitationId);
+  const rsvp = base && henna ? { ...base, hennaToken: h } : base;
+  return <InvitationView content={content} renderer={inv.renderer} mode="live" slug={inv.slug} rsvp={rsvp} />;
 }

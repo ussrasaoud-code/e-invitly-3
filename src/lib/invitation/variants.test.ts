@@ -61,7 +61,7 @@ import { programV2Section, programV2Items } from "./schema";
 describe("programme v2", () => {
   it("reprend le programme de l'invitation, sauf choix contraire", () => {
     const c = invitationContentSchema.parse(PRESETS["the-garden"]);
-    c.events = [{ id: "e1", type: "civil", title: "Cérémonie civile", venueName: "Mairie de Champigny", address: "14 rue Louis Talamoni", mapsUrl: "", arrivalTime: "12:00", startTime: "12:30", description: "" }];
+    c.events = [{ id: "e1", type: "civil", title: "Cérémonie civile", venueName: "Mairie de Champigny", address: "14 rue Louis Talamoni", mapsUrl: "", arrivalTime: "12:00", startTime: "12:30", description: "", date: "", audience: "all" }];
     const s = programV2Section();
     expect(programV2Items(s, c, (t) => t.replace(":", "h"))).toEqual([
       { id: "e1", time: "12h30", title: "Cérémonie civile", detail: "Mairie de Champigny\n14 rue Louis Talamoni", fromEvent: true },

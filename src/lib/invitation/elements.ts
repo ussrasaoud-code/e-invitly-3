@@ -77,8 +77,9 @@ function venueItems(c: InvitationContent): ElementDef[] {
   const seen = new Set<string>();
   const items: ElementDef[] = [];
   for (const e of c.events) {
-    if (!e.address || seen.has(e.address.toLowerCase())) continue;
-    seen.add(e.address.toLowerCase());
+    const key = `${e.address.toLowerCase()}|${e.date || c.eventAt.slice(0, 10)}`;
+    if (!e.address || seen.has(key)) continue;
+    seen.add(key);
     const k = `list.${elKey(e.id)}`;
     items.push({
       id: k,

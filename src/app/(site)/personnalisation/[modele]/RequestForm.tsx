@@ -8,13 +8,17 @@ import type { SiteDict } from "@/lib/i18n/dict";
 import {
   CEREMONY_TYPES,
   COUNTRIES,
+  MAGHREB_STEP_SCHEMAS,
   STEP_SCHEMAS,
+  type Culture,
+  type MaghrebInput,
   flattenErrors,
   translateError,
   type CeremonyInput,
   type RequestInput,
 } from "@/lib/validation/request";
 import { submitRequest } from "../actions";
+import { DecorationFields, HennaStep, MomentsStep, SoireeStep, emptyMaghreb } from "./MaghrebSteps";
 
 type T = SiteDict["request"];
 
@@ -31,8 +35,10 @@ const emptyCeremony = (type: CeremonyInput["type"] = "civil"): CeremonyInput => 
   notes: "",
 });
 
-const initialState = (templateSlug: string, language: SiteLang = "fr"): FormState => ({
+const initialState = (templateSlug: string, language: SiteLang = "fr", culture: Culture = "europeen"): FormState => ({
   templateSlug,
+  culture,
+  ...(culture === "maghrebin" ? { maghreb: emptyMaghreb() } : {}),
   firstName: "",
   lastName: "",
   email: "",
@@ -75,12 +81,15 @@ const initialState = (templateSlug: string, language: SiteLang = "fr"): FormStat
 /** Langues de l'invitation, chacune écrite dans sa propre langue */
 const LANG_OPTIONS = SITE_LANGS.map((l) => ({ value: l, label: LANG_META[l].native }));
 
-export function RequestForm({ templateSlug, templateName, t, lang, invitationLang }: { templateSlug: string; templateName: string; t: T; lang: SiteLang; invitationLang: SiteLang }) {
-  const storageKey = `e-invitly:demande:${templateSlug}`;
-  const STEP_TITLES = t.steps;
+export function RequestForm({ templateSlug, templateName, t, lang, invitationLang, culture = "europeen" }: { templateSlug: string; templateName: string; t: T; lang: SiteLang; invitationLang: SiteLang; culture?: Culture }) {
+  const storageKey = `e-invitly:demande:${templateSlug}:${culture}`;
+  const mag = culture === "maghrebin";
+  const STEP_TITLES = mag ? t.mag.steps : t.steps;
+  const SCHEMAS: ReadonlyArray<{ safeParse: (v: unknown) => { success: true } | { success: false; error: import("zod").ZodError } }> = mag ? MAGHREB_STEP_SCHEMAS : STEP_SCHEMAS;
+  const LAST = STEP_TITLES.length - 1;
   const CEREMONY_LABELS = t.ceremonies;
   const f = t.f;
-  const [state, setState] = useState<FormState>(() => initialState(templateSlug, invitationLang));
+  const [state, setState] = useState<FormState>(() => initialState(templateSlug, invitationLang, culture));
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverMessage, setServerMessage] = useState<string | null>(null);
@@ -95,11 +104,11 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
     restored.current = true;
     try {
       const saved = window.localStorage.getItem(storageKey);
-      if (saved) setState({ ...initialState(templateSlug, invitationLang), ...JSON.parse(saved), consent: false, website: "" });
+      if (saved) setState({ ...initialState(templateSlug, invitationLang, culture), ...JSON.parse(saved), culture, consent: false, website: "" });
     } catch {
       /* stockage indisponible */
     }
-  }, [storageKey, templateSlug, invitationLang]);
+  }, [storageKey, templateSlug, invitationLang, culture]);
   useEffect(() => {
     try {
       const { consent: _c, website: _w, ...rest } = state;
@@ -119,11 +128,13 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
     setState((s) => ({ ...s, reception: { ...s.reception, [key]: value } }));
   const setDetails = (key: keyof FormState["details"], value: string) =>
     setState((s) => ({ ...s, details: { ...s.details, [key]: value } }));
+  const setMaghreb = (patch: Partial<MaghrebInput>) =>
+    setState((s) => ({ ...s, maghreb: { ...(s.maghreb ?? emptyMaghreb()), ...patch } }));
   const setCeremony = (i: number, patch: Partial<CeremonyInput>) =>
     setState((s) => ({ ...s, ceremonies: (s.ceremonies ?? []).map((c, j) => (j === i ? { ...c, ...patch } : c)) }));
 
   const validateStep = (index: number) => {
-    const result = STEP_SCHEMAS[index].safeParse(state);
+    const result = SCHEMAS[index].safeParse(state);
     if (result.success) {
       setErrors({});
       return true;
@@ -144,7 +155,7 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
   };
 
   const submit = () => {
-    for (let i = 0; i < STEP_SCHEMAS.length; i++) {
+    for (let i = 0; i < SCHEMAS.length; i++) {
       if (!validateStep(i)) {
         setStep(i);
         return;
@@ -172,7 +183,7 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
     <OptionalLabelContext.Provider value={t.optional}>
     <div>
       {/* Progression */}
-      <ol className="mb-10 grid grid-cols-6 gap-1.5" aria-label={t.progress}>
+      <ol className="mb-10 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${STEP_TITLES.length}, minmax(0, 1fr))` }} aria-label={t.progress}>
         {STEP_TITLES.map((title, i) => (
           <li key={title} aria-current={i === step ? "step" : undefined}>
             <span className={`block h-1 ${i <= step ? "bg-forest" : "bg-sand"}`} />
@@ -194,7 +205,7 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
         noValidate
         onSubmit={(ev) => {
           ev.preventDefault();
-          if (step < STEP_TITLES.length - 1) next();
+          if (step < LAST) next();
           else submit();
         }}
       >
@@ -221,12 +232,21 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
           <div className="grid gap-5 sm:grid-cols-2">
             <TextField label={f.partnerOne} value={state.partnerOne} onChange={(ev) => set("partnerOne", ev.target.value)} error={e("partnerOne")} required />
             <TextField label={f.partnerTwo} value={state.partnerTwo} onChange={(ev) => set("partnerTwo", ev.target.value)} error={e("partnerTwo")} required />
-            <TextField label={f.eventDate} type="date" value={state.eventDate} onChange={(ev) => set("eventDate", ev.target.value)} error={e("eventDate")} required className="sm:col-span-2" />
+            <TextField label={mag ? t.mag.eventDate : f.eventDate} type="date" value={state.eventDate} onChange={(ev) => set("eventDate", ev.target.value)} error={e("eventDate")} required className="sm:col-span-2" />
             <TextArea label={f.introText} value={state.introText} onChange={(ev) => set("introText", ev.target.value)} error={e("introText")} optional className="sm:col-span-2" hint={f.introHint} />
           </div>
         )}
 
-        {step === 2 && (
+        {mag && step >= 2 && step <= 5 && (() => {
+          const m = { ...emptyMaghreb(), ...(state.maghreb ?? {}) } as ReturnType<typeof emptyMaghreb>;
+          const props = { m, set: setMaghreb, t, e };
+          if (step === 2) return <HennaStep {...props} />;
+          if (step === 3) return <SoireeStep {...props} />;
+          if (step === 4) return <MomentsStep {...props} />;
+          return <DecorationFields {...props} />;
+        })()}
+
+        {!mag && step === 2 && (
           <div>
             <p className="mb-6 leading-relaxed text-stone">{f.ceremoniesIntro}</p>
             {ceremonies.length === 0 ? (
@@ -267,7 +287,7 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
           </div>
         )}
 
-        {step === 3 && (
+        {!mag && step === 3 && (
           <div className="grid gap-5 sm:grid-cols-2">
             <TextField label={f.receptionVenue} value={state.reception?.venueName} onChange={(ev) => setReception("venueName", ev.target.value)} optional />
             <TextField label={f.fullAddress} autoComplete="street-address" value={state.reception?.address} onChange={(ev) => setReception("address", ev.target.value)} optional />
@@ -282,7 +302,7 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
           </div>
         )}
 
-        {step === 4 && (
+        {((!mag && step === 4) || (mag && step === 5)) && (
           <div className="grid gap-5 sm:grid-cols-2">
             <TextArea label={f.dressCode} value={state.details?.dressCode} onChange={(ev) => setDetails("dressCode", ev.target.value)} optional />
             <TextField label={f.rsvpDeadline} type="date" value={state.details?.rsvpDeadline} onChange={(ev) => setDetails("rsvpDeadline", ev.target.value)} error={e("details.rsvpDeadline")} optional />
@@ -297,11 +317,11 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
           </div>
         )}
 
-        {step === 5 && (
-          <Review state={state} templateName={templateName} onEdit={(i) => setStep(i)} t={t} lang={lang} />
+        {step === LAST && (
+          <Review state={state} templateName={templateName} onEdit={(i) => setStep(i)} t={t} lang={lang} mag={mag} />
         )}
 
-        {step === 5 && (
+        {step === LAST && (
           <div className="mt-8">
             <label className="flex items-start gap-3 text-sm leading-relaxed">
               <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-forest" checked={state.consent} onChange={(ev) => set("consent", ev.target.checked)} aria-invalid={e("consent") ? true : undefined} />
@@ -332,7 +352,7 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
             <span />
           )}
           <button type="submit" className="btn btn-primary" disabled={pending}>
-            {step < STEP_TITLES.length - 1 ? t.continue : pending ? t.sending : t.send}
+            {step < LAST ? t.continue : pending ? t.sending : t.send}
           </button>
         </div>
         <p className="mt-4 text-center text-xs text-stone sm:text-end">{t.keptLocally}</p>
@@ -342,7 +362,9 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
   );
 }
 
-function Review({ state, templateName, onEdit, t, lang }: { state: FormState; templateName: string; onEdit: (step: number) => void; t: T; lang: SiteLang }) {
+type ReviewRow = { step: number; title: string; items: Array<[string, string | undefined]> };
+
+function Review({ state, templateName, onEdit, t, lang, mag }: { state: FormState; templateName: string; onEdit: (step: number) => void; t: T; lang: SiteLang; mag: boolean }) {
   const r = t.review;
   const langLabel = LANG_OPTIONS.find((l) => l.value === state.language)?.label;
   const country = t.countries[state.country as keyof T["countries"]] ?? state.country;
@@ -368,10 +390,11 @@ function Review({ state, templateName, onEdit, t, lang }: { state: FormState; te
         [r.intro, state.introText],
       ],
     },
-    {
+    ...(mag ? maghrebRows(state, t, lang) : []),
+    ...(mag ? [] : [{
       step: 2,
       title: r.ceremonies,
-      items: (state.ceremonies ?? []).map((c) => [
+      items: (state.ceremonies ?? []).map((c): [string, string] => [
         c.label || t.ceremonies[c.type],
         [c.venueName, c.address, c.startTime && fmt(r.start, { t: c.startTime }), c.showOnInvitation ? "" : r.hidden].filter(Boolean).join(" · "),
       ]),
@@ -396,9 +419,9 @@ function Review({ state, templateName, onEdit, t, lang }: { state: FormState; te
         [r.transport, state.reception?.shuttles],
         [r.lodging, state.reception?.lodging],
       ],
-    },
+    }] as ReviewRow[]),
     {
-      step: 4,
+      step: mag ? 5 : 4,
       title: r.other,
       items: [
         [r.dressCode, state.details?.dressCode],
@@ -443,4 +466,69 @@ function Review({ state, templateName, onEdit, t, lang }: { state: FormState; te
       })}
     </div>
   );
+}
+
+/** Récapitulatif du formulaire maghrébin (henné, soirée, autres moments, décoration). */
+function maghrebRows(state: FormState, t: T, lang: SiteLang): Array<{ step: number; title: string; items: Array<[string, string | undefined]> }> {
+  const g = t.mag;
+  const m = { ...emptyMaghreb(), ...(state.maghreb ?? {}) } as ReturnType<typeof emptyMaghreb>;
+  const day = (d?: string) => (d ? new Date(`${d}T12:00`).toLocaleDateString(LANG_META[lang].intl, { dateStyle: "full" }) : "");
+  const join = (...xs: Array<string | false | undefined>) => xs.filter(Boolean).join(" · ");
+  const aud = (a?: string) => (a === "henna" ? g.audHenna : a === "hidden" ? g.audHidden : g.audAll);
+  const sep = m.separateGuests === "yes" ? g.separateYes : m.separateGuests === "no" ? g.separateNo : g.separateUnknown;
+  const h = m.henna;
+  const s = m.soiree;
+  const moment = (x: { date?: string; time?: string; venueName?: string; address?: string; audience?: string }) => join(day(x.date), x.time, x.venueName, x.address, aud(x.audience));
+  const deco = m.decoration;
+  return [
+    {
+      step: 2,
+      title: g.rHenna,
+      items: [
+        [g.rGuests, sep],
+        ...(h.enabled === false
+          ? []
+          : ([
+              [g.hennaDate, day(h.date)],
+              [g.hennaVenue, join(h.venueName, h.address)],
+              [g.hammamTime, join(h.hammamTime, h.hammamPlace, h.hammamTime || h.hammamPlace ? aud(h.hammamAudience) : "")],
+              [g.hennaTime, h.hennaTime],
+              [g.chantTime, h.chantTime],
+              [g.hennaDinner, h.dinnerTime],
+              [g.notesDay, h.notes],
+            ] as Array<[string, string | undefined]>)),
+      ],
+    },
+    {
+      step: 3,
+      title: g.rSoiree,
+      items: [
+        [g.soireeVenue, join(s.venueName, s.address)],
+        [g.receptionTime, s.receptionTime],
+        [g.brideTime, s.brideTime],
+        [g.teaTime, s.teaTime],
+        [g.dinnerTime, s.dinnerTime],
+        [g.cakeTime, s.cakeTime],
+        [g.endTime, s.endTime],
+        [g.notesDay, s.notes],
+        [t.review.parking, s.parking],
+        [t.review.transport, s.shuttles],
+        [t.review.lodging, s.lodging],
+      ],
+    },
+    {
+      step: 4,
+      title: g.rMoments,
+      items: [
+        ...(m.fatiha.enabled ? ([[g.fatiha, moment(m.fatiha)]] as Array<[string, string]>) : []),
+        ...(m.lendemain.enabled ? ([[g.lendemain, moment(m.lendemain)]] as Array<[string, string]>) : []),
+        ...(m.others ?? []).map((o) => [o.label || g.momentName, moment(o)] as [string, string]),
+      ],
+    },
+    {
+      step: 5,
+      title: g.rDeco,
+      items: [[g.decoQ, deco.known === "yes" ? join(deco.colors, deco.theme) || g.decoYes : deco.known === "no" ? g.decoNo : g.decoLater]],
+    },
+  ];
 }

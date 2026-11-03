@@ -132,6 +132,7 @@ export function RsvpTab({
                         <span className={`ml-2 badge border-transparent ${r.attending ? "bg-[#e5eee4] text-success" : "bg-danger-soft text-danger"}`}>
                           {r.attending ? `Présent·e · ${1 + r.companions_count} pers.` : "Absent·e"}
                         </span>
+                        {r.audience === "henna" ? <span className="ml-2 badge border-transparent bg-sage-soft text-forest-deep">Henné + soirée</span> : null}
                         {o.editedIds.has(r.id) ? <span className="ml-2 text-xs text-stone">· corrigée</span> : null}
                       </p>
                       <p className="mt-0.5 text-sm text-stone">

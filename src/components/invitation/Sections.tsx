@@ -1,12 +1,13 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Arch, CornerSpray, Divider, Sprig } from "@/components/ornaments";
 import { EVENT_TYPE_LABELS, programV2Items, type InvitationContent, type InvitationEvent, type InvitationSection, type RendererKey } from "@/lib/invitation/schema";
 import { calendarHref } from "@/lib/ics";
 import { ScratchCard } from "./ScratchCard";
 import { LayerEditorContext } from "./editor-context";
-import { LOCALES, formatDotDate, formatLongDate, formatTime, zonedToUtc } from "@/lib/time";
+import { LOCALES, formatDayLabel, formatDotDate, formatLongDate, formatTime, zonedToUtc } from "@/lib/time";
+import { eventDay, isMultiDay, sortByDay } from "@/lib/invitation/audience";
 import type { PublicRsvpConfig } from "@/lib/rsvp";
 import type { Labels } from "./i18n";
 import { El, ElText, elKey } from "./Element";
@@ -270,7 +271,8 @@ export function HeroSection({ content, renderer }: SectionProps) {
 
 /* ── Programme ─────────────────────────────────────────────────────── */
 export function ProgramSection({ content, renderer, labels, title }: SectionProps) {
-  const events = content.events.filter((e) => e.startTime || e.title);
+  const multi = isMultiDay(content);
+  const events = (multi ? sortByDay(content) : content.events).filter((e) => e.startTime || e.title);
   if (!events.length) return null;
   return (
     <Shell renderer={renderer} tone="tinted">
@@ -282,8 +284,16 @@ export function ProgramSection({ content, renderer, labels, title }: SectionProp
         ) : null}
         {events.map((e, i) => {
           const k = `list.${elKey(e.id)}`;
+          const newDay = multi && (i === 0 || eventDay(events[i - 1], content) !== eventDay(e, content));
           return (
-          <El id={k} as="li" key={e.id} className={renderer === "province" ? "relative mb-7 flex gap-6" : "mb-9 text-center last:mb-0"}>
+          <Fragment key={e.id}>
+          {newDay ? (
+            <li className={`list-none text-center ${i > 0 ? "mt-12" : ""} mb-7`} aria-hidden={false}>
+              <p className="text-[0.72rem] uppercase tracking-[0.3em]" style={{ color: "var(--inv-accent)" }}>{formatDayLabel(eventDay(e, content), content.language)}</p>
+              <span aria-hidden="true" className="mx-auto mt-2 block h-px w-10" style={{ backgroundColor: "var(--inv-accent)", opacity: 0.4 }} />
+            </li>
+          ) : null}
+          <El id={k} as="li" className={renderer === "province" ? "relative mb-7 flex gap-6" : "mb-9 text-center last:mb-0"}>
             {renderer === "province" ? (
               <>
                 <El id={`${k}.time`} as="span" className="w-14 shrink-0 pt-0.5 text-end text-[1.15rem]" style={{ ...css.display, color: "var(--inv-accent)" }}>
@@ -298,7 +308,7 @@ export function ProgramSection({ content, renderer, labels, title }: SectionProp
               </>
             ) : (
               <>
-                {i > 0 && renderer === "the-garden" ? <Divider className="mx-auto mb-6 h-3 w-16" stroke="var(--inv-soft)" /> : null}
+                {i > 0 && !newDay && renderer === "the-garden" ? <Divider className="mx-auto mb-6 h-3 w-16" stroke="var(--inv-soft)" /> : null}
                 <El id={`${k}.time`}>
                   <p className="text-[1.6rem] leading-none" style={{ ...css.script, color: "var(--inv-accent)" }}>
                     {formatTime(e.startTime, content.language)}
@@ -314,6 +324,7 @@ export function ProgramSection({ content, renderer, labels, title }: SectionProp
               </>
             )}
           </El>
+          </Fragment>
           );
         })}
       </ol>
@@ -494,7 +505,7 @@ export function VenuesSection({ content, renderer, labels, title, section }: Sec
   const seen = new Set<string>();
   const venues = content.events.filter((e) => {
     if (!e.address) return false;
-    const key = e.address.toLowerCase();
+    const key = `${e.address.toLowerCase()}|${eventDay(e, content)}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -511,7 +522,7 @@ export function VenuesSection({ content, renderer, labels, title, section }: Sec
   const detail = opts.detail || "var(--inv-accent)";
   const btnStyle = { backgroundColor: opts.buttonBg || "var(--inv-accent)", color: opts.buttonInk || "var(--inv-bg)", fontFamily: "var(--inv-display)" };
   const btnCls = "inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-[0.95rem] transition hover:brightness-110 active:scale-[0.98]";
-  const date = content.eventAt.slice(0, 10);
+  const multi = isMultiDay(content);
   const couple = [content.couple.partnerOne, content.couple.partnerTwo].filter(Boolean).join(" & ");
   return (
     <Shell renderer={renderer}>
@@ -524,13 +535,14 @@ export function VenuesSection({ content, renderer, labels, title, section }: Sec
           const eventTitle = e.title || EVENT_TYPE_LABELS[e.type];
           const time = e.startTime || e.arrivalTime;
           const cal = opts.calendar
-            ? calendarHref({ date, time, timeZone: content.timezone, title: couple ? `${couple} · ${eventTitle}` : eventTitle, location: [e.venueName, e.address].filter(Boolean).join(", ") })
+            ? calendarHref({ date: eventDay(e, content), time, timeZone: content.timezone, title: couple ? `${couple} · ${eventTitle}` : eventTitle, location: [e.venueName, e.address].filter(Boolean).join(", ") })
             : null;
           return (
             <El id={k} key={e.id} className="text-center">
               {i > 0 ? <div aria-hidden="true" className="mx-auto my-8 h-px w-10" style={{ backgroundColor: detail, opacity: 0.45 }} /> : null}
               <El id={`${k}.title`}>
                 <p className="text-[0.75rem] uppercase tracking-[0.24em]" style={{ color: detail }}>{eventTitle}</p>
+                {multi ? <p className="mt-1 text-[0.8rem]" style={{ color: "var(--inv-muted)" }}>{formatDayLabel(eventDay(e, content), content.language)}</p> : null}
               </El>
               <El id={`${k}.place`}>
                 <p className="mt-2 text-[1.7rem] leading-tight" style={{ color: "var(--inv-ink)", fontFamily: "var(--inv-display)" }}>{e.venueName}</p>
@@ -802,7 +814,7 @@ export function DecorSection({ height }: { height: number }) {
 export function ProgramV2Section({ section, content }: SectionProps & { section: InvitationSection }) {
   const { kicker, title, marker } = section;
   // Par défaut, le programme de l'invitation (rempli depuis la demande du client)
-  const items = programV2Items(section, content, (t) => formatTime(t, content.language));
+  const items = programV2Items(section, content, (t) => formatTime(t, content.language), (d) => formatDayLabel(d, content.language));
   const stemUrl = `url(/decor/tiges/${section.stem ?? "feuilles"}.svg)`;
   // Colonnes en % de la largeur de l'invitation : heure | tige | texte
   const cols = "grid-cols-[24cqw_12cqw_minmax(0,1fr)]";

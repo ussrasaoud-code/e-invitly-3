@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/audit";
 import { requireStaff } from "@/lib/auth";
 import { sendWelcomeEmail } from "@/lib/login-link";
 import { createClient } from "@/lib/supabase/server";
+import { newHennaToken } from "@/lib/publication";
 
 const uuid = z.string().uuid();
 const email = z.string().trim().toLowerCase().email("Adresse e-mail invalide").max(200);
@@ -53,5 +54,16 @@ export async function removeCoupleAccess(form: FormData) {
   const supabase = (await createClient())!;
   await supabase.from("invitation_access").delete().eq("invitation_id", invitationId).eq("email", to);
   await logActivity({ actorId: user.id, action: "access.revoked", resourceType: "invitation", resourceId: invitationId, summary: `Accès à l'espace mariés retiré à ${to}` });
+  revalidatePath(`/admin/invitations/${invitationId}`);
+}
+
+/** Crée (ou remplace) le lien privé « henné + soirée » d'une invitation. */
+export async function createHennaLink(form: FormData) {
+  const user = await requireStaff();
+  const invitationId = z.string().uuid().parse(form.get("id"));
+  const supabase = (await createClient())!;
+  const { data, error } = await supabase.from("invitations").update({ henna_token: newHennaToken() }).eq("id", invitationId).select("title").single();
+  if (error) throw new Error(`Lien non créé : ${error.message}. Avez-vous exécuté la migration 20261107000001_maghreb.sql ?`);
+  await logActivity({ actorId: user.id, action: "invitation.henna_link", resourceType: "invitation", resourceId: invitationId, summary: `Lien « henné + soirée » créé pour ${data.title}` });
   revalidatePath(`/admin/invitations/${invitationId}`);
 }

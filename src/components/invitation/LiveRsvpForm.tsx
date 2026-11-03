@@ -109,6 +109,7 @@ export function LiveRsvpForm({
             idempotencyKey: key,
             website: String(fd.get("website") ?? ""),
             code: String(fd.get("code") ?? ""),
+            h: config.hennaToken ?? "",
             firstName: String(fd.get("firstName") ?? ""),
             lastName: String(fd.get("lastName") ?? ""),
             attending: isYes,

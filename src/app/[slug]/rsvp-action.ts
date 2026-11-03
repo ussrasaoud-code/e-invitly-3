@@ -4,7 +4,8 @@ import { logActivity } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { env } from "@/lib/env";
 import { hashedClientIp } from "@/lib/net";
-import { loadPublicInvitation } from "@/lib/publication";
+import { forAudience } from "@/lib/invitation/audience";
+import { isValidHennaToken, loadPublicInvitation } from "@/lib/publication";
 import { rsvpSubmissionSchema, sanitizeSubmission, type RsvpResult, type RsvpSubmission } from "@/lib/rsvp";
 import { getOrCreateRsvpForm, toPublicConfig } from "@/lib/rsvp-server";
 import { getSettings } from "@/lib/settings";
@@ -56,11 +57,13 @@ export async function submitRsvp(input: RsvpSubmission): Promise<RsvpResult> {
     guest = g;
   }
 
+  const henna = await isValidHennaToken(inv.invitationId, data.h);
+  const visible = forAudience(inv.content, henna ? "henna" : "all");
   const { value, missing } = sanitizeSubmission(data, {
     fields: cfg.fields,
     maxCompanions: guest ? guest.max_companions : cfg.maxCompanions,
     questions: cfg.questions,
-    eventIds: inv.content.events.map((e) => e.id),
+    eventIds: visible.events.map((e) => e.id),
   });
   if (missing.length) return { ok: false, error: "invalid", fields: missing };
 
@@ -79,6 +82,7 @@ export async function submitRsvp(input: RsvpSubmission): Promise<RsvpResult> {
     answers: value.answers,
     comment: value.comment || null,
     ip_hash: ipHash,
+    ...(henna ? { audience: "henna" } : {}),
   };
 
   let updated = false;
@@ -102,7 +106,7 @@ export async function submitRsvp(input: RsvpSubmission): Promise<RsvpResult> {
 
   const who = `${value.firstName} ${value.lastName}`.trim();
   const people = value.attending ? 1 + value.companionsCount : 0;
-  const summary = `${who} ${value.attending ? `présent·e (${people} pers.)` : "ne viendra pas"} — ${inv.content.couple.partnerOne} & ${inv.content.couple.partnerTwo}`;
+  const summary = `${henna ? "[henné + soirée] " : ""}${who} ${value.attending ? `présent·e (${people} pers.)` : "ne viendra pas"} — ${inv.content.couple.partnerOne} & ${inv.content.couple.partnerTwo}`;
   await logActivity({ action: updated ? "rsvp.updated" : "rsvp.created", resourceType: "rsvp_response", resourceId: inv.invitationId, summary: `${updated ? "Réponse modifiée" : "Nouvelle réponse RSVP"} : ${summary}` });
 
   try {

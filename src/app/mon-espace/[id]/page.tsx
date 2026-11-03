@@ -106,6 +106,7 @@ export default async function CoupleResponses({ params, searchParams }: { params
                     <p className="font-medium">
                       {r.first_name} {r.last_name}{" "}
                       <span className={r.attending ? "text-success" : "text-danger"}>· {r.attending ? fmt(t.attending, { n: 1 + r.companions_count }) : t.notAttending}</span>
+                      {r.audience === "henna" ? <span className="ms-2 text-xs text-forest">· {t.hennaBadge}</span> : null}
                     </p>
                     <time className="text-xs text-stone" dateTime={r.submitted_at}>{when(r.submitted_at)}</time>
                   </div>

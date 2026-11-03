@@ -18,6 +18,8 @@ export type RsvpResponseRow = {
   comment: string | null;
   submitted_at: string;
   updated_at: string;
+  /** « henna » : réponse venue du lien « henné + soirée » */
+  audience?: "all" | "henna";
 };
 
 export type GuestRow = { id: string; display_name: string; code: string; max_companions: number };
@@ -117,6 +119,7 @@ export function exportRows(o: RsvpOverview, includeDietary: boolean): Array<Arra
     "Présence",
     "Personnes",
     "Accompagnants",
+    ...(o.responses.some((r) => r.audience === "henna") ? ["Lien"] : []),
     ...o.events.map((e) => e.title),
     "Menus enfant",
     ...(includeDietary ? ["Régime / allergies"] : []),
@@ -132,6 +135,7 @@ export function exportRows(o: RsvpOverview, includeDietary: boolean): Array<Arra
     r.attending ? "Oui" : "Non",
     r.attending ? 1 + r.companions_count : 0,
     r.companions.join(", "),
+    ...(o.responses.some((x) => x.audience === "henna") ? [r.audience === "henna" ? "Henné + soirée" : "Soirée"] : []),
     ...o.events.map((e) => (r.attending && r.events.includes(e.id) ? "Oui" : "")),
     r.child_menus || "",
     ...(includeDietary ? [r.dietary ?? ""] : []),

@@ -63,6 +63,14 @@ export const EVENT_TYPES = [
   "party",
   "brunch",
   "other",
+  // Mariage maghrébin
+  "hammam",
+  "henna",
+  "fatiha",
+  "reception",
+  "bride",
+  "tea",
+  "cake",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
@@ -75,7 +83,18 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   party: "Soirée",
   brunch: "Brunch",
   other: "Autre moment",
+  hammam: "Hammam de la mariée",
+  henna: "Henné",
+  fatiha: "Fatiha",
+  reception: "Accueil des invités",
+  bride: "Entrée de la mariée",
+  tea: "Goûter",
+  cake: "Pièce montée",
 };
+
+/** Qui voit un moment : tous les invités, ou seulement ceux du lien « henné + soirée ». */
+export const AUDIENCES = ["all", "henna"] as const;
+export type Audience = (typeof AUDIENCES)[number];
 
 export const eventSchema = z.object({
   id: z.string().min(1).max(40),
@@ -87,6 +106,10 @@ export const eventSchema = z.object({
   arrivalTime: optionalText(5),
   startTime: optionalText(5),
   description: optionalText(400),
+  /** Jour du moment s'il diffère de la date principale (mariage sur plusieurs jours) */
+  date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date au format AAAA-MM-JJ").optional().default(""),
+  /** « henna » : visible seulement avec le lien « henné + soirée » */
+  audience: z.enum(AUDIENCES).default("all"),
 });
 export type InvitationEvent = z.infer<typeof eventSchema>;
 
@@ -505,15 +528,20 @@ export function programV2Section(): InvitationSection {
 }
 
 /** Moments affichés par la section « Programme v2 » : le programme de l'invitation, ou des moments propres à la section. */
-export function programV2Items(section: InvitationSection, content: InvitationContent, formatTime: (t: string) => string = (t) => t) {
+export function programV2Items(section: InvitationSection, content: InvitationContent, formatTime: (t: string) => string = (t) => t, formatDay?: (d: string) => string) {
   if (section.itemsFrom === "custom" || !content.events.length) return section.items;
-  return content.events
+  const dayOf = (e: InvitationEvent) => e.date || content.eventAt.slice(0, 10);
+  const multi = !!formatDay && new Set(content.events.map(dayOf).filter(Boolean)).size > 1;
+  const events = multi
+    ? [...content.events].sort((a, b) => `${dayOf(a)} ${a.startTime || "99:99"}`.localeCompare(`${dayOf(b)} ${b.startTime || "99:99"}`))
+    : content.events;
+  return events
     .filter((e) => e.title || e.startTime)
     .map((e) => ({
       id: e.id,
       time: e.startTime ? formatTime(e.startTime) : "",
       title: e.title,
-      detail: [e.venueName, e.description || e.address].filter(Boolean).join("\n"),
+      detail: [multi && formatDay ? formatDay(dayOf(e)) : "", e.venueName, e.description || e.address].filter(Boolean).join("\n"),
       fromEvent: true as const,
     }));
 }

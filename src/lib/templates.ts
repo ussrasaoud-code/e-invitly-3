@@ -22,18 +22,27 @@ export type CatalogTemplate = {
   languages: string[];
   /** Fiche traduite par langue */
   translations: Record<string, Partial<Record<"name" | "short_description" | "description" | "price_label" | "features", string>>>;
+  /** Formulaire de demande : français/européen ou maghrébin */
+  culture: "europeen" | "maghrebin";
 };
 
 const BASE_COLUMNS =
   "id, slug, name, short_description, description, category, styles, features, cover_image, gallery, price_label, is_featured, sort_order";
-let CATALOG_COLUMNS = `${BASE_COLUMNS}, languages, translations`;
+let CATALOG_COLUMNS = `${BASE_COLUMNS}, languages, translations, culture`;
 
 /** Colonnes ajoutées par la migration « languages » : on s'en passe si elle n'a pas encore été appliquée. */
 function missingColumns(error: { message?: string } | null) {
-  return !!error?.message && /languages|translations/.test(error.message) && /column|schema cache/i.test(error.message);
+  return !!error?.message && /languages|translations|culture/.test(error.message) && /column|schema cache/i.test(error.message);
+}
+/** Retire seulement la colonne absente (migration pas encore appliquée). */
+function fallbackColumns(error: { message?: string } | null) {
+  if (/culture/.test(error?.message ?? "") && CATALOG_COLUMNS.includes(", culture")) return CATALOG_COLUMNS.replace(", culture", "");
+  return BASE_COLUMNS;
 }
 function normalize<T extends Partial<CatalogTemplate>>(row: T): T & CatalogTemplate {
-  return { languages: ["fr"], translations: {}, ...row } as T & CatalogTemplate;
+  const t = { languages: ["fr"], translations: {}, culture: "europeen", ...row } as T & CatalogTemplate;
+  if (t.culture !== "maghrebin") t.culture = "europeen";
+  return t;
 }
 
 /** Nom, descriptions et prix dans la langue demandée (repli sur le français). */
@@ -66,8 +75,8 @@ export async function listPublishedTemplates(): Promise<QueryResult<CatalogTempl
       .order("sort_order")
       .order("name");
   let { data, error } = await query();
-  if (missingColumns(error)) {
-    CATALOG_COLUMNS = BASE_COLUMNS;
+  for (let i = 0; i < 2 && missingColumns(error); i++) {
+    CATALOG_COLUMNS = fallbackColumns(error);
     ({ data, error } = await query());
   }
   if (error) console.error("[templates]", error.message);
@@ -88,8 +97,8 @@ export async function getPublishedTemplate(
       .eq("status", "published")
       .maybeSingle();
   let { data, error } = await query();
-  if (missingColumns(error)) {
-    CATALOG_COLUMNS = BASE_COLUMNS;
+  for (let i = 0; i < 2 && missingColumns(error); i++) {
+    CATALOG_COLUMNS = fallbackColumns(error);
     ({ data, error } = await query());
   }
   if (error) console.error("[template]", error.message);

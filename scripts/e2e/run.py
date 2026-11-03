@@ -1028,6 +1028,100 @@ with sync_playwright() as p:
     assert api("GET", f"/rest/v1/template_versions?template_id=eq.{old['id']}&select=id") == []
     ok("modèles : suppression définitive d'un modèle archivé (versions comprises)")
 
+    # ── Mariage maghrébin : formulaire dédié, deux liens (soirée / henné + soirée) ──
+    api("PATCH", "/rest/v1/templates?slug=eq.province", {"culture": "maghrebin"}, prefer="return=minimal")
+    v = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+    v.goto(f"{BASE}/invitations?mariage=maghrebin")
+    expect(v.get_by_text("Mariage maghrébin").first).to_be_visible()
+    v.goto(f"{BASE}/personnalisation/province")
+    expect(v.get_by_text("Formulaire pensé pour les mariages maghrébins")).to_be_visible()
+    v.get_by_label("Prénom", exact=True).fill("Yasmine"); v.get_by_label("Nom", exact=True).fill("Benali")
+    v.get_by_label("Adresse e-mail").fill("yasmine@example.test")
+    v.get_by_role("button", name="Continuer").click()
+    v.get_by_label("Prénom de la première personne").fill("Yasmine"); v.get_by_label("Prénom de la seconde personne").fill("Karim")
+    v.get_by_label("Date de la soirée").fill("2027-06-12")
+    v.get_by_role("button", name="Continuer").click()
+    v.get_by_text("Oui, certains invités viennent seulement à la soirée").click()
+    v.get_by_role("button", name="Continuer").click()
+    expect(v.get_by_text("Indiquez la date du henné")).to_be_visible()
+    v.get_by_label("Date du henné").fill("2027-06-11")
+    v.get_by_label("Lieu du henné").fill("Riad Yasmine")
+    v.get_by_label("Adresse complète").fill("12 rue des Orangers, Lyon")
+    v.get_by_label("Hammam de la mariée (heure)").fill("10:00")
+    v.get_by_label("Cérémonie du henné").fill("19:00")
+    v.get_by_label("Chants du henné").fill("20:30")
+    v.screenshot(path=SHOTS / "50-maghreb-henne.png", full_page=True)
+    v.get_by_role("button", name="Continuer").click()
+    v.get_by_label("Salle de la soirée").fill("Salle Andalouse")
+    v.get_by_label("Adresse complète").fill("5 avenue des Lilas, Lyon")
+    v.get_by_label("Accueil des invités").fill("16:00")
+    v.get_by_label("Entrée de la mariée").fill("17:00")
+    v.get_by_label("Goûter (pâtisseries, salé, thé ou jus)").fill("18:00")
+    v.get_by_label("Dîner").fill("21:00")
+    v.get_by_label("Pièce montée").fill("23:30")
+    v.get_by_role("button", name="Continuer").click()
+    v.locator("fieldset").filter(has_text="Fatiha / Katb el-kitab").locator("input[type=checkbox]").check()
+    v.locator("fieldset").filter(has_text="Fatiha / Katb el-kitab").locator("input[type=date]").fill("2027-06-10")
+    v.locator("fieldset").filter(has_text="Fatiha / Katb el-kitab").locator("input[type=time]").fill("18:00")
+    v.get_by_label("Qui le verra sur l'invitation ?").select_option("henna")
+    v.get_by_role("button", name="Continuer").click()
+    v.get_by_text("Oui", exact=True).click()
+    v.get_by_label("Couleurs de la décoration").fill("blanc et doré")
+    v.get_by_role("button", name="Continuer").click()
+    expect(v.get_by_text("Jour du henné").first).to_be_visible()
+    v.locator("input[type=checkbox]").last.check()
+    v.screenshot(path=SHOTS / "51-maghreb-verification.png", full_page=True)
+    v.get_by_role("button", name="Envoyer ma demande").click()
+    v.wait_for_url(re.compile(r"/personnalisation/merci"), timeout=20000)
+    req = api("GET", "/rest/v1/client_requests?email=eq.yasmine@example.test&select=id,form_data")[0]
+    assert req["form_data"]["culture"] == "maghrebin" and req["form_data"]["maghreb"]["henna"]["date"] == "2027-06-11", req["form_data"]
+    ok("mariage maghrébin : modèle → formulaire dédié (henné, soirée, Fatiha, décoration), demande enregistrée")
+
+    a.goto(f"{BASE}/admin/demandes/{req['id']}")
+    expect(a.get_by_text("Jour du henné")).to_be_visible()
+    expect(a.get_by_text("blanc et doré")).to_be_visible()
+    a.get_by_role("button", name="Transformer en invitation").click()
+    a.wait_for_url(re.compile(r"/admin/invitations/[0-9a-f-]+"), timeout=20000)
+    m_id = re.search(r"/admin/invitations/([0-9a-f-]+)", a.url).group(1)
+    minv = api("GET", f"/rest/v1/invitations?id=eq.{m_id}&select=slug,henna_token,draft_content")[0]
+    assert minv["henna_token"], "lien henné non créé"
+    ev = {e["id"]: e for e in minv["draft_content"]["events"]}
+    assert ev["henne"]["audience"] == "henna" and ev["henne"]["date"] == "2027-06-11" and ev["accueil"]["audience"] == "all", ev
+    a.goto(f"{BASE}/admin/invitations/{m_id}?onglet=publication")
+    expect(a.get_by_text("Lien henné + soirée (invités du henné)")).to_be_visible()
+    a.locator("input[name=sans_paiement]").check()
+    a.get_by_role("button", name="Publier", exact=True).click()
+    a.wait_for_url(re.compile(r"publiee=1"), timeout=20000)
+    slug_m = minv["slug"]
+    v.goto(f"{BASE}/{slug_m}")
+    assert "Cérémonie du henné" not in v.content() and "Riad Yasmine" not in v.content(), "le lien soirée ne doit rien dire du henné"
+    v.get_by_role("button", name="Ouvrir l'invitation").first.click(); v.wait_for_timeout(2500)
+    expect(v.get_by_text("Entrée de la mariée").first).to_be_attached()
+    v.goto(f"{BASE}/{slug_m}?h={minv['henna_token']}")
+    v.get_by_role("button", name="Ouvrir l'invitation").first.click(); v.wait_for_timeout(2500)
+    expect(v.get_by_text("Cérémonie du henné").first).to_be_attached()
+    expect(v.get_by_text("Vendredi 11 juin").first).to_be_attached()
+    v.locator('[data-section="program"]').scroll_into_view_if_needed(); v.wait_for_timeout(1500)
+    v.screenshot(path=SHOTS / "52-maghreb-programme-henne.png")
+    v.goto(f"{BASE}/{slug_m}?h=faux-jeton-0123456789")
+    assert "Cérémonie du henné" not in v.content(), "un faux jeton ne doit rien montrer du henné"
+    ok("deux liens : la soirée seule par le lien normal, le henné en plus par le lien privé (jours indiqués)")
+
+    # Réponse par le lien henné : enregistrée comme « henné + soirée »
+    v.goto(f"{BASE}/{slug_m}?h={minv['henna_token']}")
+    v.get_by_role("button", name="Ouvrir l'invitation").first.click(); v.wait_for_timeout(2000)
+    v.locator("input[name=firstName]").scroll_into_view_if_needed()
+    v.locator("input[name=firstName]").fill("Samira")
+    v.locator("input[name=lastName]").fill("Haddad")
+    v.get_by_text("Avec joie").click()
+    v.get_by_role("button", name="Envoyer ma réponse").click()
+    v.wait_for_timeout(3000)
+    rr = api("GET", f"/rest/v1/rsvp_responses?invitation_id=eq.{m_id}&select=first_name,audience")
+    assert rr and rr[0]["audience"] == "henna", rr
+    v.context.close()
+    api("PATCH", "/rest/v1/templates?slug=eq.province", {"culture": "europeen"}, prefer="return=minimal")
+    ok("RSVP par le lien henné : réponse marquée « henné + soirée »")
+
     # Modèle vierge : partir de zéro
     a.goto(f"{BASE}/admin/editeur")
     blank_name = f"Page test {int(time.time())}"

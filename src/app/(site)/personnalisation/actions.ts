@@ -49,17 +49,27 @@ export async function submitRequest(input: RequestInput, uiLang: string = "fr"):
     return { ok: true, reference: "EI-0000", emailSent: false };
   }
 
-  const { data: template } = await db
+  let { data: template, error: tplError } = await db
     .from("templates")
-    .select("id, name, status")
+    .select("id, name, status, culture")
     .eq("slug", data.templateSlug)
     .maybeSingle();
+  if (tplError && /culture/.test(tplError.message)) {
+    // Migration « maghreb » pas encore appliquée
+    ({ data: template } = await db.from("templates").select("id, name, status").eq("slug", data.templateSlug).maybeSingle());
+  }
   if (!template || template.status !== "published") {
     return { ok: false, message: err.unavailable };
   }
 
-  const { website: _hp, consent: _c, templateSlug: _s, ...formData } = data;
+  // Le type de formulaire est celui du modèle (jamais celui envoyé par le navigateur)
+  const culture = (template as { culture?: string }).culture === "maghrebin" ? "maghrebin" : "europeen";
+  if (culture === "maghrebin" && !data.maghreb) {
+    return { ok: false, message: err.invalid };
+  }
+  const { website: _hp, consent: _c, templateSlug: _s, maghreb, ...rest } = data;
   void _hp; void _c; void _s;
+  const formData = culture === "maghrebin" ? { ...rest, culture, maghreb, ceremonies: [] } : { ...rest, culture };
 
   const { data: row, error } = await db
     .from("client_requests")
@@ -121,7 +131,7 @@ export async function submitRequest(input: RequestInput, uiLang: string = "fr"):
       paragraphs: [
         `${data.firstName} ${data.lastName} (${data.email}) — modèle ${template.name}.`,
         `Langue de l'invitation : ${data.language.toUpperCase()} · site consulté en ${uiLang.toUpperCase()}.`,
-        `Couple : ${data.partnerOne} & ${data.partnerTwo}, le ${data.eventDate}.`,
+        `Couple : ${data.partnerOne} & ${data.partnerTwo}, le ${data.eventDate}${culture === "maghrebin" ? ` (mariage maghrébin${maghreb?.henna.enabled && maghreb.henna.date ? `, henné le ${maghreb.henna.date}` : ""})` : ""}.`,
         `À traiter dans l'administration : ${env.siteUrl}/admin/demandes/${row.id}`,
       ],
     });

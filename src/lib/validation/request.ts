@@ -125,6 +125,87 @@ export const detailsStep = z.object({
   }),
 });
 
+/* ── Mariage maghrébin ─────────────────────────────────────────────── */
+const day = z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date invalide").optional().default("");
+/** Qui voit le moment : tous, invités du henné seulement, ou personne (privé) */
+export const MOMENT_AUDIENCES = ["all", "henna", "hidden"] as const;
+export type MomentAudience = (typeof MOMENT_AUDIENCES)[number];
+const audience = (d: MomentAudience) => z.enum(MOMENT_AUDIENCES).default(d);
+
+const place = {
+  date: day,
+  venueName: opt(120),
+  address: opt(240),
+  mapsUrl: url,
+};
+
+export const extraMomentSchema = z.object({
+  enabled: z.boolean().default(false),
+  ...place,
+  time: time,
+  audience: audience("all"),
+  notes: opt(500),
+});
+
+export const maghrebSchema = z.object({
+  /** Certains invités ne viennent qu'à la soirée (→ deux liens) */
+  separateGuests: z.enum(["yes", "no", "unknown"]).default("unknown"),
+  henna: z
+    .object({
+      enabled: z.boolean().default(true),
+      ...place,
+      hammamTime: time,
+      hammamAudience: audience("hidden"),
+      hammamPlace: opt(160),
+      hennaTime: time,
+      chantTime: time,
+      dinnerTime: time,
+      notes: opt(800),
+    })
+    .superRefine((h, ctx) => {
+      if (h.enabled && !h.date) ctx.addIssue({ code: "custom", path: ["date"], message: "Indiquez la date du henné" });
+    })
+    .default({ enabled: true, date: "", venueName: "", address: "", mapsUrl: "", hammamTime: "", hammamAudience: "hidden", hammamPlace: "", hennaTime: "", chantTime: "", dinnerTime: "", notes: "" }),
+  soiree: z
+    .object({
+      ...place,
+      receptionTime: time,
+      brideTime: time,
+      teaTime: time,
+      dinnerTime: time,
+      cakeTime: time,
+      endTime: time,
+      notes: opt(800),
+      parking: opt(500),
+      shuttles: opt(500),
+      lodging: opt(800),
+    })
+    .default({ date: "", venueName: "", address: "", mapsUrl: "", receptionTime: "", brideTime: "", teaTime: "", dinnerTime: "", cakeTime: "", endTime: "", notes: "", parking: "", shuttles: "", lodging: "" }),
+  fatiha: extraMomentSchema.default({ enabled: false, date: "", venueName: "", address: "", mapsUrl: "", time: "", audience: "all", notes: "" }),
+  lendemain: extraMomentSchema.default({ enabled: false, date: "", venueName: "", address: "", mapsUrl: "", time: "", audience: "henna", notes: "" }),
+  others: z.array(extraMomentSchema.extend({ label: t(80).min(1, "Donnez un nom à ce moment") })).max(4).default([]),
+  decoration: z
+    .object({
+      known: z.enum(["yes", "no", "later"]).default("later"),
+      colors: opt(300),
+      theme: opt(600),
+    })
+    .default({ known: "later", colors: "", theme: "" }),
+});
+export type MaghrebInput = z.input<typeof maghrebSchema>;
+export type MaghrebData = z.output<typeof maghrebSchema>;
+
+export const hennaStep = z.object({ maghreb: maghrebSchema.pick({ separateGuests: true, henna: true }) });
+export const soireeStep = z.object({ maghreb: maghrebSchema.pick({ soiree: true }) });
+export const momentsStep = z.object({ maghreb: maghrebSchema.pick({ fatiha: true, lendemain: true, others: true }) });
+export const maghrebDetailsStep = z.object({
+  maghreb: maghrebSchema.pick({ decoration: true }),
+  details: detailsStep.shape.details,
+});
+
+export const CULTURES = ["europeen", "maghrebin"] as const;
+export type Culture = (typeof CULTURES)[number];
+
 export const reviewStep = z.object({
   consent: z.literal(true, { message: "Votre accord est nécessaire pour envoyer la demande" }),
   /** Champ piège invisible : doit rester vide (anti-robots) */
@@ -139,12 +220,16 @@ export const requestSchema = z.object({
   ...detailsStep.shape,
   ...reviewStep.shape,
   templateSlug: z.string().trim().max(80),
+  culture: z.enum(CULTURES).default("europeen"),
+  maghreb: maghrebSchema.optional(),
 });
 
 export type RequestInput = z.input<typeof requestSchema>;
 export type RequestData = z.output<typeof requestSchema>;
 
 export const STEP_SCHEMAS = [contactStep, coupleStep, ceremoniesStep, receptionStep, detailsStep, reviewStep] as const;
+/** Formulaire maghrébin : coordonnées, couple, henné, soirée, autres moments, décoration et détails, vérification */
+export const MAGHREB_STEP_SCHEMAS = [contactStep, coupleStep, hennaStep, soireeStep, momentsStep, maghrebDetailsStep, reviewStep] as const;
 
 export const STEP_TITLES = [
   "Vos coordonnées",
@@ -172,6 +257,8 @@ const ERROR_KEYS: Record<string, string> = {
   "6 cérémonies maximum": "maxCeremonies",
   "Date invalide": "date",
   "Votre accord est nécessaire pour envoyer la demande": "consent",
+  "Donnez un nom à ce moment": "momentName",
+  "Indiquez la date du henné": "hennaDate",
 };
 
 /** Traduit un message d'erreur du formulaire dans la langue du visiteur. */

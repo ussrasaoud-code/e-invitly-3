@@ -278,6 +278,13 @@ export function InvitationEditor({
                   <L label="Adresse" className="sm:col-span-2"><input className={inputCls} value={ev.address} onChange={(e) => setEvent(i, { address: e.target.value })} /></L>
                   <L label="Lien carte (facultatif)"><input className={inputCls} value={ev.mapsUrl} onChange={(e) => setEvent(i, { mapsUrl: e.target.value })} placeholder="https://maps…" /></L>
                   <L label="Description" className="sm:col-span-3"><input className={inputCls} value={ev.description} onChange={(e) => setEvent(i, { description: e.target.value })} /></L>
+                  <L label="Jour (si différent de la date principale)"><input type="date" className={inputCls} value={ev.date} onChange={(e) => setEvent(i, { date: e.target.value })} /></L>
+                  <L label="Visible par" className="sm:col-span-2">
+                    <select className={inputCls} value={ev.audience} onChange={(e) => setEvent(i, { audience: e.target.value as InvitationEvent["audience"] })}>
+                      <option value="all">Tous les invités (lien normal)</option>
+                      <option value="henna">Invités du henné seulement (lien « henné + soirée »)</option>
+                    </select>
+                  </L>
                 </div>
                 <div className="mt-3 flex gap-2">
                   <IconBtn label="Monter" onClick={() => update((x) => ({ ...x, events: move(x.events, i, -1) }))} disabled={i === 0}>↑</IconBtn>
@@ -293,7 +300,7 @@ export function InvitationEditor({
                 onClick={() =>
                   update((x) => ({
                     ...x,
-                    events: [...x.events, { id: `e-${Date.now().toString(36)}`, type: "other", title: "", venueName: "", address: "", mapsUrl: "", arrivalTime: "", startTime: "", description: "" }],
+                    events: [...x.events, { id: `e-${Date.now().toString(36)}`, type: "other", title: "", venueName: "", address: "", mapsUrl: "", arrivalTime: "", startTime: "", description: "", date: "", audience: "all" }],
                   }))
                 }
               >

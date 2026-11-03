@@ -123,6 +123,14 @@ export default async function TemplatePage({ params, searchParams }: Props) {
               {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </label>
+          <label>
+            <span className="field-label">Type de mariage (formulaire du client)</span>
+            <select name="culture" defaultValue={t.culture === "maghrebin" ? "maghrebin" : "europeen"} className="field">
+              <option value="europeen">Français / européen (cérémonies, cocktail, dîner)</option>
+              <option value="maghrebin">Maghrébin (henné, soirée, plusieurs jours)</option>
+            </select>
+            <span className="field-hint">Le client qui choisit ce modèle remplit le formulaire correspondant. Les modèles maghrébins portent un badge dans le catalogue.</span>
+          </label>
           <PriceField defaultLabel={t.price_label} />
           <fieldset className="md:col-span-2">
             <legend className="field-label">Styles</legend>
