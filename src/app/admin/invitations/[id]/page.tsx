@@ -289,7 +289,7 @@ export default async function InvitationPage({ params, searchParams }: Props) {
           <section className="card p-5">
             <h2 className="font-serif text-2xl">Aperçu pour validation</h2>
             <p className="mt-1 text-sm text-stone">
-              Un lien privé (7 jours) qui montre le brouillon, pour que le couple valide avant la publication. Il n&apos;est pas indexé et ne donne accès à rien d&apos;autre.
+              Un lien privé (valable 48 h par défaut, réglable dans Paramètres) qui montre le brouillon, avec un filigrane, pour que le couple valide avant la publication. Il n&apos;est pas indexé et ne donne accès à rien d&apos;autre.
             </p>
             <div className="mt-4">
               <PreviewLink invitationId={inv.id} />

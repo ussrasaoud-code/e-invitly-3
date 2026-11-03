@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { templateDefinitionSchema, type Language, type TemplateDefinition } from "@/lib/invitation/schema";
 import { contentFor } from "@/lib/invitation/variants";
 import { translatePrice } from "@/lib/price";
+import { normalizeCultures, type Culture } from "@/lib/validation/request";
 
 export type CatalogTemplate = {
   id: string;
@@ -22,26 +23,26 @@ export type CatalogTemplate = {
   languages: string[];
   /** Fiche traduite par langue */
   translations: Record<string, Partial<Record<"name" | "short_description" | "description" | "price_label" | "features", string>>>;
-  /** Formulaire de demande : français/européen ou maghrébin */
-  culture: "europeen" | "maghrebin";
+  /** Types de mariage proposés avec ce modèle (la cliente choisit le sien au début du formulaire) */
+  cultures: Culture[];
 };
 
 const BASE_COLUMNS =
   "id, slug, name, short_description, description, category, styles, features, cover_image, gallery, price_label, is_featured, sort_order";
-let CATALOG_COLUMNS = `${BASE_COLUMNS}, languages, translations, culture`;
+let CATALOG_COLUMNS = `${BASE_COLUMNS}, languages, translations, cultures`;
 
 /** Colonnes ajoutées par la migration « languages » : on s'en passe si elle n'a pas encore été appliquée. */
 function missingColumns(error: { message?: string } | null) {
-  return !!error?.message && /languages|translations|culture/.test(error.message) && /column|schema cache/i.test(error.message);
+  return !!error?.message && /languages|translations|cultures/.test(error.message) && /column|schema cache/i.test(error.message);
 }
 /** Retire seulement la colonne absente (migration pas encore appliquée). */
 function fallbackColumns(error: { message?: string } | null) {
-  if (/culture/.test(error?.message ?? "") && CATALOG_COLUMNS.includes(", culture")) return CATALOG_COLUMNS.replace(", culture", "");
+  if (/cultures/.test(error?.message ?? "") && CATALOG_COLUMNS.includes(", cultures")) return CATALOG_COLUMNS.replace(", cultures", "");
   return BASE_COLUMNS;
 }
 function normalize<T extends Partial<CatalogTemplate>>(row: T): T & CatalogTemplate {
-  const t = { languages: ["fr"], translations: {}, culture: "europeen", ...row } as T & CatalogTemplate;
-  if (t.culture !== "maghrebin") t.culture = "europeen";
+  const t = { languages: ["fr"], translations: {}, ...row } as T & CatalogTemplate;
+  t.cultures = normalizeCultures(row.cultures);
   return t;
 }
 

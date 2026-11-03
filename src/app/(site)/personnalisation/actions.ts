@@ -8,7 +8,7 @@ import { env } from "@/lib/env";
 import { hashedClientIp } from "@/lib/net";
 import { getSettings } from "@/lib/settings";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { flattenErrors, requestSchema, type RequestInput } from "@/lib/validation/request";
+import { flattenErrors, hasMaghrebSteps, normalizeCultures, requestSchema, type Culture, type RequestInput } from "@/lib/validation/request";
 
 export type SubmitResult =
   | { ok: true; reference: string; emailSent: boolean }
@@ -51,25 +51,29 @@ export async function submitRequest(input: RequestInput, uiLang: string = "fr"):
 
   let { data: template, error: tplError } = await db
     .from("templates")
-    .select("id, name, status, culture")
+    .select("id, name, status, cultures")
     .eq("slug", data.templateSlug)
     .maybeSingle();
-  if (tplError && /culture/.test(tplError.message)) {
-    // Migration « maghreb » pas encore appliquée
+  if (tplError && /cultures/.test(tplError.message)) {
+    // Migration « types de mariage » pas encore appliquée
     ({ data: template } = await db.from("templates").select("id, name, status").eq("slug", data.templateSlug).maybeSingle());
   }
   if (!template || template.status !== "published") {
     return { ok: false, message: err.unavailable };
   }
 
-  // Le type de formulaire est celui du modèle (jamais celui envoyé par le navigateur)
-  const culture = (template as { culture?: string }).culture === "maghrebin" ? "maghrebin" : "europeen";
-  if (culture === "maghrebin" && !data.maghreb) {
+  // Type choisi par la cliente, parmi ceux que propose le modèle (sinon le premier)
+  const offered = normalizeCultures((template as { cultures?: unknown }).cultures);
+  const culture: Culture = offered.includes(data.culture) ? data.culture : offered[0];
+  if (hasMaghrebSteps(culture) && !data.maghreb) {
     return { ok: false, message: err.invalid };
   }
   const { website: _hp, consent: _c, templateSlug: _s, maghreb, ...rest } = data;
   void _hp; void _c; void _s;
-  const formData = culture === "maghrebin" ? { ...rest, culture, maghreb, ceremonies: [] } : { ...rest, culture };
+  const formData =
+    culture === "maghrebin" ? { ...rest, culture, maghreb, ceremonies: [] }
+    : culture === "mixte" ? { ...rest, culture, maghreb }
+    : { ...rest, culture };
 
   const { data: row, error } = await db
     .from("client_requests")
@@ -131,7 +135,7 @@ export async function submitRequest(input: RequestInput, uiLang: string = "fr"):
       paragraphs: [
         `${data.firstName} ${data.lastName} (${data.email}) — modèle ${template.name}.`,
         `Langue de l'invitation : ${data.language.toUpperCase()} · site consulté en ${uiLang.toUpperCase()}.`,
-        `Couple : ${data.partnerOne} & ${data.partnerTwo}, le ${data.eventDate}${culture === "maghrebin" ? ` (mariage maghrébin${maghreb?.henna.enabled && maghreb.henna.date ? `, henné le ${maghreb.henna.date}` : ""})` : ""}.`,
+        `Couple : ${data.partnerOne} & ${data.partnerTwo}, le ${data.eventDate}${hasMaghrebSteps(culture) ? ` (mariage ${culture === "mixte" ? "franco-maghrébin" : "maghrébin"}${maghreb?.henna.enabled && maghreb.henna.date ? `, henné le ${maghreb.henna.date}` : ""})` : ""}.`,
         `À traiter dans l'administration : ${env.siteUrl}/admin/demandes/${row.id}`,
       ],
     });

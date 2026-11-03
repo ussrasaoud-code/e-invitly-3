@@ -40,3 +40,14 @@ export const MAGHREB_TITLES: Record<Language, Record<MaghrebMoment, string> & { 
     teaDetail: "Gebak, hartige hapjes, thee en sap", brideDetail: "De bruid in haar verschillende jurken",
   },
 };
+
+/** Intitulés des cérémonies dans la langue de l'invitation (mariage franco-maghrébin). */
+export const CEREMONY_TITLES: Record<Language, Record<"civil" | "secular" | "religious" | "other", string>> = {
+  fr: { civil: "Cérémonie civile", secular: "Cérémonie laïque", religious: "Cérémonie religieuse", other: "Cérémonie" },
+  en: { civil: "Civil ceremony", secular: "Secular ceremony", religious: "Religious ceremony", other: "Ceremony" },
+  ar: { civil: "عقد القران المدني", secular: "حفل رمزي", religious: "الحفل الديني", other: "حفل" },
+  es: { civil: "Ceremonia civil", secular: "Ceremonia laica", religious: "Ceremonia religiosa", other: "Ceremonia" },
+  it: { civil: "Cerimonia civile", secular: "Cerimonia laica", religious: "Cerimonia religiosa", other: "Cerimonia" },
+  de: { civil: "Standesamtliche Trauung", secular: "Freie Trauung", religious: "Kirchliche Trauung", other: "Zeremonie" },
+  nl: { civil: "Burgerlijk huwelijk", secular: "Vrije ceremonie", religious: "Religieuze ceremonie", other: "Ceremonie" },
+};

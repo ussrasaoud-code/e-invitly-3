@@ -203,11 +203,13 @@ export async function createPreviewLink(invitationId: string): Promise<{ ok: tru
   if (!uuid.safeParse(invitationId).success) return { ok: false, message: "Invitation inconnue." };
   const supabase = (await createClient())!;
   const { token, hash } = newPreviewToken();
-  const expiresAt = new Date(Date.now() + 7 * 86_400_000).toISOString();
+  const { protection } = await getSettings();
+  const hours = Math.min(720, Math.max(1, protection.previewHours || 48));
+  const expiresAt = new Date(Date.now() + hours * 3_600_000).toISOString();
   await supabase.from("preview_tokens").delete().eq("invitation_id", invitationId).lt("expires_at", new Date().toISOString());
   const { error } = await supabase.from("preview_tokens").insert({ token_hash: hash, invitation_id: invitationId, expires_at: expiresAt, created_by: user.id });
   if (error) return { ok: false, message: `Création du lien impossible : ${error.message}` };
-  await logActivity({ actorId: user.id, action: "invitation.preview", resourceType: "invitation", resourceId: invitationId, summary: "Lien d'aperçu privé créé (7 jours)" });
+  await logActivity({ actorId: user.id, action: "invitation.preview", resourceType: "invitation", resourceId: invitationId, summary: `Lien d'aperçu privé créé (${hours} h)` });
   return { ok: true, url: `${env.siteUrl}/apercu/${token}`, expiresAt };
 }
 

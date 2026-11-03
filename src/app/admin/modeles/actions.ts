@@ -23,6 +23,7 @@ import {
 import { getVariant, mainLang, newVariant, removeVariant, setVariant, syncAllVariants, templateLangs } from "@/lib/invitation/variants";
 import type { SaveResult } from "@/lib/save-result";
 import { slugify } from "@/lib/slug";
+import { normalizeCultures } from "@/lib/validation/request";
 import { createClient } from "@/lib/supabase/server";
 
 const uuid = z.string().uuid();
@@ -153,10 +154,10 @@ export async function updateTemplateMeta(form: FormData) {
     }
     if (Object.keys(entry).length) translations[l] = entry;
   }
-  if (form.has("culture")) {
-    const culture = z.enum(["europeen", "maghrebin"]).catch("europeen").parse(form.get("culture"));
-    const { error: cError } = await supabase.from("templates").update({ culture }).eq("id", d.id);
-    if (cError) throw new Error(`Type de mariage non enregistré : ${cError.message}. Avez-vous exécuté la migration 20261107000001_maghreb.sql ?`);
+  if (form.has("cultures_present")) {
+    const cultures = normalizeCultures(form.getAll("cultures"));
+    const { error: cError } = await supabase.from("templates").update({ cultures }).eq("id", d.id);
+    if (cError) throw new Error(`Types de mariage non enregistrés : ${cError.message}. Avez-vous exécuté la migration 20261108000001_wedding_types.sql ?`);
   }
   if ([...form.keys()].some((k) => k.startsWith("tr_"))) {
     const { error: trError } = await supabase.from("templates").update({ translations }).eq("id", d.id);

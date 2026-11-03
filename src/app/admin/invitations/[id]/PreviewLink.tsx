@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { CopyButton } from "@/components/admin/CopyButton";
 import { createPreviewLink, sendPreviewEmail } from "../actions";
 
-/** Génère un lien d'aperçu privé (7 jours) à envoyer au couple pour validation. */
+/** Génère un lien d'aperçu privé (durée réglable, 48 h par défaut) à envoyer au couple pour validation. */
 export function PreviewLink({ invitationId }: { invitationId: string }) {
   const [pending, start] = useTransition();
   const [result, setResult] = useState<{ url: string; expiresAt: string } | null>(null);

@@ -3,7 +3,7 @@ import { buildInvitationFromRequest } from "./from-request";
 import { forAudience, isMultiDay, sortByDay } from "./audience";
 import { PRESETS } from "./presets";
 import { invitationContentSchema, programV2Items, programV2Section } from "./schema";
-import { maghrebSchema, requestSchema } from "@/lib/validation/request";
+import { ceremonySchema, maghrebSchema, normalizeCultures, requestSchema } from "@/lib/validation/request";
 
 const sample = invitationContentSchema.parse(PRESETS["the-garden"]);
 const maghreb = maghrebSchema.parse({
@@ -65,5 +65,18 @@ describe("mariage maghrébin", () => {
     };
     expect(requestSchema.safeParse({ ...base, maghreb: { henna: { enabled: true } } }).success).toBe(false);
     expect(requestSchema.safeParse({ ...base, maghreb: { henna: { enabled: true, date: "2099-06-11" } } }).success).toBe(true);
+  });
+
+  it("franco-maghrébin : la mairie (autre jour), puis le henné et la soirée", () => {
+    const civil = ceremonySchema.parse({ type: "civil", date: "2027-06-05", venueName: "Mairie de Lyon 3e", startTime: "14:00" });
+    const mix = buildInvitationFromRequest(sample, { ...form, culture: "mixte", ceremonies: [civil] }).content;
+    expect(mix.events[0]).toMatchObject({ id: "ceremonie-1", type: "civil", date: "2027-06-05", audience: "all" });
+    expect(mix.events.map((e) => e.id)).toContain("henne");
+    expect(mix.events.map((e) => e.id)).toContain("accueil");
+  });
+
+  it("types proposés par un modèle : au moins un, dans l'ordre", () => {
+    expect(normalizeCultures(["mixte", "europeen", "faux"])).toEqual(["europeen", "mixte"]);
+    expect(normalizeCultures(null)).toEqual(["europeen"]);
   });
 });

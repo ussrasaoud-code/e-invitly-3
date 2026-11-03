@@ -48,12 +48,25 @@ export type LanguageSettings = {
   enabled: string[];
 };
 
+/** Protection des aperçus envoyés aux couples et des démos du catalogue */
+export type ProtectionSettings = {
+  /** Durée de validité d'un lien d'aperçu, en heures */
+  previewHours: number;
+  previewWatermark: boolean;
+  demoWatermark: boolean;
+  /** Texte du filigrane (vide = « APERÇU · E-INVITLY ») */
+  watermarkText: string;
+  /** Clic droit, sélection, glisser, impression et raccourcis d'enregistrement désactivés */
+  deterrents: boolean;
+};
+
 export type SettingsMap = {
   languages: LanguageSettings;
   brand: BrandSettings;
   policies: PolicySettings;
   home: HomeSettings;
   notifications: NotificationSettings;
+  protection: ProtectionSettings;
 };
 
 export const DEFAULT_SETTINGS: { [K in keyof SettingsMap]: { value: SettingsMap[K]; isPublic: boolean } } = {
@@ -126,5 +139,9 @@ export const DEFAULT_SETTINGS: { [K in keyof SettingsMap]: { value: SettingsMap[
   notifications: {
     isPublic: false,
     value: { notifyOnNewRequest: true, notifyOnNewRsvp: false },
+  },
+  protection: {
+    isPublic: true,
+    value: { previewHours: 48, previewWatermark: true, demoWatermark: false, watermarkText: "", deterrents: true },
   },
 };

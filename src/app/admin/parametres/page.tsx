@@ -7,7 +7,7 @@ import { getSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import { LANG_META, SITE_LANGS, localePath } from "@/lib/i18n/config";
 import { LANGUAGE_LABELS } from "@/lib/invitation/schema";
-import { saveBrand, saveHome, saveLanguages, saveNotifications, savePolicies, setMemberRole } from "./actions";
+import { saveBrand, saveHome, saveLanguages, saveNotifications, savePolicies, saveProtection, setMemberRole } from "./actions";
 
 export const metadata = { title: "Paramètres" };
 
@@ -36,7 +36,7 @@ export default async function SettingsPage() {
   const settings = await getSettings();
   const supabase = (await createClient())!;
   const { data: team } = await supabase.from("profiles").select("email, full_name, role").in("role", ["admin", "collaborator"]).order("email");
-  const { brand, home, policies, notifications, languages } = settings;
+  const { brand, home, policies, notifications, languages, protection } = settings;
   const enabledLangs = new Set(["fr", ...(languages.enabled ?? [])]);
   const faq = [...home.faq, { question: "", answer: "" }, { question: "", answer: "" }];
   const disabled = !isAdmin;
@@ -146,6 +146,42 @@ export default async function SettingsPage() {
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" name="notifyOnNewRsvp" defaultChecked={notifications.notifyOnNewRsvp} className="h-4 w-4 accent-forest" />
                 M&apos;envoyer un e-mail à chaque réponse RSVP
+              </label>
+              <SubmitButton className="btn btn-secondary btn-sm">Enregistrer</SubmitButton>
+            </fieldset>
+          </form>
+        </Card>
+
+        <Card
+          title="Protection des aperçus et des démos"
+          description="Empêche qu'un lien d'aperçu serve d'invitation avant le paiement. Aucun site ne peut bloquer totalement une capture d'écran ou un enregistrement vidéo du téléphone : le filigrane et la durée limitée rendent ces copies inutilisables."
+        >
+          <form action={saveProtection} className="space-y-3">
+            <fieldset disabled={disabled} className="space-y-3">
+              <label className="flex flex-wrap items-center gap-2 text-sm">
+                Un lien d&apos;aperçu expire après
+                <input type="number" name="previewHours" min={1} max={720} defaultValue={protection.previewHours} className="field min-h-9 w-20 py-1 text-sm" />
+                heures
+                <span className="text-xs text-stone">(48 h conseillé ; s&apos;applique aux nouveaux liens)</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="previewWatermark" defaultChecked={protection.previewWatermark} className="h-4 w-4 accent-forest" />
+                Filigrane sur les aperçus envoyés aux couples
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="demoWatermark" defaultChecked={protection.demoWatermark} className="h-4 w-4 accent-forest" />
+                Filigrane sur les démos du catalogue
+              </label>
+              <label className="flex flex-wrap items-center gap-2 text-sm">
+                Texte du filigrane
+                <input name="watermarkText" maxLength={40} defaultValue={protection.watermarkText} placeholder="APERÇU · E-INVITLY" className="field min-h-9 w-64 py-1 text-sm" />
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" name="deterrents" defaultChecked={protection.deterrents} className="mt-0.5 h-4 w-4 accent-forest" />
+                <span>
+                  Gêner la copie sur les aperçus et démos
+                  <span className="block text-xs text-stone">Clic droit, sélection du texte, enregistrement des images, impression et raccourcis d&apos;enregistrement désactivés ; le contenu se floute quand la page perd le focus (outil de capture sur ordinateur).</span>
+                </span>
               </label>
               <SubmitButton className="btn btn-secondary btn-sm">Enregistrer</SubmitButton>
             </fieldset>

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getSettings } from "@/lib/settings";
+import { CopyGuard, Watermark } from "@/components/invitation/Protection";
 import { InvitationView } from "@/components/invitation/InvitationView";
 import { LANG_META, fmt, isSiteLang, localePath } from "@/lib/i18n/config";
 import { getDict } from "@/lib/i18n/server";
@@ -33,6 +35,7 @@ export default async function DemoPage({ params, searchParams }: { params: Param
   const template = localizeTemplate(found.template, lang);
   const langs = templateLangs(definition);
   const shown = isSiteLang(langue) && langs.includes(langue) ? langue : langs.includes(lang) ? lang : langs[0];
+  const { protection } = await getSettings();
   const href = (p: string) => localePath(lang, p);
 
   return (
@@ -63,8 +66,15 @@ export default async function DemoPage({ params, searchParams }: { params: Param
         </span>
       </div>
       <div className="pt-9">
-        <InvitationView key={shown} content={contentFor(definition, shown)} renderer={definition.renderer} mode="demo" />
+        {protection.deterrents ? (
+          <CopyGuard message={t.demo.fictive}>
+            <InvitationView key={shown} content={contentFor(definition, shown)} renderer={definition.renderer} mode="demo" />
+          </CopyGuard>
+        ) : (
+          <InvitationView key={shown} content={contentFor(definition, shown)} renderer={definition.renderer} mode="demo" />
+        )}
       </div>
+      {protection.demoWatermark ? <Watermark text={protection.watermarkText || `${t.demo.badge} · E-INVITLY`} /> : null}
     </>
   );
 }

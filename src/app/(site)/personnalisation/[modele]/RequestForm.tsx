@@ -9,7 +9,9 @@ import {
   CEREMONY_TYPES,
   COUNTRIES,
   MAGHREB_STEP_SCHEMAS,
+  MIXTE_STEP_SCHEMAS,
   STEP_SCHEMAS,
+  hasMaghrebSteps,
   type Culture,
   type MaghrebInput,
   flattenErrors,
@@ -38,7 +40,7 @@ const emptyCeremony = (type: CeremonyInput["type"] = "civil"): CeremonyInput => 
 const initialState = (templateSlug: string, language: SiteLang = "fr", culture: Culture = "europeen"): FormState => ({
   templateSlug,
   culture,
-  ...(culture === "maghrebin" ? { maghreb: emptyMaghreb() } : {}),
+  ...(hasMaghrebSteps(culture) ? { maghreb: emptyMaghreb() } : {}),
   firstName: "",
   lastName: "",
   email: "",
@@ -81,15 +83,34 @@ const initialState = (templateSlug: string, language: SiteLang = "fr", culture: 
 /** Langues de l'invitation, chacune écrite dans sa propre langue */
 const LANG_OPTIONS = SITE_LANGS.map((l) => ({ value: l, label: LANG_META[l].native }));
 
-export function RequestForm({ templateSlug, templateName, t, lang, invitationLang, culture = "europeen" }: { templateSlug: string; templateName: string; t: T; lang: SiteLang; invitationLang: SiteLang; culture?: Culture }) {
-  const storageKey = `e-invitly:demande:${templateSlug}:${culture}`;
-  const mag = culture === "maghrebin";
-  const STEP_TITLES = mag ? t.mag.steps : t.steps;
-  const SCHEMAS: ReadonlyArray<{ safeParse: (v: unknown) => { success: true } | { success: false; error: import("zod").ZodError } }> = mag ? MAGHREB_STEP_SCHEMAS : STEP_SCHEMAS;
-  const LAST = STEP_TITLES.length - 1;
+type StepKey = "contact" | "couple" | "ceremonies" | "reception" | "details" | "henna" | "soiree" | "moments" | "maghrebDetails" | "review";
+const STEP_KEYS: Record<Culture, StepKey[]> = {
+  europeen: ["contact", "couple", "ceremonies", "reception", "details", "review"],
+  maghrebin: ["contact", "couple", "henna", "soiree", "moments", "maghrebDetails", "review"],
+  mixte: ["contact", "couple", "ceremonies", "henna", "soiree", "moments", "maghrebDetails", "review"],
+};
+type Schema = { safeParse: (v: unknown) => { success: true } | { success: false; error: import("zod").ZodError } };
+const SCHEMAS_BY: Record<Culture, ReadonlyArray<Schema>> = { europeen: STEP_SCHEMAS, maghrebin: MAGHREB_STEP_SCHEMAS, mixte: MIXTE_STEP_SCHEMAS };
+
+export function RequestForm({ templateSlug, templateName, t, lang, invitationLang, cultures = ["europeen"] }: { templateSlug: string; templateName: string; t: T; lang: SiteLang; invitationLang: SiteLang; cultures?: Culture[] }) {
+  const storageKey = `e-invitly:demande:${templateSlug}`;
+  const single = cultures.length === 1;
+  const [chosen, setChosen] = useState(single);
   const CEREMONY_LABELS = t.ceremonies;
   const f = t.f;
-  const [state, setState] = useState<FormState>(() => initialState(templateSlug, invitationLang, culture));
+  const [state, setState] = useState<FormState>(() => initialState(templateSlug, invitationLang, cultures[0]));
+  const culture: Culture = cultures.includes(state.culture as Culture) ? (state.culture as Culture) : cultures[0];
+  const mag = hasMaghrebSteps(culture);
+  const KEYS = STEP_KEYS[culture];
+  const STEP_TITLES = culture === "mixte" ? t.wtype.mixSteps : culture === "maghrebin" ? t.mag.steps : t.steps;
+  const SCHEMAS = SCHEMAS_BY[culture];
+  const LAST = STEP_TITLES.length - 1;
+  const chooseCulture = (c: Culture) => {
+    setState((s) => ({ ...s, culture: c, maghreb: hasMaghrebSteps(c) ? (s.maghreb ?? emptyMaghreb()) : s.maghreb }));
+    setChosen(true);
+    setStep(0);
+    setErrors({});
+  };
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverMessage, setServerMessage] = useState<string | null>(null);
@@ -104,11 +125,17 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
     restored.current = true;
     try {
       const saved = window.localStorage.getItem(storageKey);
-      if (saved) setState({ ...initialState(templateSlug, invitationLang, culture), ...JSON.parse(saved), culture, consent: false, website: "" });
+      if (saved) {
+        const data = JSON.parse(saved);
+        const c: Culture = cultures.includes(data.culture) ? data.culture : cultures[0];
+        setState({ ...initialState(templateSlug, invitationLang, c), ...data, culture: c, ...(hasMaghrebSteps(c) && !data.maghreb ? { maghreb: emptyMaghreb() } : {}), consent: false, website: "" });
+        if (cultures.includes(data.culture)) setChosen(true);
+      }
     } catch {
       /* stockage indisponible */
     }
-  }, [storageKey, templateSlug, invitationLang, culture]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey, templateSlug, invitationLang]);
   useEffect(() => {
     try {
       const { consent: _c, website: _w, ...rest } = state;
@@ -181,7 +208,20 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
 
   return (
     <OptionalLabelContext.Provider value={t.optional}>
+    {!chosen ? (
+      <TypeChooser cultures={cultures} current={state.culture as Culture} onChoose={chooseCulture} t={t} />
+    ) : (
     <div>
+      {cultures.length > 1 ? (
+        <p className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span className="text-stone">{t.wtype.current}</span>
+          <strong className="font-medium text-forest-deep">{typeTitle(culture, t)}</strong>
+          <button type="button" className="text-forest underline underline-offset-4" onClick={() => setChosen(false)}>{t.wtype.change}</button>
+        </p>
+      ) : null}
+      {culture !== "europeen" && step === 0 ? (
+        <p className="mb-8 max-w-2xl leading-relaxed text-stone">{culture === "mixte" ? t.wtype.mixIntro : t.mag.intro}</p>
+      ) : null}
       {/* Progression */}
       <ol className="mb-10 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${STEP_TITLES.length}, minmax(0, 1fr))` }} aria-label={t.progress}>
         {STEP_TITLES.map((title, i) => (
@@ -217,7 +257,7 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
           </label>
         </div>
 
-        {step === 0 && (
+        {KEYS[step] === "contact" && (
           <div className="grid gap-5 sm:grid-cols-2">
             <TextField label={f.firstName} autoComplete="given-name" value={state.firstName} onChange={(ev) => set("firstName", ev.target.value)} error={e("firstName")} required />
             <TextField label={f.lastName} autoComplete="family-name" value={state.lastName} onChange={(ev) => set("lastName", ev.target.value)} error={e("lastName")} required />
@@ -228,7 +268,7 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
           </div>
         )}
 
-        {step === 1 && (
+        {KEYS[step] === "couple" && (
           <div className="grid gap-5 sm:grid-cols-2">
             <TextField label={f.partnerOne} value={state.partnerOne} onChange={(ev) => set("partnerOne", ev.target.value)} error={e("partnerOne")} required />
             <TextField label={f.partnerTwo} value={state.partnerTwo} onChange={(ev) => set("partnerTwo", ev.target.value)} error={e("partnerTwo")} required />
@@ -237,18 +277,18 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
           </div>
         )}
 
-        {mag && step >= 2 && step <= 5 && (() => {
+        {mag && ["henna", "soiree", "moments", "maghrebDetails"].includes(KEYS[step]) && (() => {
           const m = { ...emptyMaghreb(), ...(state.maghreb ?? {}) } as ReturnType<typeof emptyMaghreb>;
           const props = { m, set: setMaghreb, t, e };
-          if (step === 2) return <HennaStep {...props} />;
-          if (step === 3) return <SoireeStep {...props} />;
-          if (step === 4) return <MomentsStep {...props} />;
+          if (KEYS[step] === "henna") return <HennaStep {...props} />;
+          if (KEYS[step] === "soiree") return <SoireeStep {...props} />;
+          if (KEYS[step] === "moments") return <MomentsStep {...props} />;
           return <DecorationFields {...props} />;
         })()}
 
-        {!mag && step === 2 && (
+        {KEYS[step] === "ceremonies" && (
           <div>
-            <p className="mb-6 leading-relaxed text-stone">{f.ceremoniesIntro}</p>
+            <p className="mb-6 leading-relaxed text-stone">{culture === "mixte" ? t.wtype.ceremoniesMixIntro : f.ceremoniesIntro}</p>
             {ceremonies.length === 0 ? (
               <p className="card p-5 text-sm text-stone">{f.noCeremony}</p>
             ) : null}
@@ -259,6 +299,9 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
                   <div className="grid gap-4 sm:grid-cols-2">
                     <SelectField label={f.type} value={c.type} onChange={(ev) => setCeremony(i, { type: ev.target.value as CeremonyInput["type"] })} options={CEREMONY_TYPES.map((t) => ({ value: t, label: CEREMONY_LABELS[t] }))} />
                     <TextField label={f.customLabel} value={c.label} onChange={(ev) => setCeremony(i, { label: ev.target.value })} optional placeholder={f.customLabelPh} />
+                    {culture === "mixte" ? (
+                      <TextField label={t.wtype.ceremonyDate} type="date" value={c.date ?? ""} onChange={(ev) => setCeremony(i, { date: ev.target.value })} error={e(`ceremonies.${i}.date`)} optional />
+                    ) : null}
                     <TextField label={f.venue} value={c.venueName} onChange={(ev) => setCeremony(i, { venueName: ev.target.value })} optional />
                     <TextField label={f.address} value={c.address} onChange={(ev) => setCeremony(i, { address: ev.target.value })} optional />
                     <TextField label={f.guestsArrival} type="time" value={c.arrivalTime} onChange={(ev) => setCeremony(i, { arrivalTime: ev.target.value })} error={e(`ceremonies.${i}.arrivalTime`)} optional />
@@ -287,7 +330,7 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
           </div>
         )}
 
-        {!mag && step === 3 && (
+        {KEYS[step] === "reception" && (
           <div className="grid gap-5 sm:grid-cols-2">
             <TextField label={f.receptionVenue} value={state.reception?.venueName} onChange={(ev) => setReception("venueName", ev.target.value)} optional />
             <TextField label={f.fullAddress} autoComplete="street-address" value={state.reception?.address} onChange={(ev) => setReception("address", ev.target.value)} optional />
@@ -302,7 +345,7 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
           </div>
         )}
 
-        {((!mag && step === 4) || (mag && step === 5)) && (
+        {(KEYS[step] === "details" || KEYS[step] === "maghrebDetails") && (
           <div className="grid gap-5 sm:grid-cols-2">
             <TextArea label={f.dressCode} value={state.details?.dressCode} onChange={(ev) => setDetails("dressCode", ev.target.value)} optional />
             <TextField label={f.rsvpDeadline} type="date" value={state.details?.rsvpDeadline} onChange={(ev) => setDetails("rsvpDeadline", ev.target.value)} error={e("details.rsvpDeadline")} optional />
@@ -318,7 +361,7 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
         )}
 
         {step === LAST && (
-          <Review state={state} templateName={templateName} onEdit={(i) => setStep(i)} t={t} lang={lang} mag={mag} />
+          <Review state={state} templateName={templateName} onEdit={(i) => setStep(i)} t={t} lang={lang} culture={culture} keys={KEYS} />
         )}
 
         {step === LAST && (
@@ -358,13 +401,16 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
         <p className="mt-4 text-center text-xs text-stone sm:text-end">{t.keptLocally}</p>
       </form>
     </div>
+    )}
     </OptionalLabelContext.Provider>
   );
 }
 
 type ReviewRow = { step: number; title: string; items: Array<[string, string | undefined]> };
 
-function Review({ state, templateName, onEdit, t, lang, mag }: { state: FormState; templateName: string; onEdit: (step: number) => void; t: T; lang: SiteLang; mag: boolean }) {
+function Review({ state, templateName, onEdit, t, lang, culture, keys }: { state: FormState; templateName: string; onEdit: (step: number) => void; t: T; lang: SiteLang; culture: Culture; keys: StepKey[] }) {
+  const mag = hasMaghrebSteps(culture);
+  const at = (k: StepKey) => keys.indexOf(k);
   const r = t.review;
   const langLabel = LANG_OPTIONS.find((l) => l.value === state.language)?.label;
   const country = t.countries[state.country as keyof T["countries"]] ?? state.country;
@@ -390,17 +436,17 @@ function Review({ state, templateName, onEdit, t, lang, mag }: { state: FormStat
         [r.intro, state.introText],
       ],
     },
-    ...(mag ? maghrebRows(state, t, lang) : []),
-    ...(mag ? [] : [{
-      step: 2,
+    ...(keys.includes("ceremonies") ? ([{
+      step: at("ceremonies"),
       title: r.ceremonies,
       items: (state.ceremonies ?? []).map((c): [string, string] => [
         c.label || t.ceremonies[c.type],
-        [c.venueName, c.address, c.startTime && fmt(r.start, { t: c.startTime }), c.showOnInvitation ? "" : r.hidden].filter(Boolean).join(" · "),
+        [c.date ? new Date(`${c.date}T12:00`).toLocaleDateString(LANG_META[lang].intl, { dateStyle: "long" }) : "", c.venueName, c.address, c.startTime && fmt(r.start, { t: c.startTime }), c.showOnInvitation ? "" : r.hidden].filter(Boolean).join(" · "),
       ]),
-    },
-    {
-      step: 3,
+    }] as ReviewRow[]) : []),
+    ...(mag ? maghrebRows(state, t, lang, at) : []),
+    ...(keys.includes("reception") ? ([{
+      step: at("reception"),
       title: r.reception,
       items: [
         [r.venue, [state.reception?.venueName, state.reception?.address].filter(Boolean).join(" — ")],
@@ -419,9 +465,9 @@ function Review({ state, templateName, onEdit, t, lang, mag }: { state: FormStat
         [r.transport, state.reception?.shuttles],
         [r.lodging, state.reception?.lodging],
       ],
-    }] as ReviewRow[]),
+    }] as ReviewRow[]) : []),
     {
-      step: mag ? 5 : 4,
+      step: at(mag ? "maghrebDetails" : "details"),
       title: r.other,
       items: [
         [r.dressCode, state.details?.dressCode],
@@ -469,7 +515,7 @@ function Review({ state, templateName, onEdit, t, lang, mag }: { state: FormStat
 }
 
 /** Récapitulatif du formulaire maghrébin (henné, soirée, autres moments, décoration). */
-function maghrebRows(state: FormState, t: T, lang: SiteLang): Array<{ step: number; title: string; items: Array<[string, string | undefined]> }> {
+function maghrebRows(state: FormState, t: T, lang: SiteLang, at: (k: StepKey) => number): Array<{ step: number; title: string; items: Array<[string, string | undefined]> }> {
   const g = t.mag;
   const m = { ...emptyMaghreb(), ...(state.maghreb ?? {}) } as ReturnType<typeof emptyMaghreb>;
   const day = (d?: string) => (d ? new Date(`${d}T12:00`).toLocaleDateString(LANG_META[lang].intl, { dateStyle: "full" }) : "");
@@ -482,7 +528,7 @@ function maghrebRows(state: FormState, t: T, lang: SiteLang): Array<{ step: numb
   const deco = m.decoration;
   return [
     {
-      step: 2,
+      step: at("henna"),
       title: g.rHenna,
       items: [
         [g.rGuests, sep],
@@ -500,7 +546,7 @@ function maghrebRows(state: FormState, t: T, lang: SiteLang): Array<{ step: numb
       ],
     },
     {
-      step: 3,
+      step: at("soiree"),
       title: g.rSoiree,
       items: [
         [g.soireeVenue, join(s.venueName, s.address)],
@@ -517,7 +563,7 @@ function maghrebRows(state: FormState, t: T, lang: SiteLang): Array<{ step: numb
       ],
     },
     {
-      step: 4,
+      step: at("moments"),
       title: g.rMoments,
       items: [
         ...(m.fatiha.enabled ? ([[g.fatiha, moment(m.fatiha)]] as Array<[string, string]>) : []),
@@ -526,9 +572,37 @@ function maghrebRows(state: FormState, t: T, lang: SiteLang): Array<{ step: numb
       ],
     },
     {
-      step: 5,
+      step: at("maghrebDetails"),
       title: g.rDeco,
       items: [[g.decoQ, deco.known === "yes" ? join(deco.colors, deco.theme) || g.decoYes : deco.known === "no" ? g.decoNo : g.decoLater]],
     },
   ];
+}
+
+const typeTitle = (c: Culture, t: T) => (c === "mixte" ? t.wtype.mixTitle : c === "maghrebin" ? t.wtype.magTitle : t.wtype.euTitle);
+
+/** Premier écran quand le modèle propose plusieurs types de mariage. */
+function TypeChooser({ cultures, current, onChoose, t }: { cultures: Culture[]; current: Culture; onChoose: (c: Culture) => void; t: T }) {
+  const w = t.wtype;
+  const desc: Record<Culture, string> = { europeen: w.euDesc, maghrebin: w.magDesc, mixte: w.mixDesc };
+  return (
+    <section aria-labelledby="type-title">
+      <h2 id="type-title" className="font-serif text-3xl md:text-4xl">{w.choose}</h2>
+      <p className="mt-3 max-w-2xl leading-relaxed text-stone">{w.chooseIntro}</p>
+      <div className={`mt-8 grid gap-4 ${cultures.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+        {cultures.map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => onChoose(c)}
+            className={`group flex flex-col rounded-sm border bg-white p-6 text-start transition hover:-translate-y-0.5 hover:border-forest hover:shadow-[0_14px_30px_-18px_rgb(60_50_40/0.4)] ${current === c ? "border-forest" : "border-line"}`}
+          >
+            <span className="font-serif text-2xl leading-tight group-hover:text-forest">{typeTitle(c, t)}</span>
+            <span className="mt-3 text-sm leading-relaxed text-stone">{desc[c]}</span>
+            <span className="mt-5 text-[0.72rem] uppercase tracking-[0.2em] text-forest">{t.continue} →</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
 }

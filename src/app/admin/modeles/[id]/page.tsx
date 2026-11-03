@@ -2,6 +2,7 @@ import { MediaListField, MediaUrlField } from "@/components/media/MediaUrlField"
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InvitationEditor } from "@/components/admin/InvitationEditor";
+import { normalizeCultures } from "@/lib/validation/request";
 import { PriceField } from "@/components/admin/PriceField";
 import { LANGUAGES, LANGUAGE_LABELS } from "@/lib/invitation/schema";
 import { PageHeader } from "@/components/admin/PageHeader";
@@ -123,14 +124,23 @@ export default async function TemplatePage({ params, searchParams }: Props) {
               {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </label>
-          <label>
-            <span className="field-label">Type de mariage (formulaire du client)</span>
-            <select name="culture" defaultValue={t.culture === "maghrebin" ? "maghrebin" : "europeen"} className="field">
-              <option value="europeen">Français / européen (cérémonies, cocktail, dîner)</option>
-              <option value="maghrebin">Maghrébin (henné, soirée, plusieurs jours)</option>
-            </select>
-            <span className="field-hint">Le client qui choisit ce modèle remplit le formulaire correspondant. Les modèles maghrébins portent un badge dans le catalogue.</span>
-          </label>
+          <fieldset className="md:col-span-2">
+            <legend className="field-label">Types de mariage proposés avec ce modèle</legend>
+            <input type="hidden" name="cultures_present" value="1" />
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              {([
+                ["europeen", "Français / européen", "cérémonies, cocktail, dîner"],
+                ["maghrebin", "Maghrébin", "henné, soirée, plusieurs jours"],
+                ["mixte", "Franco-maghrébin", "cérémonie civile ou religieuse + henné + soirée"],
+              ] as const).map(([v, label, hint]) => (
+                <label key={v} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="cultures" value={v} defaultChecked={normalizeCultures((t as { cultures?: unknown }).cultures).includes(v)} className="h-4 w-4 accent-forest" />
+                  <span>{label} <span className="text-xs text-stone">({hint})</span></span>
+                </label>
+              ))}
+            </div>
+            <span className="field-hint">Si plusieurs types sont cochés, la cliente choisit le sien au début du formulaire, qui s&apos;adapte. Au moins un type (par défaut : français / européen).</span>
+          </fieldset>
           <PriceField defaultLabel={t.price_label} />
           <fieldset className="md:col-span-2">
             <legend className="field-label">Styles</legend>

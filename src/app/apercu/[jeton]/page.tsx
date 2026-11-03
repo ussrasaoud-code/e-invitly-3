@@ -5,6 +5,8 @@ import { Sprig } from "@/components/ornaments";
 import { invitationContentSchema, type RendererKey } from "@/lib/invitation/schema";
 import { hashPreviewToken } from "@/lib/publication";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSettings } from "@/lib/settings";
+import { CopyGuard, Watermark } from "@/components/invitation/Protection";
 
 export const metadata: Metadata = { title: "Aperçu privé", robots: { index: false, follow: false } };
 
@@ -47,6 +49,7 @@ export default async function PreviewPage({ params }: { params: Promise<{ jeton:
   const parsed = invitationContentSchema.safeParse(inv.draft_content);
   if (!parsed.success) return <Unavailable />;
 
+  const { protection } = await getSettings();
   const expires = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" }).format(new Date(token.expires_at));
   return (
     <>
@@ -54,8 +57,15 @@ export default async function PreviewPage({ params }: { params: Promise<{ jeton:
         <strong className="font-normal uppercase tracking-[0.2em]">Aperçu privé</strong> · version en préparation, non publiée · lien valable jusqu&apos;au {expires}
       </div>
       <div className="pt-9">
-        <InvitationView content={parsed.data} renderer={inv.renderer as RendererKey} mode="preview" />
+        {protection.deterrents ? (
+          <CopyGuard message="Aperçu privé : impression désactivée.">
+            <InvitationView content={parsed.data} renderer={inv.renderer as RendererKey} mode="preview" />
+          </CopyGuard>
+        ) : (
+          <InvitationView content={parsed.data} renderer={inv.renderer as RendererKey} mode="preview" />
+        )}
       </div>
+      {protection.previewWatermark ? <Watermark text={protection.watermarkText} /> : null}
     </>
   );
 }

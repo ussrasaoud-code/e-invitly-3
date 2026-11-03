@@ -263,6 +263,16 @@ with sync_playwright() as p:
     page.goto(f"{BASE}/apercu/jeton-invente-0123456789abcdef")
     expect(page.get_by_text("Aperçu indisponible")).to_be_visible()
     ok("aperçu privé : le lien montre le brouillon ; un faux lien ne montre rien")
+    page.goto(preview_url)
+    expect(page.locator("[data-watermark]")).to_have_count(1)
+    exp = api("GET", f"/rest/v1/preview_tokens?invitation_id=eq.{inv_id}&select=expires_at&order=expires_at.desc")[0]["expires_at"]
+    from datetime import datetime, timezone
+    left = (datetime.fromisoformat(exp.replace("Z", "+00:00")) - datetime.now(timezone.utc)).total_seconds() / 3600
+    assert 47 < left <= 48.1, left
+    assert page.evaluate("getComputedStyle(document.querySelector('.inv-guard')).userSelect") == "none"
+    page.goto(f"{BASE}/demo/the-garden")
+    expect(page.locator("[data-watermark]")).to_have_count(0)
+    ok("aperçu protégé : filigrane, lien valable 48 h, copie gênée ; démos sans filigrane par défaut")
 
     # Paiement : publication refusée tant que rien n'est payé
     a.get_by_role("button", name="Publier", exact=True).click()
@@ -1029,11 +1039,14 @@ with sync_playwright() as p:
     ok("modèles : suppression définitive d'un modèle archivé (versions comprises)")
 
     # ── Mariage maghrébin : formulaire dédié, deux liens (soirée / henné + soirée) ──
-    api("PATCH", "/rest/v1/templates?slug=eq.province", {"culture": "maghrebin"}, prefer="return=minimal")
+    api("PATCH", "/rest/v1/templates?slug=eq.province", {"cultures": ["europeen", "maghrebin", "mixte"]}, prefer="return=minimal")
     v = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
     v.goto(f"{BASE}/invitations?mariage=maghrebin")
     expect(v.get_by_text("Mariage maghrébin").first).to_be_visible()
     v.goto(f"{BASE}/personnalisation/province")
+    expect(v.get_by_role("heading", name="Quel type de mariage préparez-vous ?")).to_be_visible()
+    v.screenshot(path=SHOTS / "49-type-de-mariage.png", full_page=True)
+    v.get_by_role("button", name=re.compile("^Mariage maghrébin")).click()
     expect(v.get_by_text("Formulaire pensé pour les mariages maghrébins")).to_be_visible()
     v.get_by_label("Prénom", exact=True).fill("Yasmine"); v.get_by_label("Nom", exact=True).fill("Benali")
     v.get_by_label("Adresse e-mail").fill("yasmine@example.test")
@@ -1119,8 +1132,35 @@ with sync_playwright() as p:
     rr = api("GET", f"/rest/v1/rsvp_responses?invitation_id=eq.{m_id}&select=first_name,audience")
     assert rr and rr[0]["audience"] == "henna", rr
     v.context.close()
-    api("PATCH", "/rest/v1/templates?slug=eq.province", {"culture": "europeen"}, prefer="return=minimal")
     ok("RSVP par le lien henné : réponse marquée « henné + soirée »")
+
+    # Franco-maghrébin : cérémonies (mairie un autre jour) + henné + soirée
+    x = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+    x.goto(f"{BASE}/personnalisation/province")
+    x.get_by_role("button", name=re.compile("^Mariage franco-maghrébin")).click()
+    expect(x.get_by_text("Étape 1 sur 8")).to_be_visible()
+    x.get_by_label("Prénom", exact=True).fill("Inès"); x.get_by_label("Nom", exact=True).fill("Martin")
+    x.get_by_label("Adresse e-mail").fill("ines@example.test")
+    x.get_by_role("button", name="Continuer").click()
+    x.get_by_label("Prénom de la première personne").fill("Inès"); x.get_by_label("Prénom de la seconde personne").fill("Sami")
+    x.get_by_label("Date de la soirée").fill("2027-07-10")
+    x.get_by_role("button", name="Continuer").click()
+    expect(x.get_by_role("heading", name="Cérémonies")).to_be_visible()
+    x.get_by_role("button", name="+ Cérémonie civile").click()
+    x.get_by_label("Date (si différente de la soirée)").fill("2027-07-03")
+    x.get_by_label("Début de la cérémonie").fill("11:00")
+    x.get_by_role("button", name="Continuer").click()
+    x.get_by_label("Date du henné").fill("2027-07-09")
+    for _ in range(4): x.get_by_role("button", name="Continuer").click()
+    expect(x.get_by_text("Mariage franco-maghrébin")).to_be_visible()
+    x.locator("input[type=checkbox]").last.check()
+    x.get_by_role("button", name="Envoyer ma demande").click()
+    x.wait_for_url(re.compile(r"/personnalisation/merci"), timeout=20000)
+    fd = api("GET", "/rest/v1/client_requests?email=eq.ines@example.test&select=form_data")[0]["form_data"]
+    assert fd["culture"] == "mixte" and fd["ceremonies"][0]["date"] == "2027-07-03" and fd["maghreb"]["henna"]["date"] == "2027-07-09", fd
+    x.context.close()
+    api("PATCH", "/rest/v1/templates?slug=eq.province", {"cultures": ["europeen"]}, prefer="return=minimal")
+    ok("type de mariage choisi par la cliente ; franco-maghrébin : cérémonies + henné + soirée")
 
     # Modèle vierge : partir de zéro
     a.goto(f"{BASE}/admin/editeur")

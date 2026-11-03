@@ -40,9 +40,10 @@ export default async function CatalogPage({ searchParams }: { searchParams: Sear
   // Uniquement les filtres qui correspondent à au moins un modèle
   const categories = CATEGORIES.filter((x) => templates.some((tp) => tp.category === x.value));
   const styles = STYLES.filter((x) => templates.some((tp) => tp.styles.includes(x.value)));
-  const tradition = mariage === "maghrebin" || mariage === "europeen" ? mariage : "";
-  const traditions = (["europeen", "maghrebin"] as const).filter((x) => templates.some((tp) => tp.culture === x));
-  const filtered = templates.filter((tp) => (!categorie || tp.category === categorie) && (!style || tp.styles.includes(style)) && (!tradition || tp.culture === tradition));
+  const tradition = mariage === "maghrebin" || mariage === "europeen" || mariage === "mixte" ? mariage : "";
+  const traditions = (["europeen", "maghrebin", "mixte"] as const).filter((x) => templates.some((tp) => tp.cultures.includes(x)));
+  const tradLabel = { europeen: c.tradEurope, maghrebin: t.request.mag.badge, mixte: t.request.wtype.mixBadge };
+  const filtered = templates.filter((tp) => (!categorie || tp.category === categorie) && (!style || tp.styles.includes(style)) && (!tradition || tp.cultures.includes(tradition)));
   const qs = (next: { categorie?: string; style?: string; mariage?: string }) => {
     const p = new URLSearchParams();
     const m = "mariage" in next ? next.mariage : tradition;
@@ -73,8 +74,9 @@ export default async function CatalogPage({ searchParams }: { searchParams: Sear
                 {traditions.length > 1 ? (
                   <div className="flex flex-wrap justify-center gap-2" aria-label={c.byTradition}>
                     <FilterLink href={qs({ categorie, style, mariage: "" })} active={!tradition}>{c.allTraditions}</FilterLink>
-                    <FilterLink href={qs({ categorie, style, mariage: "europeen" })} active={tradition === "europeen"}>{c.tradEurope}</FilterLink>
-                    <FilterLink href={qs({ categorie, style, mariage: "maghrebin" })} active={tradition === "maghrebin"}>{t.request.mag.badge}</FilterLink>
+                    {traditions.map((x) => (
+                      <FilterLink key={x} href={qs({ categorie, style, mariage: x })} active={tradition === x}>{tradLabel[x]}</FilterLink>
+                    ))}
                   </div>
                 ) : null}
                 {categories.length > 1 ? (

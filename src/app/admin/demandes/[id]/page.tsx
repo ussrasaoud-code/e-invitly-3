@@ -82,12 +82,12 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
           <Block
             title="Le couple"
             rows={[
+              ["Type de mariage", f.culture === "mixte" ? "Franco-maghrébin" : f.culture === "maghrebin" ? "Maghrébin" : "Français / européen"],
               ["Prénoms", `${r.partner_one} & ${r.partner_two}`],
               ["Date", formatShortDate(r.event_date)],
               ["Texte d'introduction", f.introText],
             ]}
           />
-          {f.culture === "maghrebin" && f.maghreb ? <MaghrebBlocks m={f.maghreb} /> : null}
           {f.culture === "maghrebin" ? null : (<>
           <section className="card p-5">
             <h2 className="font-serif text-xl">Cérémonies</h2>
@@ -99,7 +99,7 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
                       {c.label || CEREMONY_LABELS[c.type]}{" "}
                       {!c.showOnInvitation ? <span className="text-xs font-normal text-warning">(ne pas afficher sur l&apos;invitation)</span> : null}
                     </p>
-                    <p className="text-stone">{[c.venueName, c.address].filter(Boolean).join(" — ") || "Lieu non précisé"}</p>
+                    <p className="text-stone">{[(c as { date?: string }).date ? formatShortDate((c as { date?: string }).date!) : "", c.venueName, c.address].filter(Boolean).join(" — ") || "Lieu non précisé"}</p>
                     <p className="text-stone">
                       {c.arrivalTime ? `Arrivée ${c.arrivalTime}` : ""}
                       {c.arrivalTime && c.startTime ? " · " : ""}
@@ -113,6 +113,9 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
               <p className="mt-2 text-sm text-stone">Aucune cérémonie indiquée.</p>
             )}
           </section>
+          </>)}
+          {(f.culture === "maghrebin" || f.culture === "mixte") && f.maghreb ? <MaghrebBlocks m={f.maghreb} /> : null}
+          {f.culture === "maghrebin" || f.culture === "mixte" ? null : (<>
           <Block
             title="Réception"
             rows={[

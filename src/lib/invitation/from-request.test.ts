@@ -13,8 +13,8 @@ describe("buildInvitationFromRequest", () => {
     eventDate: "2027-09-18",
     introText: "",
     ceremonies: [
-      { type: "civil", label: "", showOnInvitation: false, venueName: "Mairie", address: "1 place", arrivalTime: "", startTime: "11:00", notes: "" },
-      { type: "secular", label: "", showOnInvitation: true, venueName: "Château", address: "Route du Château", arrivalTime: "15:30", startTime: "16:00", notes: "" },
+      { type: "civil", date: "", label: "", showOnInvitation: false, venueName: "Mairie", address: "1 place", arrivalTime: "", startTime: "11:00", notes: "" },
+      { type: "secular", date: "", label: "", showOnInvitation: true, venueName: "Château", address: "Route du Château", arrivalTime: "15:30", startTime: "16:00", notes: "" },
     ],
     reception: { venueName: "Château", address: "Route du Château", arrivalTime: "", cocktailTime: "17:30", dinnerTime: "20:00", otherTimes: "", mapsUrl: "", parking: "Parking sur place", shuttles: "", lodging: "" },
     details: { dressCode: "", rsvpDeadline: "2027-08-01", program: "", witnesses: "Léo", phoneNumbers: "", customText: "", preferences: "", photos: "", music: "", comments: "" },

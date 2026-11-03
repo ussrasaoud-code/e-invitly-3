@@ -79,6 +79,23 @@ export async function saveNotifications(form: FormData) {
   );
 }
 
+export async function saveProtection(form: FormData) {
+  const user = await requireAdmin();
+  const hours = z.coerce.number().int().min(1).max(24 * 30).catch(48).parse(form.get("previewHours"));
+  await saveSetting(
+    "protection",
+    {
+      previewHours: hours,
+      previewWatermark: form.get("previewWatermark") === "on",
+      demoWatermark: form.get("demoWatermark") === "on",
+      watermarkText: z.string().trim().max(40).catch("").parse(form.get("watermarkText") ?? ""),
+      deterrents: form.get("deterrents") === "on",
+    },
+    true,
+    user.id,
+  );
+}
+
 /** Change le rôle d'un compte existant (créé au préalable dans Supabase → Authentication). */
 export async function setMemberRole(form: FormData) {
   const user = await requireAdmin();

@@ -81,6 +81,8 @@ export const coupleStep = z.object({
 
 export const ceremonySchema = z.object({
   type: z.enum(CEREMONY_TYPES),
+  /** Mariage franco-maghrébin : la cérémonie peut avoir lieu un autre jour */
+  date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date invalide").optional().default(""),
   label: opt(80),
   showOnInvitation: z.boolean().default(true),
   venueName: opt(120),
@@ -203,8 +205,18 @@ export const maghrebDetailsStep = z.object({
   details: detailsStep.shape.details,
 });
 
-export const CULTURES = ["europeen", "maghrebin"] as const;
+/** Types de mariage : français / européen, maghrébin, franco-maghrébin (mélange des deux) */
+export const CULTURES = ["europeen", "maghrebin", "mixte"] as const;
 export type Culture = (typeof CULTURES)[number];
+export const isCulture = (v: unknown): v is Culture => typeof v === "string" && (CULTURES as readonly string[]).includes(v);
+/** Types proposés par un modèle, dans l'ordre européen → maghrébin → mixte (au moins un). */
+export function normalizeCultures(v: unknown): Culture[] {
+  const list = Array.isArray(v) ? v.filter(isCulture) : [];
+  const out = CULTURES.filter((c) => list.includes(c));
+  return out.length ? out : ["europeen"];
+}
+/** Le formulaire comporte les étapes du henné et de la soirée */
+export const hasMaghrebSteps = (c: Culture) => c === "maghrebin" || c === "mixte";
 
 export const reviewStep = z.object({
   consent: z.literal(true, { message: "Votre accord est nécessaire pour envoyer la demande" }),
@@ -230,6 +242,8 @@ export type RequestData = z.output<typeof requestSchema>;
 export const STEP_SCHEMAS = [contactStep, coupleStep, ceremoniesStep, receptionStep, detailsStep, reviewStep] as const;
 /** Formulaire maghrébin : coordonnées, couple, henné, soirée, autres moments, décoration et détails, vérification */
 export const MAGHREB_STEP_SCHEMAS = [contactStep, coupleStep, hennaStep, soireeStep, momentsStep, maghrebDetailsStep, reviewStep] as const;
+/** Franco-maghrébin : les cérémonies (mairie, religieuse…) puis tout le parcours maghrébin */
+export const MIXTE_STEP_SCHEMAS = [contactStep, coupleStep, ceremoniesStep, hennaStep, soireeStep, momentsStep, maghrebDetailsStep, reviewStep] as const;
 
 export const STEP_TITLES = [
   "Vos coordonnées",

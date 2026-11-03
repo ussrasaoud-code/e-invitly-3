@@ -39,9 +39,9 @@ export default async function PersonalisationPage({ params, searchParams }: { pa
         <div>
           <p className="eyebrow">{r.eyebrow}</p>
           <h1 className="mt-3 font-serif text-4xl md:text-5xl">{fmt(r.title, { name: template.name })}</h1>
-          <p className="mt-4 max-w-2xl leading-relaxed text-stone">{template.culture === "maghrebin" ? r.mag.intro : r.intro}</p>
+          <p className="mt-4 max-w-2xl leading-relaxed text-stone">{r.intro}</p>
           <div className="mt-10">
-            <RequestForm templateSlug={template.slug} templateName={template.name} t={r} lang={lang} invitationLang={invitationLang} culture={template.culture} />
+            <RequestForm templateSlug={template.slug} templateName={template.name} t={r} lang={lang} invitationLang={invitationLang} cultures={template.cultures} />
           </div>
         </div>
         <aside className="hidden lg:block">

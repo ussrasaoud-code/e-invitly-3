@@ -1,5 +1,5 @@
 import { invitationContentSchema, type InvitationContent, type InvitationEvent, type Language } from "./schema";
-import { MAGHREB_TITLES } from "./maghreb-labels";
+import { CEREMONY_TITLES, MAGHREB_TITLES } from "./maghreb-labels";
 import { CEREMONY_LABELS, type MaghrebData, type MomentAudience, type RequestData } from "@/lib/validation/request";
 
 /**
@@ -21,7 +21,7 @@ export function buildInvitationFromRequest(
   templateSample: InvitationContent,
   form: Partial<RequestFormData> & Pick<RequestFormData, "partnerOne" | "partnerTwo">,
 ): { content: InvitationContent; notesToReview: string[] } {
-  if (form.culture === "maghrebin" && form.maghreb) return buildMaghreb(templateSample, form, form.maghreb);
+  if ((form.culture === "maghrebin" || form.culture === "mixte") && form.maghreb) return buildMaghreb(templateSample, form, form.maghreb);
   const notes: string[] = [];
   const ceremonies = form.ceremonies ?? [];
   const reception = form.reception;
@@ -125,6 +125,27 @@ function buildMaghreb(
   const events: InvitationEvent[] = [];
   const push = (e: Partial<InvitationEvent> & Pick<InvitationEvent, "id" | "type" | "title">) =>
     events.push({ venueName: "", address: "", mapsUrl: "", arrivalTime: "", startTime: "", description: "", date: "", audience: "all", ...e });
+
+  // Franco-maghrébin : cérémonies (civile, religieuse, laïque…) avant le henné et la soirée
+  if (form.culture === "mixte") {
+    (form.ceremonies ?? []).forEach((c, i) => {
+      if (!c.showOnInvitation) {
+        notes.push(`Cérémonie non affichée à la demande du client : ${c.label || CEREMONY_LABELS[c.type]}${c.date ? ` le ${c.date}` : ""}${c.startTime ? ` (${c.startTime})` : ""}.`);
+        return;
+      }
+      push({
+        id: `ceremonie-${i + 1}`,
+        type: c.type,
+        title: c.label || CEREMONY_TITLES[lang]?.[c.type] || CEREMONY_LABELS[c.type],
+        venueName: c.venueName ?? "",
+        address: c.address ?? "",
+        arrivalTime: c.arrivalTime ?? "",
+        startTime: c.startTime ?? "",
+        description: c.notes ?? "",
+        date: c.date && c.date !== (m.soiree.date || form.eventDate) ? c.date : "",
+      });
+    });
+  }
 
   // Jour du henné : hammam (matin), henné, chants, dîner
   const h = m.henna;
