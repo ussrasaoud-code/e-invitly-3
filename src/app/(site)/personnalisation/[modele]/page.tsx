@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { SetupNotice } from "@/components/site/SetupNotice";
 import { isSupabaseConfigured } from "@/lib/env";
 import { fmt, isSiteLang, localePath } from "@/lib/i18n/config";
-import { getDict } from "@/lib/i18n/server";
+import { getDict, getEnabledLangs } from "@/lib/i18n/server";
 import { getPublishedTemplate, localizeTemplate } from "@/lib/templates";
 import { RequestForm } from "./RequestForm";
 
@@ -32,7 +32,9 @@ export default async function PersonalisationPage({ params, searchParams }: { pa
   const template = localizeTemplate(found.template, lang);
   const r = t.request;
   // Langue de l'invitation proposée : celle choisie dans la démo, sinon celle du site
-  const invitationLang = isSiteLang(langue) ? langue : lang;
+  const enabled = await getEnabledLangs();
+  const wanted = isSiteLang(langue) ? langue : lang;
+  const invitationLang = enabled.includes(wanted) ? wanted : "fr";
   return (
     <main className="px-5 pb-24 pt-10 md:pt-14">
       <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1fr_300px]">
@@ -41,7 +43,7 @@ export default async function PersonalisationPage({ params, searchParams }: { pa
           <h1 className="mt-3 font-serif text-4xl md:text-5xl">{fmt(r.title, { name: template.name })}</h1>
           <p className="mt-4 max-w-2xl leading-relaxed text-stone">{r.intro}</p>
           <div className="mt-10">
-            <RequestForm templateSlug={template.slug} templateName={template.name} t={r} lang={lang} invitationLang={invitationLang} cultures={template.cultures} />
+            <RequestForm templateSlug={template.slug} templateName={template.name} t={r} lang={lang} invitationLang={invitationLang} cultures={template.cultures} languages={enabled} />
           </div>
         </div>
         <aside className="hidden lg:block">

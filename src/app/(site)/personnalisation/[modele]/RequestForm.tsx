@@ -92,7 +92,9 @@ const STEP_KEYS: Record<Culture, StepKey[]> = {
 type Schema = { safeParse: (v: unknown) => { success: true } | { success: false; error: import("zod").ZodError } };
 const SCHEMAS_BY: Record<Culture, ReadonlyArray<Schema>> = { europeen: STEP_SCHEMAS, maghrebin: MAGHREB_STEP_SCHEMAS, mixte: MIXTE_STEP_SCHEMAS };
 
-export function RequestForm({ templateSlug, templateName, t, lang, invitationLang, cultures = ["europeen"] }: { templateSlug: string; templateName: string; t: T; lang: SiteLang; invitationLang: SiteLang; cultures?: Culture[] }) {
+export function RequestForm({ templateSlug, templateName, t, lang, invitationLang, cultures = ["europeen"], languages }: { templateSlug: string; templateName: string; t: T; lang: SiteLang; invitationLang: SiteLang; cultures?: Culture[]; languages?: SiteLang[] }) {
+  // Langues proposées pour l'invitation : celles ouvertes sur le site (Paramètres → Langues)
+  const langOptions = languages?.length ? LANG_OPTIONS.filter((o) => languages.includes(o.value)) : LANG_OPTIONS;
   const storageKey = `e-invitly:demande:${templateSlug}`;
   const single = cultures.length === 1;
   const [chosen, setChosen] = useState(single);
@@ -264,7 +266,7 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
             <TextField label={f.email} type="email" autoComplete="email" inputMode="email" value={state.email} onChange={(ev) => set("email", ev.target.value)} error={e("email")} required className="sm:col-span-2" hint={f.emailHint} />
             <TextField label={f.phone} type="tel" autoComplete="tel" value={state.phone} onChange={(ev) => set("phone", ev.target.value)} error={e("phone")} optional />
             <SelectField label={f.country} value={state.country} onChange={(ev) => set("country", ev.target.value)} error={e("country")} options={COUNTRIES.map((c) => ({ value: c, label: t.countries[c as keyof T["countries"]] ?? c }))} />
-            <SelectField label={f.language} hint={f.languageHint} value={state.language} onChange={(ev) => set("language", ev.target.value as FormState["language"])} error={e("language")} options={LANG_OPTIONS} className="sm:col-span-2" />
+            <SelectField label={f.language} hint={f.languageHint} value={state.language} onChange={(ev) => set("language", ev.target.value as FormState["language"])} error={e("language")} options={langOptions} className="sm:col-span-2" />
           </div>
         )}
 
