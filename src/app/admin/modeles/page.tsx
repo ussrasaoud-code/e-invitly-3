@@ -97,31 +97,33 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
       )}
 
       {!archives ? (
-        <section className="card mt-10 max-w-2xl p-5">
+        <section className="card mt-10 max-w-3xl p-5">
           <h2 className="font-serif text-2xl">Nouveau modèle</h2>
           <p className="mt-1 text-sm text-stone">
             Partez d&apos;une <strong>page blanche</strong> (aucun ornement, une seule section) pour tout composer dans l&apos;éditeur visuel,
             ou d&apos;une mise en page existante. Le modèle reste hors catalogue jusqu&apos;à sa publication.
           </p>
-          <form action={createTemplate} className="mt-4 grid gap-3 sm:grid-cols-[1fr_200px_200px_auto] sm:items-end">
+          <form action={createTemplate} className="mt-4 grid gap-3 sm:grid-cols-2 sm:items-end">
             <input type="hidden" name="ouvrir" value="editeur" />
-            <label>
-              <span className="field-label !text-xs">Nom</span>
-              <input name="name" required maxLength={80} className="field min-h-10 text-sm" />
+            <label className="min-w-0 sm:col-span-2">
+              <span className="field-label !text-xs">Nom du modèle</span>
+              <input name="name" required maxLength={80} placeholder="Marrakesh" className="field min-h-10 w-full text-sm" />
             </label>
-            <label>
+            <label className="min-w-0">
               <span className="field-label !text-xs">Mise en page de base</span>
-              <select name="renderer" className="field min-h-10 text-sm">
+              <select name="renderer" className="field min-h-10 w-full text-sm">
                 {(["blank", "the-garden", "province"] as const).map((r) => <option key={r} value={r}>{RENDERER_LABEL[r] ?? r}</option>)}
               </select>
             </label>
-<label>
+            <label className="min-w-0">
               <span className="field-label !text-xs">Langue principale</span>
-              <select name="langue" defaultValue="fr" className="field min-h-10 text-sm">
+              <select name="langue" defaultValue="fr" className="field min-h-10 w-full text-sm">
                 {LANGUAGES.map((l) => <option key={l} value={l}>{LANGUAGE_LABELS[l]}</option>)}
               </select>
             </label>
-            <SubmitButton className="btn btn-primary btn-sm" pendingLabel="Création…">Créer et ouvrir l&apos;éditeur</SubmitButton>
+            <div className="sm:col-span-2">
+              <SubmitButton className="btn btn-primary btn-sm min-h-10 w-full whitespace-nowrap sm:w-auto" pendingLabel="Création…">Créer et ouvrir l&apos;éditeur</SubmitButton>
+            </div>
           </form>
         </section>
       ) : null}
