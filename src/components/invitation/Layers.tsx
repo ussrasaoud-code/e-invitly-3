@@ -6,6 +6,7 @@ import { FONTS } from "@/lib/fonts";
 import type { InvitationLayer, InvitationSection } from "@/lib/invitation/schema";
 import { LayerEditorContext, SectionContext, type LayerEditor } from "./editor-context";
 import { guideSettings, showSnap, snapMove, unionBox } from "./snap";
+import { cq } from "./units";
 import { AnimationContext, SectionAnimationContext } from "./Sections";
 import { ShapeSvg } from "./Shape";
 
@@ -24,7 +25,6 @@ function fontFamily(f: InvitationLayer["font"]): string {
 }
 
 const round = (n: number) => Math.round(n * 10) / 10;
-
 export function SectionFrame({ section, children }: { section: InvitationSection; children: ReactNode }) {
   const editor = useContext(LayerEditorContext);
   const animate = useContext(AnimationContext);
@@ -91,8 +91,8 @@ export function SectionFrame({ section, children }: { section: InvitationSection
       .filter((l) => l.placement === placement)
       .map((l) => <LayerView key={l.id} layer={l} section={section} frame={ref} play={inView} animate={animate} />);
   const sectionOnly = isSelectedSection && !editor?.selected?.layerId && !editor?.selected?.elementId;
-  const pad = (v: number) => (v > 0 ? `${v}cqw` : undefined);
-  const neg = (v: number) => (v < 0 ? `${v}cqw` : undefined);
+  const pad = (v: number) => (v > 0 ? cq(v) : undefined);
+  const neg = (v: number) => (v < 0 ? cq(v) : undefined);
 
   return (
     <div
@@ -217,7 +217,7 @@ function LayerView({ layer: l, section, frame, play, animate }: {
         className="m-0 whitespace-pre-line leading-[1.1]"
         style={{
           fontFamily: fontFamily(l.font),
-          fontSize: `${l.fontSize}cqw`,
+          fontSize: cq(l.fontSize),
           fontWeight: l.bold ? 700 : 400,
           fontStyle: l.italic ? "italic" : "normal",
           textAlign: l.align,
@@ -405,7 +405,7 @@ function scrollStyle(sc: InvitationLayer["scroll"] | undefined): CSSProperties {
   const p = "var(--p, 0)";
   switch (sc.type) {
     case "move":
-      return { translate: `calc(${p} * ${sc.dx}cqw) calc(${p} * var(--fh, 0px) * ${sc.dy / 100})` };
+      return { translate: `calc(${p} * ${cq(sc.dx)}) calc(${p} * var(--fh, 0px) * ${sc.dy / 100})` };
     case "parallax":
       return { translate: `0 calc((${p} - 0.5) * var(--fh, 0px) * ${sc.dy / 100})` };
     case "rotate":
@@ -416,7 +416,7 @@ function scrollStyle(sc: InvitationLayer["scroll"] | undefined): CSSProperties {
       // Rideau : couvre la section à son arrivée, puis glisse vers le côté (dx) en s'agrandissant un peu.
       const span = Math.max(10, sc.amount || 45) / 100;
       const q = `min(1, calc(${p} / ${span}))`;
-      return { translate: `calc(${q} * ${sc.dx}cqw) 0`, scale: `calc(1 + ${q} * 0.12)` };
+      return { translate: `calc(${q} * ${cq(sc.dx)}) 0`, scale: `calc(1 + ${q} * 0.12)` };
     }
     case "zoom": {
       const from = Math.max(0, sc.amount || 40) / 100;

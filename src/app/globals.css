@@ -352,8 +352,8 @@
 .inv-guide-cy { top: 50%; }
 .inv-guide-ml { left: calc(var(--guide-m, 8) * 1%); }
 .inv-guide-mr { right: calc(var(--guide-m, 8) * 1%); }
-.inv-guide-mt { top: calc(var(--guide-m, 8) * 1cqw); }
-.inv-guide-mb { bottom: calc(var(--guide-m, 8) * 1cqw); }
+.inv-guide-mt { top: calc(var(--guide-m, 8) * 3.9px); }
+.inv-guide-mb { bottom: calc(var(--guide-m, 8) * 3.9px); }
 /* Section sélectionnée : repères discrets en permanence */
 .ve-guides .inv-frame-selected .inv-guide-cx,
 .ve-guides .inv-frame-selected .inv-guide-ml,

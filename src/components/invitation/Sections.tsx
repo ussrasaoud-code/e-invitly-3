@@ -418,7 +418,7 @@ export function ScratchSection({ content, renderer, labels, title, section }: Se
                   onReveal={() => setFound((f) => new Set(f).add(i))}
                 >
                   <span
-                    className={`flex h-full w-full items-center justify-center px-1 leading-none ${i === 1 ? "text-[clamp(0.85rem,4.6cqw,1.25rem)]" : "text-[clamp(1.4rem,8cqw,2.1rem)]"}`}
+                    className={`flex h-full w-full items-center justify-center px-1 leading-none ${i === 1 ? "text-[clamp(0.85rem,17.94px,1.25rem)]" : "text-[clamp(1.4rem,31.2px,2.1rem)]"}`}
                     style={{ ...css.display, color: "var(--inv-ink)" }}
                   >
                     {p.v}
@@ -817,9 +817,9 @@ export function ProgramV2Section({ section, content }: SectionProps & { section:
   const items = programV2Items(section, content, (t) => formatTime(t, content.language), (d) => formatDayLabel(d, content.language));
   const stemUrl = `url(/decor/tiges/${section.stem ?? "feuilles"}.svg)`;
   // Colonnes en % de la largeur de l'invitation : heure | tige | texte
-  const cols = "grid-cols-[24cqw_12cqw_minmax(0,1fr)]";
+  const cols = "grid-cols-[93.6px_46.8px_minmax(0,1fr)]";
   return (
-    <section className="relative px-[6cqw] pb-16 pt-14">
+    <section className="relative px-[23.4px] pb-16 pt-14">
       <Reveal>
         {kicker ? (
           <El id="kicker">
@@ -834,7 +834,7 @@ export function ProgramV2Section({ section, content }: SectionProps & { section:
       </Reveal>
       {items.length ? (
         <div className="relative mt-10">
-          <El id="stem" className="pointer-events-none absolute inset-y-0" style={{ left: "24cqw", width: "12cqw" }}>
+          <El id="stem" className="pointer-events-none absolute inset-y-0" style={{ left: "93.6px", width: "46.8px" }}>
             <div
               aria-hidden="true"
               className="h-full w-full"
@@ -852,7 +852,7 @@ export function ProgramV2Section({ section, content }: SectionProps & { section:
             />
           </El>
           {marker ? (
-            <El id="marker" className="pointer-events-none absolute z-[2]" style={{ left: "24cqw", width: "12cqw", top: "calc(var(--p, 0) * (100% - 12cqw))", transition: "top 140ms linear" }}>
+            <El id="marker" className="pointer-events-none absolute z-[2]" style={{ left: "93.6px", width: "46.8px", top: "calc(var(--p, 0) * (100% - 46.8px))", transition: "top 140ms linear" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={marker} alt="" className="block h-auto w-full drop-shadow-sm" />
             </El>
@@ -862,7 +862,7 @@ export function ProgramV2Section({ section, content }: SectionProps & { section:
               {items.map((it) => {
                 const k = `list.${elKey(it.id)}`;
                 return (
-                  <El id={k} as="li" key={it.id} className={`grid ${cols} items-start py-[3.4cqw]`}>
+                  <El id={k} as="li" key={it.id} className={`grid ${cols} items-start py-[13.26px]`}>
                     <El id={`${k}.time`}>
                       <p className="pt-0.5 text-[1.05rem] uppercase lining-nums tracking-wide" style={{ ...css.display, color: "var(--inv-ink)" }}>{it.time}</p>
                     </El>

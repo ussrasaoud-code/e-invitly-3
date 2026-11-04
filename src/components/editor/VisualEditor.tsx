@@ -940,6 +940,12 @@ export function VisualEditor({
                   style={{ ...(width === 390 ? {} : { width: 390, zoom: width / 390 }), ["--guide-m" as string]: `${guideMargin}` }}
                 >
                   <InvitationView key={`${replay}-${animate}`} content={c} renderer={renderer} mode="preview" framed skipEnvelope animations={animate} />
+                  {guides ? (
+                    // Hauteur visible sans défiler sur un téléphone de cette taille (barres du navigateur déduites)
+                    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 z-30 border-t border-dashed border-[#c44078]/60" style={{ top: Math.round(((width === 360 ? 640 : width === 390 ? 664 : 750) * 390) / width) }}>
+                      <span className="absolute end-1 -top-4 rounded bg-white/85 px-1 text-[9px] uppercase tracking-wider text-[#c44078]">Fin du 1er écran</span>
+                    </div>
+                  ) : null}
                 </div>
               </LayerEditorContext.Provider>
             )}

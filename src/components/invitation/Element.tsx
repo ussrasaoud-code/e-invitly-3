@@ -5,6 +5,7 @@ import { FONTS } from "@/lib/fonts";
 import type { ElementStyle } from "@/lib/invitation/schema";
 import { AnimationContext, LayerEditorContext, SectionContext, type LayerEditor } from "./editor-context";
 import { guideSettings, showSnap, snapMove } from "./snap";
+import { cq } from "./units";
 export { elKey } from "@/lib/invitation/elements";
 
 /** Élément parent le plus proche (pour les groupes : prénoms, listes…) */
@@ -68,7 +69,7 @@ export function El({ id, children, className = "", style, as: Tag = "div" }: { i
       css.position = "relative";
       css.left = `${(st.dx * 390) / 100}px`;
       css.top = `${(st.dy * 390) / 100}px`;
-    } else if (st.dx || st.dy) css.translate = `${st.dx}cqw ${st.dy}cqw`;
+    } else if (st.dx || st.dy) css.translate = `${cq(st.dx)} ${cq(st.dy)}`;
     if (st.rotation) css.rotate = `${st.rotation}deg`;
     if (st.scale !== 1) css.scale = String(st.scale);
     if (st.zoom && st.zoom !== 1) css.zoom = st.zoom;
