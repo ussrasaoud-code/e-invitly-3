@@ -70,3 +70,17 @@ describe("formes", () => {
     expect(layerSchema.safeParse({ ...newLayer("shape"), fill: "red" }).success).toBe(false);
   });
 });
+
+describe("conversion des espaces de section (version 1 → 2)", () => {
+  it("convertit une fois les espaces positifs et laisse les négatifs", async () => {
+    const { PRESETS } = await import("./presets");
+    const base = invitationContentSchema.parse(PRESETS["the-garden"]);
+    const v1 = { ...base, schemaVersion: 1, sections: base.sections.map((s, i) => (i === 0 ? { ...s, spaceTop: -30, spaceBottom: 55 } : s)) };
+    const once = invitationContentSchema.parse(v1);
+    expect(once.schemaVersion).toBe(2);
+    expect(once.sections[0].spaceTop).toBe(-30);
+    expect(once.sections[0].spaceBottom).toBe(203);
+    const twice = invitationContentSchema.parse(once);
+    expect(twice.sections[0].spaceBottom).toBe(203);
+  });
+});

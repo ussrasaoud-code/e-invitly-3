@@ -15,7 +15,7 @@ const sections = (titles: Partial<Record<InvitationSection["type"], string>> = {
   );
 
 const sharedDemo = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   language: "fr",
   couple: { partnerOne: "Camille", partnerTwo: "Elias", photoUrl: "" },
   eventAt: "2027-06-12T15:30",

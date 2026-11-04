@@ -333,8 +333,8 @@ export const sectionSchema = z.object({
   /** Section « texte libre » */
   body: optionalText(2000),
   /** Espace ajouté (ou retiré) en haut et en bas, en % de la largeur */
-  spaceTop: num(-30, 300, 0),
-  spaceBottom: num(-30, 300, 0),
+  spaceTop: num(-30, 1200, 0),
+  spaceBottom: num(-30, 1200, 0),
   /** Section « bande décorative » : hauteur en % de la largeur */
   height: num(10, 250, 60),
   /** Programme v2 : surtitre, moments propres à la section, fleur qui suit le défilement */
@@ -440,8 +440,36 @@ export const themeSchema = z.object({
 });
 export type InvitationTheme = z.infer<typeof themeSchema>;
 
-export const invitationContentSchema = z.object({
-  schemaVersion: z.literal(1).default(1),
+/**
+ * Version 1 : l'espace ajouté en haut / en bas d'une section était appliqué en marge
+ * intérieure du cadre lui-même ; le navigateur le calculait alors sur la largeur de
+ * l'ÉCRAN (et non de l'invitation). Dans l'éditeur (écran d'ordinateur ≈ 1440 px), les
+ * sections paraissaient donc bien plus hautes que sur un téléphone, et les calques
+ * placés en % de la hauteur se chevauchaient sur mobile.
+ * Version 2 : l'espace est mesuré sur la largeur de l'invitation, partout pareil.
+ * La conversion garde la mise en page telle qu'elle apparaissait dans l'éditeur.
+ */
+export const LEGACY_SPACE_FACTOR = 1440 / 390;
+function upgradeContent(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const c = raw as Record<string, unknown>;
+  if (c.schemaVersion === 2) return raw;
+  const sections = Array.isArray(c.sections)
+    ? c.sections.map((s) => {
+        if (!s || typeof s !== "object") return s;
+        const sec = { ...(s as Record<string, unknown>) };
+        for (const k of ["spaceTop", "spaceBottom"] as const) {
+          const v = sec[k];
+          if (typeof v === "number" && v > 0) sec[k] = Math.min(1200, Math.round(v * LEGACY_SPACE_FACTOR));
+        }
+        return sec;
+      })
+    : c.sections;
+  return { ...c, schemaVersion: 2, sections };
+}
+
+export const invitationContentSchema = z.preprocess(upgradeContent, z.object({
+  schemaVersion: z.literal(2).default(2),
   language: z.enum(LANGUAGES).default("fr"),
   couple: z.object({
     partnerOne: text(60),
@@ -488,7 +516,7 @@ export const invitationContentSchema = z.object({
     autoStart: z.boolean().default(false),
   }),
   music: z.object({ enabled: z.boolean().default(false), url: safeUrl }),
-});
+}));
 
 export type InvitationContent = z.infer<typeof invitationContentSchema>;
 export type InvitationContentInput = z.input<typeof invitationContentSchema>;

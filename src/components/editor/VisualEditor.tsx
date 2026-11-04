@@ -1309,8 +1309,8 @@ function SectionPanel({ section: s, themeColors, themeSwatches = [], onApplyBack
       <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="mb-1 font-serif text-lg">Hauteur</legend>
         <p className="text-xs text-stone">Tirez les poignées en haut et en bas de la section dans le téléphone, ou réglez ici.</p>
-        <NumberSlider label="Espace en haut" value={s.spaceTop} min={-30} max={300} unit="%" onChange={(v) => onChange({ spaceTop: v })} />
-        <NumberSlider label="Espace en bas" value={s.spaceBottom} min={-30} max={300} unit="%" onChange={(v) => onChange({ spaceBottom: v })} />
+        <NumberSlider label="Espace en haut" value={s.spaceTop} min={-30} max={1200} unit="%" onChange={(v) => onChange({ spaceTop: v })} />
+        <NumberSlider label="Espace en bas" value={s.spaceBottom} min={-30} max={1200} unit="%" onChange={(v) => onChange({ spaceBottom: v })} />
       </fieldset>
       <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="mb-1 font-serif text-lg">Fond de la section</legend>

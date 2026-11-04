@@ -99,7 +99,7 @@ export function SectionFrame({ section, children }: { section: InvitationSection
       className={`inv-frame relative isolate ${editor ? "inv-frame-edit" : ""} ${isSelectedSection ? "inv-frame-selected" : ""}`}
       data-section={section.type}
       data-section-id={section.id}
-      style={{ backgroundColor: section.background.color || undefined, paddingTop: pad(section.spaceTop), paddingBottom: pad(section.spaceBottom) }}
+      style={{ backgroundColor: section.background.color || undefined }}
       onPointerDown={editor ? (e) => {
         const t = e.target as HTMLElement;
         if (t.closest(".inv-section-handle")) return;
@@ -121,6 +121,8 @@ export function SectionFrame({ section, children }: { section: InvitationSection
         />
       ) : null}
       {render("behind")}
+      {/* Espaces en haut / en bas : des blocs DANS le cadre, pour que « cqw » se mesure sur la largeur de l'invitation */}
+      {pad(section.spaceTop) ? <div aria-hidden="true" className="inv-space" style={{ height: pad(section.spaceTop) }} /> : null}
       <SectionContext.Provider value={section}>
         <SectionAnimationContext.Provider value={section.animation}>
           {section.spaceTop < 0 || section.spaceBottom < 0 ? (
@@ -130,6 +132,7 @@ export function SectionFrame({ section, children }: { section: InvitationSection
           )}
         </SectionAnimationContext.Provider>
       </SectionContext.Provider>
+      {pad(section.spaceBottom) ? <div aria-hidden="true" className="inv-space" style={{ height: pad(section.spaceBottom) }} /> : null}
       {render("front")}
       {editor && sectionOnly ? (
         <>
@@ -160,7 +163,7 @@ function startSpace(e: ReactPointerEvent, section: InvitationSection, key: "spac
   drag(e, (ev) => {
     const d = ((ev.clientY - sy) / rect.width) * 100;
     const v = key === "spaceTop" ? start - d : start + d;
-    editor.changeSection(section.id, { [key]: Math.round(Math.min(300, Math.max(-30, v))) });
+    editor.changeSection(section.id, { [key]: Math.round(Math.min(1200, Math.max(-30, v))) });
   });
 }
 
