@@ -664,6 +664,12 @@ const server = http.createServer(async (req, res) => {
   }
   const raw = buf.toString("utf8");
   if (url.pathname.startsWith("/paypal-mock/") || url.pathname.startsWith("/stripe-mock/")) return handlePaymentMocks(req, res, url, raw);
+  // DeepL factice : préfixe la langue cible, pour vérifier le circuit de traduction
+  if (url.pathname === "/deepl-mock/v2/translate") {
+    if (!String(req.headers.authorization ?? "").startsWith("DeepL-Auth-Key ")) return send(res, 403, { message: "Forbidden" });
+    const b = JSON.parse(raw || "{}");
+    return send(res, 200, { translations: (b.text ?? []).map((t) => ({ detected_source_language: b.source_lang, text: `[${b.target_lang}] ${t}` })) });
+  }
   let body = {};
   try {
     body = raw ? JSON.parse(raw) : {};

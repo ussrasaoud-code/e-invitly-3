@@ -125,6 +125,7 @@ export const nl: SiteDict = {
     choose: "Kies dit ontwerp",
     chooseShort: "Kiezen",
     demoAria: "Bekijk de demo van het ontwerp {name}",
+    detailsAria: "Bekijk het ontwerp {name}",
     sheetAria: "Bekijk het ontwerp {name}",
     coverAlt: "Voorbeeld van het ontwerp {name}",
     all: "Al onze ontwerpen",
@@ -175,6 +176,111 @@ export const nl: SiteDict = {
     phoneNote: "Mobiel voorbeeld — voorbeeldinhoud",
     noPreview: "Het voorbeeld van dit ontwerp is nog niet beschikbaar.",
     demoLabel: "Demo van het ontwerp {name}",
+    journey: {
+      "eyebrow": "Jullie uitnodiging, van A tot Z",
+      "title": "Dit ontwerp, helemaal van jullie",
+      "intro": "De demo vertelt over een denkbeeldige bruiloft. Zo maken we van dit ontwerp jullie uitnodiging.",
+      "price": "Prijs",
+      "langsIncluded": "Tot 2 talen inbegrepen op dezelfde link",
+      "includedTitle": "Wat is inbegrepen",
+      "included": [
+        {
+          "title": "Op maat gemaakt",
+          "text": "Ons team zet jullie teksten, locaties en programma op: jullie hoeven niets te ontwerpen."
+        },
+        {
+          "title": "Een voorbeeld vóór betaling",
+          "text": "Jullie bekijken de uitnodiging via een privélink en vragen aanpassingen. Niets wordt gepubliceerd zonder jullie akkoord."
+        },
+        {
+          "title": "Online antwoorden",
+          "text": "Gasten reageren zonder account of app; jullie volgen en exporteren de antwoorden in jullie omgeving."
+        },
+        {
+          "title": "Twee talen inbegrepen",
+          "text": "Eén link, twee talen: gasten wisselen met één tik."
+        },
+        {
+          "title": "Besloten momenten",
+          "text": "Gemeentehuis, henna, verloving… een privélink per gastengroep, zodat iedereen alleen ziet wat hem aangaat."
+        },
+        {
+          "title": "Opening en muziek",
+          "text": "Een geanimeerde envelop of een openingsvideo, met muziek naar keuze."
+        },
+        {
+          "title": "Altijd actueel",
+          "text": "Verandert een tijd of locatie? Wij passen de uitnodiging aan, de link blijft hetzelfde."
+        },
+        {
+          "title": "Veilig betalen",
+          "text": "Met kaart of PayPal, in één keer, zodra het voorbeeld jullie bevalt."
+        }
+      ],
+      "stepsTitle": "Zo werkt het",
+      "steps": [
+        {
+          "title": "Jullie aanvraag",
+          "text": "Vul het begeleide formulier in: namen, datum, locaties, programma en wensen."
+        },
+        {
+          "title": "Het ontwerp",
+          "text": "Ons team maakt jullie uitnodiging in de stijl van het ontwerp, met jullie teksten."
+        },
+        {
+          "title": "Jullie voorbeeld",
+          "text": "Een privélink om haar te ontdekken; antwoord gewoon op de e-mail voor aanpassingen."
+        },
+        {
+          "title": "De betaling",
+          "text": "Als alles klopt, betalen jullie veilig online."
+        },
+        {
+          "title": "Online",
+          "text": "Jullie persoonlijke link wordt geactiveerd: deel hem via WhatsApp, sms of e-mail."
+        },
+        {
+          "title": "De antwoorden",
+          "text": "Volg de bevestigingen van jullie gasten live in jullie omgeving."
+        }
+      ],
+      "delay": "Indicatieve termijn: {delay}",
+      "sectionsTitle": "Rubrieken naar keuze",
+      "sectionsText": "Jullie uitnodiging bevat alleen de rubrieken die jullie feest nodig heeft, in de volgorde die jullie kiezen.",
+      "sections": [
+        "Programma van de dag",
+        "Locaties en route",
+        "Aftelklok",
+        "Datum om te krassen",
+        "Dresscode en kleuren",
+        "Overnachting en vervoer",
+        "Handige contacten",
+        "Antwoorden van gasten",
+        "Jullie verhaal, jullie woorden"
+      ],
+      "sectionsMore": "Een ander idee? Vertel het ons in jullie aanvraag.",
+      "faqTitle": "Jullie vragen",
+      "faq": [
+        {
+          "question": "Kan ik mijn uitnodiging zien vóór de betaling?",
+          "answer": "Ja. Jullie krijgen eerst een privévoorbeeld; betalen gebeurt pas als de uitnodiging is goedgekeurd."
+        },
+        {
+          "question": "Hoe werken de twee talen?",
+          "answer": "Kies de tweede taal in jullie aanvraag: wij maken beide versies, en gasten kiezen hun taal op dezelfde link."
+        },
+        {
+          "question": "En als er na het versturen iets verandert?",
+          "answer": "Schrijf ons: wij passen de uitnodiging aan en jullie gasten houden dezelfde link."
+        },
+        {
+          "question": "Moeten mijn gasten iets installeren?",
+          "answer": "Nee. Ze openen de link op hun telefoon en antwoorden in enkele seconden, zonder registratie."
+        }
+      ],
+      "ctaTitle": "Zullen we beginnen?",
+      "ctaText": "Stuur ons jullie gegevens: we komen terug met jullie voorbeeld."
+    },
   },
   demo: {
     metaTitle: "Demo — {name}",
@@ -212,6 +318,9 @@ export const nl: SiteDict = {
       country: "Land",
       language: "Taal van de uitnodiging",
       languageHint: "De taal waarin jullie gasten de uitnodiging lezen.",
+      secondLanguage: "Tweede taal (optioneel)",
+      secondLanguageNone: "Geen — één taal",
+      secondLanguageHint: "Inbegrepen: gasten kiezen hun taal op dezelfde link.",
       partnerOne: "Voornaam van de eerste persoon",
       partnerTwo: "Voornaam van de tweede persoon",
       eventDate: "Datum van het feest",
@@ -278,6 +387,7 @@ export const nl: SiteDict = {
       phone: "Telefoon",
       country: "Land",
       language: "Taal",
+      secondLanguage: "Tweede taal",
       template: "Ontwerp",
       names: "Voornamen",
       date: "Datum",

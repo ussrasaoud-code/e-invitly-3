@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { logActivity } from "@/lib/audit";
 import { requireAdmin, requireStaff } from "@/lib/auth";
-import { CATEGORIES, STYLES } from "@/lib/catalog";
+import { CATEGORIES, STYLES, parseCustomStyles } from "@/lib/catalog";
 import { PRESETS } from "@/lib/invitation/presets";
 import {
   LANGUAGES,
@@ -95,6 +95,7 @@ const metaSchema = z.object({
   description: z.string().trim().max(3000),
   category: z.enum(CATEGORIES.map((c) => c.value) as [string, ...string[]]),
   styles: z.array(z.enum(STYLES.map((s) => s.value) as [string, ...string[]])),
+  custom_styles: z.string().max(400),
   features: z.string().max(2000),
   price_label: z.string().trim().max(80),
   cover_image: z.string().trim().max(1000).refine(isAllowedAssetUrl, "Lien d'image invalide"),
@@ -111,6 +112,7 @@ export async function updateTemplateMeta(form: FormData) {
     description: form.get("description"),
     category: form.get("category"),
     styles: form.getAll("styles"),
+    custom_styles: form.get("custom_styles") ?? "",
     features: form.get("features") ?? "",
     price_label: form.has("price_mode")
       ? formatPrice(String(form.get("price_mode")), String(form.get("price_amount") ?? ""), String(form.get("price_text") ?? "")) ?? ""
@@ -133,7 +135,7 @@ export async function updateTemplateMeta(form: FormData) {
       short_description: d.short_description,
       description: d.description,
       category: d.category,
-      styles: d.styles,
+      styles: [...d.styles, ...parseCustomStyles(d.custom_styles)],
       features: lines(d.features).slice(0, 20),
       price_label: d.price_label || null,
       cover_image: d.cover_image || null,
@@ -142,7 +144,7 @@ export async function updateTemplateMeta(form: FormData) {
     .eq("id", d.id);
   if (error) throw new Error(error.code === "23505" ? "Cet identifiant est déjà utilisé par un autre modèle." : error.message);
   // Fiche traduite (colonne ajoutée par la migration « languages »)
-  const FIELDS = { name: 80, short_description: 200, description: 3000, price_label: 80, features: 2000 } as const;
+  const FIELDS = { name: 80, short_description: 200, description: 3000, price_label: 80, features: 2000, styles: 400 } as const;
   const translations: Record<string, Record<string, string>> = {};
   for (const l of LANGUAGES) {
     if (l === "fr") continue;

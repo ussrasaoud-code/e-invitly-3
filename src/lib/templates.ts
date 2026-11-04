@@ -1,3 +1,4 @@
+import { isCatalogStyle } from "@/lib/catalog";
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { templateDefinitionSchema, type Language, type TemplateDefinition } from "@/lib/invitation/schema";
@@ -21,7 +22,7 @@ export type CatalogTemplate = {
   /** Langues dans lesquelles le modèle existe */
   languages: string[];
   /** Fiche traduite par langue */
-  translations: Record<string, Partial<Record<"name" | "short_description" | "description" | "price_label" | "features", string>>>;
+  translations: Record<string, Partial<Record<"name" | "short_description" | "description" | "price_label" | "features" | "styles", string>>>;
 };
 
 const BASE_COLUMNS =
@@ -37,6 +38,16 @@ function normalize<T extends Partial<CatalogTemplate>>(row: T): T & CatalogTempl
 }
 
 /** Nom, descriptions et prix dans la langue demandée (repli sur le français). */
+/**
+ * Styles libres (« Oriental », « Baroque »…) : traduits dans l'ordre où ils sont saisis.
+ * Les styles du catalogue (floral, vintage…) sont traduits par le dictionnaire du site.
+ */
+function localizeStyles(styles: string[], translated: string | undefined): string[] {
+  const list = (translated ?? "").split(",").map((s) => s.trim());
+  let i = 0;
+  return styles.map((s) => (isCatalogStyle(s) ? s : list[i++] || s));
+}
+
 export function localizeTemplate(t: CatalogTemplate, lang: string): CatalogTemplate {
   if (lang === "fr") return t;
   const tr = t.translations?.[lang] ?? {};
@@ -47,6 +58,7 @@ export function localizeTemplate(t: CatalogTemplate, lang: string): CatalogTempl
     description: tr.description?.trim() || t.description,
     price_label: tr.price_label?.trim() || translatePrice(t.price_label, lang),
     features: tr.features?.trim() ? tr.features.split("\n").map((l) => l.trim()).filter(Boolean) : t.features,
+    styles: localizeStyles(t.styles, tr.styles),
   };
 }
 

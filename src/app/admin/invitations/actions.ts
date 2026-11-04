@@ -6,7 +6,10 @@ import { z } from "zod";
 import { logActivity } from "@/lib/audit";
 import { requireStaff } from "@/lib/auth";
 import type { SaveResult } from "@/lib/save-result";
-import { invitationContentSchema, type InvitationContentInput } from "@/lib/invitation/schema";
+import { LANGUAGES, invitationContentSchema, type InvitationContentInput } from "@/lib/invitation/schema";
+import { altOf, newAlt, stripAlt } from "@/lib/invitation/bilingual";
+import { getVariant, mainLang } from "@/lib/invitation/variants";
+import { templateDefinitionSchema } from "@/lib/invitation/schema";
 import { SLUG_PROBLEM_MESSAGES, slugify, validateSlug } from "@/lib/slug";
 import { isSlugTaken, suggestSlug } from "@/lib/slug-db";
 import { INVITATION_STATUS, MANUAL_INVITATION_STATUSES } from "@/lib/status";
@@ -34,10 +37,13 @@ export async function saveInvitationDraft(invitationId: string, input: Invitatio
       issues: parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(" › ")} : ${i.message}`),
     };
   }
-  const content = parsed.data;
   const supabase = (await createClient())!;
   const { data: before } = await supabase.from("invitations").select("draft_updated_at, title, draft_content").eq("id", invitationId).maybeSingle();
   if (!before) return { ok: false, message: "Invitation introuvable." };
+  // La deuxième langue s'enregistre à part (saveInvitationAlt) : on garde celle déjà en base
+  const storedAlt = (before.draft_content as { alt?: unknown } | null)?.alt;
+  const content = { ...parsed.data, alt: storedAlt };
+  if (altOf(content)?.language === content.language) content.alt = undefined;
   await snapshotBeforeSession(supabase, invitationId, before.draft_content, user.id);
 
   const now = new Date().toISOString();
@@ -62,6 +68,72 @@ export async function saveInvitationDraft(invitationId: string, input: Invitatio
     await logActivity({ actorId: user.id, action: "invitation.edited", resourceType: "invitation", resourceId: invitationId, summary: `Invitation ${content.couple.partnerOne} & ${content.couple.partnerTwo} modifiée` });
   }
   return { ok: true, savedAt: now };
+}
+
+/** Deuxième langue de l'invitation (textes traduits ; le design suit la version principale). */
+export async function saveInvitationAlt(invitationId: string, input: InvitationContentInput): Promise<SaveResult> {
+  await requireStaff();
+  if (!uuid.safeParse(invitationId).success) return { ok: false, message: "Invitation inconnue." };
+  const parsed = invitationContentSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: "Certaines valeurs ne sont pas valides : la traduction n'a pas été enregistrée.",
+      issues: parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(" › ")} : ${i.message}`),
+    };
+  }
+  const supabase = (await createClient())!;
+  const { data: before } = await supabase.from("invitations").select("draft_content").eq("id", invitationId).maybeSingle();
+  const main = invitationContentSchema.safeParse(before?.draft_content);
+  if (!before || !main.success) return { ok: false, message: "Invitation introuvable." };
+  if (parsed.data.language === main.data.language) return { ok: false, message: "La deuxième langue doit être différente de la langue principale." };
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("invitations")
+    .update({ draft_content: { ...main.data, alt: stripAlt(parsed.data) }, draft_updated_at: now })
+    .eq("id", invitationId);
+  if (error) return { ok: false, message: `Enregistrement impossible : ${error.message}` };
+  return { ok: true, savedAt: now };
+}
+
+/** Ajoute une deuxième langue (une seule possible) : reprend la version traduite du modèle si elle existe. */
+export async function addInvitationLanguage(form: FormData) {
+  const user = await requireStaff();
+  const id = uuid.parse(form.get("id"));
+  const lang = z.enum(LANGUAGES).parse(form.get("lang"));
+  const supabase = (await createClient())!;
+  const { data: inv } = await supabase.from("invitations").select("draft_content, template_version_id").eq("id", id).maybeSingle();
+  const main = invitationContentSchema.safeParse(inv?.draft_content);
+  if (!inv || !main.success) throw new Error("Invitation introuvable.");
+  if (lang === main.data.language) throw new Error("Choisissez une langue différente de la langue principale.");
+  let tpl: { main: import("@/lib/invitation/schema").InvitationContent; variant: import("@/lib/invitation/schema").InvitationContent } | null = null;
+  if (inv.template_version_id) {
+    const { data: tv } = await supabase.from("template_versions").select("definition").eq("id", inv.template_version_id).maybeSingle();
+    const def = templateDefinitionSchema.safeParse(tv?.definition);
+    if (def.success) {
+      const variant = getVariant(def.data, lang);
+      const tplMain = getVariant(def.data, main.data.language) ?? getVariant(def.data, mainLang(def.data));
+      if (variant && tplMain && lang !== main.data.language) tpl = { main: tplMain, variant };
+    }
+  }
+  const alt = newAlt(main.data, lang, tpl);
+  const { error } = await supabase.from("invitations").update({ draft_content: { ...main.data, alt }, draft_updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw new Error(error.message);
+  await logActivity({ actorId: user.id, action: "invitation.edited", resourceType: "invitation", resourceId: id, summary: `Deuxième langue ajoutée (${lang})` });
+  redirect(`/admin/invitations/${id}/editeur?langue=${lang}`);
+}
+
+export async function removeInvitationLanguage(form: FormData) {
+  const user = await requireStaff();
+  const id = uuid.parse(form.get("id"));
+  const supabase = (await createClient())!;
+  const { data: inv } = await supabase.from("invitations").select("draft_content").eq("id", id).maybeSingle();
+  const main = invitationContentSchema.safeParse(inv?.draft_content);
+  if (!inv || !main.success) throw new Error("Invitation introuvable.");
+  const { error } = await supabase.from("invitations").update({ draft_content: stripAlt(main.data), draft_updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw new Error(error.message);
+  await logActivity({ actorId: user.id, action: "invitation.edited", resourceType: "invitation", resourceId: id, summary: "Deuxième langue retirée" });
+  redirect(`/admin/invitations/${id}/editeur`);
 }
 
 export async function checkSlug(invitationId: string, raw: string): Promise<{ slug: string; ok: boolean; message: string }> {

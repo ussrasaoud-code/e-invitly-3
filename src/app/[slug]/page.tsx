@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Sprig } from "@/components/ornaments";
 import { InvitationView } from "@/components/invitation/InvitationView";
+import { headers } from "next/headers";
+import { LangSwitch } from "@/components/invitation/LangSwitch";
 import { forGroup } from "@/lib/invitation/audience";
+import { contentInLang, invitationLangs, pickLang } from "@/lib/invitation/bilingual";
 import { groupForToken, loadPublicInvitation } from "@/lib/publication";
 import { getPublicRsvpConfig } from "@/lib/rsvp-server";
 import { CodeForm } from "./CodeForm";
@@ -13,7 +16,7 @@ import { CodeForm } from "./CodeForm";
  * jamais redéployer. Seule la version publiée est lue, jamais le brouillon.
  */
 type Params = Promise<{ slug: string }>;
-type Search = Promise<{ g?: string }>;
+type Search = Promise<{ g?: string; langue?: string }>;
 
 const load = loadPublicInvitation;
 
@@ -55,10 +58,24 @@ export default async function PublicInvitationPage({ params, searchParams }: { p
   }
 
   // Lien privé d'un groupe d'invités : le jeton est vérifié ici ; sinon seuls les moments ouverts à tous sont envoyés
-  const { g } = await searchParams;
+  const { g, langue } = await searchParams;
   const group = await groupForToken(inv.invitationId, g);
-  const content = forGroup(inv.content, group);
+  // Invitation en deux langues : ?langue=…, sinon la langue du téléphone si elle est proposée
+  const langs = invitationLangs(inv.content);
+  const lang = pickLang(langs, langue, (await headers()).get("accept-language"));
+  const content = forGroup(contentInLang(inv.content, lang), group);
   const base = await getPublicRsvpConfig(inv.invitationId);
   const rsvp = base && group ? { ...base, groupToken: g } : base;
-  return <InvitationView content={content} renderer={inv.renderer} mode="live" slug={inv.slug} rsvp={rsvp} />;
+  const hrefFor = (l: string) => {
+    const q = new URLSearchParams();
+    if (g) q.set("g", g);
+    q.set("langue", l);
+    return `/${inv.slug}?${q.toString()}`;
+  };
+  return (
+    <>
+      <LangSwitch langs={langs} current={lang} hrefFor={hrefFor} />
+      <InvitationView key={lang} content={content} renderer={inv.renderer} mode="live" slug={inv.slug} rsvp={rsvp} />
+    </>
+  );
 }

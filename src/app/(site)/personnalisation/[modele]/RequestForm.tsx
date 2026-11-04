@@ -41,6 +41,7 @@ const initialState = (templateSlug: string, language: SiteLang = "fr"): FormStat
   phone: "",
   country: "France",
   language,
+  secondLanguage: "",
   partnerOne: "",
   partnerTwo: "",
   eventDate: "",
@@ -217,7 +218,15 @@ export function RequestForm({ templateSlug, templateName, t, lang, invitationLan
             <TextField label={f.email} type="email" autoComplete="email" inputMode="email" value={state.email} onChange={(ev) => set("email", ev.target.value)} error={e("email")} required className="sm:col-span-2" hint={f.emailHint} />
             <TextField label={f.phone} type="tel" autoComplete="tel" value={state.phone} onChange={(ev) => set("phone", ev.target.value)} error={e("phone")} optional />
             <SelectField label={f.country} value={state.country} onChange={(ev) => set("country", ev.target.value)} error={e("country")} options={COUNTRIES.map((c) => ({ value: c, label: t.countries[c as keyof T["countries"]] ?? c }))} />
-            <SelectField label={f.language} hint={f.languageHint} value={state.language} onChange={(ev) => set("language", ev.target.value as FormState["language"])} error={e("language")} options={langOptions} className="sm:col-span-2" />
+            <SelectField label={f.language} hint={f.languageHint} value={state.language} onChange={(ev) => { const v = ev.target.value as FormState["language"]; set("language", v); if (state.secondLanguage === v) set("secondLanguage", ""); }} error={e("language")} options={langOptions} className="sm:col-span-2" />
+            <SelectField
+              label={f.secondLanguage}
+              hint={f.secondLanguageHint}
+              value={state.secondLanguage ?? ""}
+              onChange={(ev) => set("secondLanguage", ev.target.value as FormState["secondLanguage"])}
+              options={[{ value: "", label: f.secondLanguageNone }, ...LANG_OPTIONS.filter((o) => o.value !== state.language && (!languages?.length || languages.includes(o.value) || o.value === "en"))]}
+              className="sm:col-span-2"
+            />
           </div>
         )}
 
@@ -384,6 +393,7 @@ function Review({ state, templateName, onEdit, t, lang }: { state: FormState; te
         [r.phone, state.phone],
         [r.country, country],
         [r.language, langLabel],
+        [r.secondLanguage, LANG_OPTIONS.find((l) => l.value === state.secondLanguage)?.label],
         [r.template, templateName],
       ],
     },

@@ -28,6 +28,8 @@ export type PolicySettings = {
   termsOfSale: string;
   /** Durée de mise en ligne par défaut, en texte libre (ex. « 12 mois après l'événement ») */
   publicationDuration: string;
+  /** Délai indicatif de création, en texte libre (ex. « 7 à 14 jours ») — affiché sur les fiches s'il est renseigné */
+  creationDelay?: string;
   /** Durée de conservation des réponses RSVP après l'événement, en mois */
   rsvpRetentionMonths: number;
 };
@@ -91,6 +93,7 @@ export const DEFAULT_SETTINGS: { [K in keyof SettingsMap]: { value: SettingsMap[
       privacyPolicy: "",
       termsOfSale: "",
       publicationDuration: "",
+      creationDelay: "",
       rsvpRetentionMonths: 12,
     },
   },

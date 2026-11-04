@@ -123,6 +123,7 @@ export default async function SettingsPage() {
               <F label="Politique de confidentialité" className="md:col-span-2"><textarea name="privacyPolicy" defaultValue={policies.privacyPolicy} rows={8} className="field text-sm" /></F>
               <F label="Conditions générales de vente (lien masqué tant que vide)" className="md:col-span-2"><textarea name="termsOfSale" defaultValue={policies.termsOfSale} rows={6} className="field text-sm" /></F>
               <F label="Durée de mise en ligne par défaut"><input name="publicationDuration" defaultValue={policies.publicationDuration} className="field" placeholder="ex. 12 mois après l'événement" /></F>
+              <F label="Délai de création (affiché sur les fiches des modèles)"><input name="creationDelay" defaultValue={policies.creationDelay ?? ""} maxLength={80} className="field" placeholder="ex. 7 à 14 jours après réception de vos informations" /></F>
               <F label="Conservation des réponses RSVP après l'événement (mois)"><input name="rsvpRetentionMonths" type="number" min={1} max={120} defaultValue={policies.rsvpRetentionMonths} className="field" /></F>
               <div className="md:col-span-2"><SubmitButton pendingLabel="Enregistrement…">Enregistrer</SubmitButton></div>
             </fieldset>

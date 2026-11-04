@@ -44,9 +44,9 @@ export function PhoneStrip({ templates, t: tr }: { templates: CatalogTemplate[];
         {templates.map((t, i) => (
           <Link
             key={t.id}
-            href={href(`/demo/${t.slug}`)}
+            href={href(`/invitations/${t.slug}`)}
             className={`group flex w-[62vw] max-w-[250px] shrink-0 snap-center flex-col items-center sm:w-[240px] md:w-[250px] ${i % 2 === 1 ? "mt-16 md:mt-24" : ""}`}
-            aria-label={tr.demoAria.replace("{name}", t.name)}
+            aria-label={tr.detailsAria.replace("{name}", t.name)}
           >
             <span className="relative block w-full overflow-hidden rounded-[2.2rem] border border-white/70 bg-paper shadow-[0_30px_60px_-24px_rgb(60_50_40/0.35),0_8px_20px_-12px_rgb(60_50_40/0.18)] transition-transform duration-500 group-hover:-translate-y-2">
               {t.cover_image ? (

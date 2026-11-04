@@ -28,7 +28,7 @@ export function PriceGrid({ templates, t: tr, lang }: { templates: CatalogTempla
         const second = t.gallery.find(Boolean) ?? null;
         return (
           <li key={t.id} className="group">
-            <Link href={href(`/demo/${t.slug}`)} aria-label={tr.demoAria.replace("{name}", t.name)} className="relative block aspect-square overflow-hidden rounded-[1.6rem] bg-[#e8e3da]">
+            <Link href={href(`/invitations/${t.slug}`)} aria-label={tr.detailsAria.replace("{name}", t.name)} className="relative block aspect-square overflow-hidden rounded-[1.6rem] bg-[#e8e3da]">
               {t.is_featured ? (
                 <span className="absolute start-4 top-4 z-10 rounded-full bg-forest px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-ivory">{tr.featured}</span>
               ) : null}

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LangSwitch } from "@/components/invitation/LangSwitch";
+import { contentInLang, invitationLangs, pickLang } from "@/lib/invitation/bilingual";
 import { InvitationView } from "@/components/invitation/InvitationView";
 import { Sprig } from "@/components/ornaments";
 import { invitationContentSchema, type RendererKey } from "@/lib/invitation/schema";
@@ -27,8 +29,9 @@ function Unavailable() {
   );
 }
 
-export default async function PreviewPage({ params }: { params: Promise<{ jeton: string }> }) {
+export default async function PreviewPage({ params, searchParams }: { params: Promise<{ jeton: string }>; searchParams: Promise<{ langue?: string }> }) {
   const { jeton } = await params;
+  const { langue } = await searchParams;
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(jeton)) return <Unavailable />;
   const db = createAdminClient();
   if (!db) return <Unavailable />;
@@ -49,6 +52,9 @@ export default async function PreviewPage({ params }: { params: Promise<{ jeton:
   const parsed = invitationContentSchema.safeParse(inv.draft_content);
   if (!parsed.success) return <Unavailable />;
 
+  const langs = invitationLangs(parsed.data);
+  const lang = pickLang(langs, langue, null);
+  const shown = contentInLang(parsed.data, lang);
   const { protection } = await getSettings();
   const expires = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" }).format(new Date(token.expires_at));
   return (
@@ -59,12 +65,13 @@ export default async function PreviewPage({ params }: { params: Promise<{ jeton:
       <div className="pt-9">
         {protection.deterrents ? (
           <CopyGuard message="Aperçu privé : impression désactivée.">
-            <InvitationView content={parsed.data} renderer={inv.renderer as RendererKey} mode="preview" />
+            <InvitationView key={lang} content={shown} renderer={inv.renderer as RendererKey} mode="preview" />
           </CopyGuard>
         ) : (
-          <InvitationView content={parsed.data} renderer={inv.renderer as RendererKey} mode="preview" />
+          <InvitationView key={lang} content={shown} renderer={inv.renderer as RendererKey} mode="preview" />
         )}
       </div>
+      <LangSwitch langs={langs} current={lang} hrefFor={(l) => `/apercu/${jeton}?langue=${l}`} top="2.75rem" />
       {protection.previewWatermark ? <Watermark text={protection.watermarkText} /> : null}
     </>
   );

@@ -125,6 +125,7 @@ export const es: SiteDict = {
     choose: "Elegir este diseño",
     chooseShort: "Elegir",
     demoAria: "Ver la demo del diseño {name}",
+    detailsAria: "Ver la ficha del diseño {name}",
     sheetAria: "Ver el diseño {name}",
     coverAlt: "Vista previa del diseño {name}",
     all: "Todos nuestros diseños",
@@ -175,6 +176,111 @@ export const es: SiteDict = {
     phoneNote: "Vista móvil — contenido de demostración",
     noPreview: "La vista previa de este diseño aún no está disponible.",
     demoLabel: "Demostración del diseño {name}",
+    journey: {
+      "eyebrow": "Tu invitación, de principio a fin",
+      "title": "Este diseño, a vuestra medida",
+      "intro": "La demo cuenta una boda imaginaria. Así convertimos este diseño en vuestra invitación.",
+      "price": "Precio",
+      "langsIncluded": "Hasta 2 idiomas incluidos en el mismo enlace",
+      "includedTitle": "Qué incluye",
+      "included": [
+        {
+          "title": "Creación a medida",
+          "text": "Nuestro equipo maqueta vuestros textos, lugares y programa: no tenéis que diseñar nada."
+        },
+        {
+          "title": "Vista previa antes de pagar",
+          "text": "Descubrís la invitación en un enlace privado y pedís los cambios. Nada se publica sin vuestro acuerdo."
+        },
+        {
+          "title": "Respuestas en línea",
+          "text": "Los invitados confirman sin cuenta ni aplicación; seguís y exportáis sus respuestas en vuestro espacio."
+        },
+        {
+          "title": "Dos idiomas incluidos",
+          "text": "Un solo enlace, dos idiomas: los invitados pasan de uno a otro con un toque."
+        },
+        {
+          "title": "Momentos reservados",
+          "text": "Ceremonia civil, henna, pedida… un enlace privado por grupo de invitados para mostrar a cada uno solo lo que le concierne."
+        },
+        {
+          "title": "Apertura y música",
+          "text": "Un sobre animado o un vídeo de apertura, con la música que elijáis."
+        },
+        {
+          "title": "Siempre al día",
+          "text": "¿Cambia un horario o un lugar? Actualizamos la invitación y el enlace sigue siendo el mismo."
+        },
+        {
+          "title": "Pago seguro",
+          "text": "Con tarjeta o PayPal, en un solo pago, cuando la vista previa os encante."
+        }
+      ],
+      "stepsTitle": "Cómo funciona",
+      "steps": [
+        {
+          "title": "Vuestra solicitud",
+          "text": "Rellenad el formulario guiado: nombres, fecha, lugares, programa y vuestros deseos."
+        },
+        {
+          "title": "La creación",
+          "text": "Nuestro equipo compone la invitación en el universo del diseño, con vuestros textos."
+        },
+        {
+          "title": "Vuestra vista previa",
+          "text": "Un enlace privado para descubrirla; basta con responder al correo para pedir ajustes."
+        },
+        {
+          "title": "El pago",
+          "text": "Cuando todo os guste, pagáis en línea de forma segura."
+        },
+        {
+          "title": "La publicación",
+          "text": "Vuestro enlace personalizado se activa: compartidlo por WhatsApp, SMS o correo."
+        },
+        {
+          "title": "Las respuestas",
+          "text": "Seguid las confirmaciones de vuestros invitados en tiempo real desde vuestro espacio."
+        }
+      ],
+      "delay": "Plazo orientativo: {delay}",
+      "sectionsTitle": "Secciones a la carta",
+      "sectionsText": "Vuestra invitación solo conserva las secciones útiles para vuestro evento, en el orden que elijáis.",
+      "sections": [
+        "Programa del día",
+        "Lugares e itinerarios",
+        "Cuenta atrás",
+        "Fecha para rascar",
+        "Dress code y paleta",
+        "Alojamiento y transporte",
+        "Contactos útiles",
+        "Respuesta de los invitados",
+        "Vuestra historia, vuestras palabras"
+      ],
+      "sectionsMore": "¿Otra idea? Contádnosla en vuestra solicitud.",
+      "faqTitle": "Vuestras preguntas",
+      "faq": [
+        {
+          "question": "¿Puedo ver mi invitación antes de pagar?",
+          "answer": "Sí. Primero recibís una vista previa privada; el pago llega solo cuando la invitación está validada."
+        },
+        {
+          "question": "¿Cómo funcionan los dos idiomas?",
+          "answer": "Elegid el segundo idioma en vuestra solicitud: preparamos las dos versiones y los invitados eligen la suya en el mismo enlace."
+        },
+        {
+          "question": "¿Y si cambia un detalle después del envío?",
+          "answer": "Escribidnos: actualizamos la invitación y los invitados conservan el mismo enlace."
+        },
+        {
+          "question": "¿Mis invitados tienen que instalar algo?",
+          "answer": "No. Abren el enlace en su móvil y responden en segundos, sin registrarse."
+        }
+      ],
+      "ctaTitle": "¿Empezamos?",
+      "ctaText": "Enviadnos vuestros datos: volveremos con vuestra vista previa."
+    },
   },
   demo: {
     metaTitle: "Demo — {name}",
@@ -212,6 +318,9 @@ export const es: SiteDict = {
       country: "País",
       language: "Idioma de la invitación",
       languageHint: "El idioma en el que vuestros invitados leerán la invitación.",
+      secondLanguage: "Segundo idioma (opcional)",
+      secondLanguageNone: "Ninguno — un solo idioma",
+      secondLanguageHint: "Incluido: los invitados eligen su idioma en el mismo enlace.",
       partnerOne: "Nombre de la primera persona",
       partnerTwo: "Nombre de la segunda persona",
       eventDate: "Fecha del evento",
@@ -278,6 +387,7 @@ export const es: SiteDict = {
       phone: "Teléfono",
       country: "País",
       language: "Idioma",
+      secondLanguage: "Segundo idioma",
       template: "Diseño",
       names: "Nombres",
       date: "Fecha",

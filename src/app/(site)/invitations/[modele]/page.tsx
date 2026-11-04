@@ -4,6 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InvitationView } from "@/components/invitation/InvitationView";
 import { PhoneFrame } from "@/components/site/PhoneFrame";
+import { TemplateJourney } from "@/components/site/TemplateJourney";
+import { getSettings } from "@/lib/settings";
 import { LANG_META, fmt, localePath } from "@/lib/i18n/config";
 import { pageMetadata } from "@/lib/i18n/metadata";
 import { getDict } from "@/lib/i18n/server";
@@ -29,7 +31,7 @@ export default async function TemplatePage({ params }: { params: Params }) {
   const { definition } = found;
   const template = localizeTemplate(found.template, lang);
   const href = (p: string) => localePath(lang, p);
-  const images = [template.cover_image, ...(template.gallery ?? [])].filter(Boolean) as string[];
+  const settings = await getSettings();
   const catLabel = t.categories[template.category as keyof typeof t.categories] ?? template.category;
   const styles = template.styles.map((s) => t.styles[s as keyof typeof t.styles] ?? s);
   const langs = definition ? templateLangs(definition) : [];
@@ -45,8 +47,17 @@ export default async function TemplatePage({ params }: { params: Params }) {
           <div>
             <p className="eyebrow">{[catLabel, ...styles].join(" · ")}</p>
             <h1 className="mt-4 font-serif text-5xl md:text-6xl">{template.name}</h1>
-            <p className="mt-6 max-w-xl text-[1.06rem] leading-relaxed text-stone">{template.description}</p>
-            {template.price_label ? <p className="mt-6 font-serif text-2xl">{template.price_label}</p> : null}
+            {template.short_description ? <p className="mt-6 max-w-xl text-[1.12rem] leading-relaxed text-stone">{template.short_description}</p> : null}
+            {template.price_label ? (
+              <p className="mt-8 font-serif text-[2.6rem] font-semibold leading-none tracking-tight md:text-5xl">
+                <span className="sr-only">{t.template.journey.price} : </span>
+                {template.price_label}
+              </p>
+            ) : null}
+            <p className="mt-3 flex items-center gap-2 text-sm text-forest">
+              <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4"><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17M12 3.5c2.5 2.6 3.6 5.4 3.6 8.5s-1.1 5.9-3.6 8.5c-2.5-2.6-3.6-5.4-3.6-8.5S9.5 6.1 12 3.5Z" /></svg>
+              {t.template.journey.langsIncluded}
+            </p>
             {langs.length > 1 ? (
               <p className="mt-3 text-sm text-stone">{fmt(t.cards.languages, { list: langs.map((l) => LANG_META[l].native).join(" · ") })}</p>
             ) : null}
@@ -71,14 +82,6 @@ export default async function TemplatePage({ params }: { params: Params }) {
                 </ul>
               </div>
             ) : null}
-            {images.length ? (
-              <div className="mt-14 grid grid-cols-2 gap-4">
-                {images.map((src, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={src} src={src} alt={fmt(t.template.visual, { name: template.name, n: i + 1 })} className="aspect-[3/4] w-full bg-paper object-cover" loading="lazy" />
-                ))}
-              </div>
-            ) : null}
           </div>
           <div className="md:sticky md:top-28 md:self-start">
             {definition ? (
@@ -95,6 +98,7 @@ export default async function TemplatePage({ params }: { params: Params }) {
             )}
           </div>
         </div>
+        <TemplateJourney t={t} delay={settings.policies.creationDelay ?? ""} requestHref={href(`/personnalisation/${template.slug}`)} demoHref={href(`/demo/${template.slug}`)} />
       </div>
     </main>
   );

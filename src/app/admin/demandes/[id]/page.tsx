@@ -77,6 +77,7 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
               ["Téléphone", r.phone],
               ["Pays", r.country],
               ["Langue de l'invitation", LANG[r.language] ?? r.language],
+              ["Deuxième langue (bilingue)", (() => { const l = (r.form_data as { secondLanguage?: string } | null)?.secondLanguage; return l ? LANG[l] ?? l : "—"; })()],
             ]}
           />
           <Block

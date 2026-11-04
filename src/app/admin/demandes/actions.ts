@@ -8,9 +8,10 @@ import { z } from "zod";
 import { logActivity } from "@/lib/audit";
 import { requireStaff } from "@/lib/auth";
 import { buildInvitationFromRequest, type RequestFormData } from "@/lib/invitation/from-request";
-import { contentFor } from "@/lib/invitation/variants";
+import { contentFor, getVariant } from "@/lib/invitation/variants";
+import { newAlt } from "@/lib/invitation/bilingual";
 import { sendWelcomeEmail } from "@/lib/login-link";
-import { templateDefinitionSchema } from "@/lib/invitation/schema";
+import { LANGUAGES, templateDefinitionSchema, type Language } from "@/lib/invitation/schema";
 import { slugFromNames } from "@/lib/slug";
 import { suggestSlug } from "@/lib/slug-db";
 import { REQUEST_STATUS, REQUEST_STATUSES } from "@/lib/status";
@@ -89,7 +90,18 @@ export async function convertRequestToInvitation(form: FormData) {
 
   const formData = { ...(req.form_data as Partial<RequestFormData>), partnerOne: req.partner_one ?? "", partnerTwo: req.partner_two ?? "", eventDate: req.event_date ?? "", language: req.language };
   // Version du modèle dans la langue choisie par le client (sinon la version principale, à traduire)
-  const { content, notesToReview } = buildInvitationFromRequest(contentFor(def.data, req.language), formData as RequestFormData);
+  const built = buildInvitationFromRequest(contentFor(def.data, req.language), formData as RequestFormData);
+  const { notesToReview } = built;
+  // Invitation bilingue demandée : deuxième version (textes du modèle traduit s'il existe, sinon à traduire)
+  const second = (req.form_data as { secondLanguage?: string } | null)?.secondLanguage;
+  let content = built.content;
+  if (second && second !== content.language && (LANGUAGES as readonly string[]).includes(second)) {
+    const lang2 = second as Language;
+    const variant = getVariant(def.data, lang2);
+    const tplMain = contentFor(def.data, req.language);
+    content = { ...content, alt: newAlt(content, lang2, variant ? { main: tplMain, variant } : null) };
+    notesToReview.push(`Invitation bilingue : vérifier la version ${lang2.toUpperCase()} (« Textes à traduire » dans l'éditeur).`);
+  }
   const eventAt = content.eventAt ? zonedToUtc(content.eventAt, content.timezone)?.toISOString() ?? null : null;
 
   let invitationId: string | null = null;

@@ -125,6 +125,7 @@ export const en: SiteDict = {
     choose: "Choose this design",
     chooseShort: "Choose",
     demoAria: "View the demo of the {name} design",
+    detailsAria: "See the {name} design",
     sheetAria: "View the {name} design",
     coverAlt: "Preview of the {name} design",
     all: "All our designs",
@@ -175,6 +176,111 @@ export const en: SiteDict = {
     phoneNote: "Mobile preview — demo content",
     noPreview: "The preview of this design is not available yet.",
     demoLabel: "Demo of the {name} design",
+    journey: {
+      "eyebrow": "Your invitation, from start to finish",
+      "title": "This design, made yours",
+      "intro": "The demo tells the story of an imaginary wedding. Here is how we turn this design into your invitation.",
+      "price": "Price",
+      "langsIncluded": "Up to 2 languages included on the same link",
+      "includedTitle": "What's included",
+      "included": [
+        {
+          "title": "Made to measure",
+          "text": "Our team lays out your texts, venues and schedule: there is nothing for you to design."
+        },
+        {
+          "title": "A preview before you pay",
+          "text": "You discover your invitation on a private link and ask for changes. Nothing is published without your approval."
+        },
+        {
+          "title": "Online replies",
+          "text": "Guests reply with no account or app; you follow and export their answers in your personal space."
+        },
+        {
+          "title": "Two languages included",
+          "text": "One link, two languages: guests switch from one to the other in a tap."
+        },
+        {
+          "title": "Private moments",
+          "text": "Civil ceremony, henna, engagement… a private link per guest group, so everyone only sees what concerns them."
+        },
+        {
+          "title": "Opening and music",
+          "text": "An animated envelope or an opening video, with the music of your choice."
+        },
+        {
+          "title": "Always up to date",
+          "text": "A time or a venue changes? We update the invitation and the link stays the same."
+        },
+        {
+          "title": "Secure payment",
+          "text": "By card or PayPal, in one go, once you love your preview."
+        }
+      ],
+      "stepsTitle": "How it works",
+      "steps": [
+        {
+          "title": "Your request",
+          "text": "Fill in the guided form: names, date, venues, schedule and your wishes."
+        },
+        {
+          "title": "Creation",
+          "text": "Our team composes your invitation in the world of this design, with your texts."
+        },
+        {
+          "title": "Your preview",
+          "text": "A private link to discover it; simply reply to the email to ask for adjustments."
+        },
+        {
+          "title": "Payment",
+          "text": "When everything feels right, you pay online, securely."
+        },
+        {
+          "title": "Going live",
+          "text": "Your personal link is activated: share it by WhatsApp, text message or email."
+        },
+        {
+          "title": "Replies",
+          "text": "Follow your guests' confirmations in real time from your personal space."
+        }
+      ],
+      "delay": "Estimated time: {delay}",
+      "sectionsTitle": "Sections to suit you",
+      "sectionsText": "Your invitation keeps only the sections your event needs, in the order you choose.",
+      "sections": [
+        "Schedule of the day",
+        "Venues and directions",
+        "Countdown",
+        "Scratch-to-reveal date",
+        "Dress code and palette",
+        "Accommodation and transport",
+        "Useful contacts",
+        "Guest replies",
+        "Your story, your words"
+      ],
+      "sectionsMore": "Another idea? Tell us in your request.",
+      "faqTitle": "Your questions",
+      "faq": [
+        {
+          "question": "Can I see my invitation before paying?",
+          "answer": "Yes. You first receive a private preview; payment only comes once your invitation is approved."
+        },
+        {
+          "question": "How do the two languages work?",
+          "answer": "Choose the second language in your request: we prepare both versions, and guests pick theirs on the same link."
+        },
+        {
+          "question": "What if a detail changes after sending?",
+          "answer": "Write to us: we update the invitation and your guests keep the same link."
+        },
+        {
+          "question": "Do my guests need to install anything?",
+          "answer": "No. They open the link on their phone and reply in seconds, without signing up."
+        }
+      ],
+      "ctaTitle": "Shall we begin?",
+      "ctaText": "Send us your details: we will come back to you with your preview."
+    },
   },
   demo: {
     metaTitle: "Demo — {name}",
@@ -212,6 +318,9 @@ export const en: SiteDict = {
       country: "Country",
       language: "Invitation language",
       languageHint: "The language your guests will read the invitation in.",
+      secondLanguage: "Second language (optional)",
+      secondLanguageNone: "None — one language only",
+      secondLanguageHint: "Included: guests choose their language on the same link.",
       partnerOne: "First partner's first name",
       partnerTwo: "Second partner's first name",
       eventDate: "Event date",
@@ -278,6 +387,7 @@ export const en: SiteDict = {
       phone: "Phone",
       country: "Country",
       language: "Language",
+      secondLanguage: "Second language",
       template: "Design",
       names: "Names",
       date: "Date",

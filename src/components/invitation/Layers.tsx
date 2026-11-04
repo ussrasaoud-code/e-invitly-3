@@ -213,6 +213,7 @@ function LayerView({ layer: l, section, frame, play, animate }: {
   if (l.kind === "text") {
     body = (
       <p
+        dir="auto"
         className="m-0 whitespace-pre-line leading-[1.1]"
         style={{
           fontFamily: fontFamily(l.font),

@@ -3,12 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InvitationEditor } from "@/components/admin/InvitationEditor";
 import { PriceField } from "@/components/admin/PriceField";
+import { AutoTranslateFields } from "@/components/admin/AutoTranslateFields";
 import { LANGUAGES, LANGUAGE_LABELS } from "@/lib/invitation/schema";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { requireStaff } from "@/lib/auth";
-import { CATEGORIES, STYLES } from "@/lib/catalog";
+import { CATEGORIES, STYLES, isCatalogStyle } from "@/lib/catalog";
 import { templateDefinitionSchema } from "@/lib/invitation/schema";
 import { TEMPLATE_STATUS } from "@/lib/status";
 import { createClient } from "@/lib/supabase/server";
@@ -134,6 +135,17 @@ export default async function TemplatePage({ params, searchParams }: Props) {
                 </label>
               ))}
             </div>
+            <label className="mt-4 block">
+              <span className="field-label !text-xs">Autres styles (séparés par des virgules)</span>
+              <input
+                name="custom_styles"
+                defaultValue={(t.styles as string[]).filter((s) => !isCatalogStyle(s)).join(", ")}
+                maxLength={400}
+                className="field text-sm"
+                placeholder="Oriental, Baroque, Aquarelle…"
+              />
+              <span className="mt-1 block text-xs text-stone">Affichés sur la fiche et proposés comme filtre dans le catalogue.</span>
+            </label>
           </fieldset>
           <label>
             <span className="field-label">Fonctionnalités (une par ligne)</span>
@@ -167,6 +179,10 @@ export default async function TemplatePage({ params, searchParams }: Props) {
                       <span aria-hidden="true" className="text-forest transition-transform group-open:rotate-45">+</span>
                     </summary>
                     <div className="mt-3 grid gap-3 md:grid-cols-2" dir={l === "ar" ? "rtl" : undefined} lang={l}>
+                      <AutoTranslateFields
+                        lang={l}
+                        sources={{ short_description: t.short_description ?? "", description: t.description ?? "", features: (t.features as string[]).join("\n"), styles: (t.styles as string[]).filter((s) => !isCatalogStyle(s)).join(", ") }}
+                      />
                       <label>
                         <span className="field-label !text-xs">Nom</span>
                         <input name={`tr_${l}_name`} defaultValue={tr.name ?? ""} maxLength={80} className="field text-sm" placeholder={t.name} />
@@ -183,6 +199,12 @@ export default async function TemplatePage({ params, searchParams }: Props) {
                         <span className="field-label !text-xs">Description complète</span>
                         <textarea name={`tr_${l}_description`} defaultValue={tr.description ?? ""} rows={3} className="field text-sm" />
                       </label>
+                      {(t.styles as string[]).some((s) => !isCatalogStyle(s)) ? (
+                        <label className="md:col-span-2">
+                          <span className="field-label !text-xs">Autres styles, dans le même ordre (séparés par des virgules)</span>
+                          <input name={`tr_${l}_styles`} defaultValue={tr.styles ?? ""} maxLength={400} className="field text-sm" placeholder={(t.styles as string[]).filter((s) => !isCatalogStyle(s)).join(", ")} />
+                        </label>
+                      ) : null}
                       <label className="md:col-span-2">
                         <span className="field-label !text-xs">Fonctionnalités (une par ligne)</span>
                         <textarea name={`tr_${l}_features`} defaultValue={tr.features ?? ""} rows={3} className="field text-sm" placeholder={(t.features as string[]).join("\n")} />

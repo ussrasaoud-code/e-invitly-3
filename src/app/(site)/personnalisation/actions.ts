@@ -120,7 +120,7 @@ export async function submitRequest(input: RequestInput, uiLang: string = "fr"):
       heading: "Nouvelle demande reçue",
       paragraphs: [
         `${data.firstName} ${data.lastName} (${data.email}) — modèle ${template.name}.`,
-        `Langue de l'invitation : ${data.language.toUpperCase()} · site consulté en ${uiLang.toUpperCase()}.`,
+        `Langue de l'invitation : ${data.language.toUpperCase()}${data.secondLanguage && data.secondLanguage !== data.language ? ` + ${data.secondLanguage.toUpperCase()} (bilingue)` : ""} · site consulté en ${uiLang.toUpperCase()}.`,
         `Couple : ${data.partnerOne} & ${data.partnerTwo}, le ${data.eventDate}.`,
         `À traiter dans l'administration : ${env.siteUrl}/admin/demandes/${row.id}`,
       ],

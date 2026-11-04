@@ -53,6 +53,7 @@ export default async function TemplateVisualEditorPage({ params, searchParams }:
       initialSavedAt={useDraft ? draft!.updated_at : v.created_at}
       savedLabel="Brouillon enregistré"
       backupKey={`ei-backup:modele:${t.id}:${lang}`}
+      translation={lang !== main ? { main: d.sample, mainLang: main, lang } : undefined}
       title={`Modèle ${t.name}`}
       backHref={`/admin/modeles/${t.id}?onglet=design`}
       backLabel="Fiche du modèle"

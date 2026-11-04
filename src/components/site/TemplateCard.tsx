@@ -14,9 +14,9 @@ export function TemplateCard({ template, priority = false, offset = false, t, la
   return (
     <article className={`group mx-auto flex w-full max-w-[290px] flex-col items-center text-center ${offset ? "lg:mt-20" : ""}`}>
       <Link
-        href={href(`/demo/${template.slug}`)}
+        href={href(`/invitations/${template.slug}`)}
         className="relative block w-full overflow-hidden rounded-[2.2rem] border border-white/70 bg-paper shadow-[0_30px_60px_-24px_rgb(60_50_40/0.35),0_8px_20px_-12px_rgb(60_50_40/0.18)] transition-transform duration-500 group-hover:-translate-y-1.5"
-        aria-label={t.cards.demoAria.replace("{name}", template.name)}
+        aria-label={t.cards.detailsAria.replace("{name}", template.name)}
       >
         {template.cover_image ? (
           // eslint-disable-next-line @next/next/no-img-element

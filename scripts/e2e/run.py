@@ -326,6 +326,41 @@ with sync_playwright() as p:
     assert "Texte modifié v2" in page.content()
     ok("scénario 6 : brouillon invisible jusqu'à la publication, puis mis à jour à la même adresse")
 
+    # Invitation en deux langues : 2e langue ajoutée, traduite, visible sur le même lien (aperçu)
+    a.goto(f"{BASE}/admin/invitations/{inv_id}/editeur")
+    a.get_by_label("Ajouter une deuxième langue").select_option("en")
+    a.get_by_role("button", name="+ 2e langue").click()
+    a.wait_for_url(re.compile(r"langue=en"), timeout=20000)
+    a.get_by_role("button", name=re.compile(r"^Textes à traduire")).click()
+    drawer = a.get_by_role("dialog", name="Textes à traduire")
+    drawer.get_by_role("button", name=re.compile(r"^Traduire automatiquement")).click()
+    expect(drawer.get_by_role("status")).to_contain_text("traduit")
+    drawer.get_by_role("button", name="Fermer").click()
+    def inv_draft():
+        return api("GET", f"/rest/v1/invitations?id=eq.{inv_id}&select=draft_content")[0]["draft_content"]
+    for _ in range(40):
+        d = inv_draft()
+        if (d.get("alt") or {}).get("intro", "").startswith("[EN-GB] "):
+            break
+        time.sleep(0.4)
+    else:
+        raise AssertionError("traduction anglaise non enregistrée")
+    assert d["language"] == "fr" and d["alt"]["language"] == "en"
+    assert not d["intro"].startswith("[EN-GB]"), "la version principale reste en français"
+    page.goto(preview_url + "?langue=en")
+    expect(page.get_by_role("navigation", name=re.compile("Langue"))).to_contain_text("Français")
+    assert "[EN-GB] " in page.content()
+    page.goto(preview_url + "?langue=fr")
+    assert "[EN-GB] " not in page.content()
+    # Retirer la langue (l'invitation reste en français pour la suite des tests)
+    a.goto(f"{BASE}/admin/invitations/{inv_id}/editeur?langue=en")
+    a.once("dialog", lambda dlg: dlg.accept())
+    a.get_by_role("button", name="Retirer cette langue").click()
+    a.wait_for_url(re.compile(r"/editeur$"), timeout=20000)
+    assert "alt" not in inv_draft() or not inv_draft().get("alt")
+    ok("invitation bilingue : 2e langue ajoutée, traduite, choix de langue sur le même lien, puis retirée")
+    a.goto(f"{BASE}/admin/invitations/{inv_id}?onglet=publication")
+
     # Changement d'adresse après publication → redirection
     a.locator("#slug").fill("mark-alice-2027")
     expect(a.get_by_text("Rediriger l'ancien lien")).to_be_visible()
@@ -1262,6 +1297,18 @@ with sync_playwright() as p:
     a.get_by_role("button", name="+ Langue").click()
     a.wait_for_url(re.compile(r"langue=ar"), timeout=20000)
     expect(a.get_by_role("link", name="AR", exact=True)).to_have_attribute("aria-current", "page")
+    # Textes à traduire : tous les textes au même endroit, pré-remplis par DeepL (factice ici)
+    a.get_by_role("button", name=re.compile(r"^Textes à traduire")).click()
+    drawer = a.get_by_role("dialog", name="Textes à traduire")
+    expect(drawer).to_contain_text("restant")
+    drawer.get_by_role("button", name=re.compile(r"^Traduire automatiquement")).click()
+    expect(drawer.get_by_role("status")).to_contain_text("traduit")
+    expect(drawer.locator("textarea, input[dir=auto]").filter(has_text="").first).to_be_visible()
+    vals = drawer.locator("textarea[id^=tr-], input[id^=tr-]").evaluate_all("els => els.map(e => e.value)")
+    assert any(v.startswith("[AR] ") for v in vals), vals[:5]
+    assert "Camille" in vals and "Elias" in vals, "les prénoms ne sont pas traduits automatiquement"
+    drawer.get_by_role("button", name="Fermer").click()
+    ok("traduction : panneau « Textes à traduire » et pré-remplissage automatique (DeepL)")
     left.get_by_role("button", name=re.compile(r"^Invitation principale")).click()
     left.get_by_role("button", name="+ Texte").click()
     props.get_by_label("Texte", exact=True).fill("مرحبًا بكم")
@@ -1284,6 +1331,12 @@ with sync_playwright() as p:
     # Fiche traduite
     a.goto(f"{BASE}/admin/modeles/{gid}")
     a.locator("summary", has_text="Anglais").click()
+    en_box = a.locator("details", has=a.locator("input[name=tr_en_name]"))
+    en_box.get_by_role("button", name="Traduire automatiquement les cases vides").click()
+    expect(a.locator("textarea[name=tr_en_description]")).to_have_value(re.compile(r"^\[EN-GB\] "))
+    for f in ["tr_en_short_description", "tr_en_description", "tr_en_features"]:
+        a.locator(f"[name={f}]").fill("")
+    ok("traduction : fiche du modèle pré-remplie automatiquement")
     a.locator("input[name=tr_en_name]").fill("The Garden — English")
     a.get_by_role("button", name="Enregistrer la fiche").click()
     a.wait_for_timeout(1500)

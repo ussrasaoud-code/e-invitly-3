@@ -58,6 +58,7 @@ export async function savePolicies(form: FormData) {
     privacyPolicy: str(30000).parse(form.get("privacyPolicy") ?? ""),
     termsOfSale: str(30000).parse(form.get("termsOfSale") ?? ""),
     publicationDuration: str(200).parse(form.get("publicationDuration") ?? ""),
+    creationDelay: str(80).parse(form.get("creationDelay") ?? ""),
     rsvpRetentionMonths: z.coerce.number().int().min(1).max(120).parse(form.get("rsvpRetentionMonths")),
   };
   await saveSetting("policies", value, true, user.id);

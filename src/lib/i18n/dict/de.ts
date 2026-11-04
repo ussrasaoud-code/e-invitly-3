@@ -125,6 +125,7 @@ export const de: SiteDict = {
     choose: "Dieses Design wählen",
     chooseShort: "Wählen",
     demoAria: "Demo des Designs {name} ansehen",
+    detailsAria: "Details zum Design {name} ansehen",
     sheetAria: "Design {name} ansehen",
     coverAlt: "Vorschau des Designs {name}",
     all: "Alle unsere Designs",
@@ -175,6 +176,111 @@ export const de: SiteDict = {
     phoneNote: "Mobile Vorschau – Demo-Inhalt",
     noPreview: "Die Vorschau dieses Designs ist noch nicht verfügbar.",
     demoLabel: "Demo des Designs {name}",
+    journey: {
+      "eyebrow": "Eure Einladung, von A bis Z",
+      "title": "Dieses Design, ganz nach euch",
+      "intro": "Die Demo erzählt von einer erfundenen Hochzeit. So machen wir aus diesem Design eure Einladung.",
+      "price": "Preis",
+      "langsIncluded": "Bis zu 2 Sprachen auf demselben Link inklusive",
+      "includedTitle": "Was enthalten ist",
+      "included": [
+        {
+          "title": "Individuell gestaltet",
+          "text": "Unser Team setzt eure Texte, Orte und den Ablauf: Ihr müsst nichts selbst gestalten."
+        },
+        {
+          "title": "Vorschau vor der Zahlung",
+          "text": "Ihr seht eure Einladung über einen privaten Link und wünscht euch Änderungen. Nichts wird ohne euer Okay veröffentlicht."
+        },
+        {
+          "title": "Antworten online",
+          "text": "Gäste sagen ohne Konto oder App zu; ihr verfolgt und exportiert die Antworten in eurem Bereich."
+        },
+        {
+          "title": "Zwei Sprachen inklusive",
+          "text": "Ein Link, zwei Sprachen: Gäste wechseln mit einem Tipp."
+        },
+        {
+          "title": "Private Momente",
+          "text": "Standesamt, Henna, Verlobung… ein privater Link pro Gästegruppe, damit jeder nur sieht, was ihn betrifft."
+        },
+        {
+          "title": "Eröffnung und Musik",
+          "text": "Ein animierter Umschlag oder ein Eröffnungsvideo, mit eurer Lieblingsmusik."
+        },
+        {
+          "title": "Immer aktuell",
+          "text": "Ändert sich eine Uhrzeit oder ein Ort? Wir aktualisieren die Einladung, der Link bleibt gleich."
+        },
+        {
+          "title": "Sichere Zahlung",
+          "text": "Per Karte oder PayPal, in einem Betrag, sobald euch die Vorschau gefällt."
+        }
+      ],
+      "stepsTitle": "So läuft es ab",
+      "steps": [
+        {
+          "title": "Eure Anfrage",
+          "text": "Füllt das geführte Formular aus: Namen, Datum, Orte, Ablauf und Wünsche."
+        },
+        {
+          "title": "Die Gestaltung",
+          "text": "Unser Team gestaltet eure Einladung im Stil des Designs, mit euren Texten."
+        },
+        {
+          "title": "Eure Vorschau",
+          "text": "Ein privater Link zum Entdecken; antwortet einfach auf die E-Mail, um Anpassungen zu wünschen."
+        },
+        {
+          "title": "Die Zahlung",
+          "text": "Wenn alles passt, bezahlt ihr sicher online."
+        },
+        {
+          "title": "Die Veröffentlichung",
+          "text": "Euer persönlicher Link wird aktiviert: Teilt ihn per WhatsApp, SMS oder E-Mail."
+        },
+        {
+          "title": "Die Antworten",
+          "text": "Verfolgt die Zusagen eurer Gäste in Echtzeit in eurem Bereich."
+        }
+      ],
+      "delay": "Richtwert: {delay}",
+      "sectionsTitle": "Rubriken nach Wahl",
+      "sectionsText": "Eure Einladung behält nur die Rubriken, die euer Fest braucht, in der Reihenfolge eurer Wahl.",
+      "sections": [
+        "Tagesablauf",
+        "Orte und Anfahrt",
+        "Countdown",
+        "Datum zum Freirubbeln",
+        "Dresscode und Farben",
+        "Unterkunft und Transport",
+        "Wichtige Kontakte",
+        "Antworten der Gäste",
+        "Eure Geschichte, eure Worte"
+      ],
+      "sectionsMore": "Eine andere Idee? Schreibt sie in eure Anfrage.",
+      "faqTitle": "Eure Fragen",
+      "faq": [
+        {
+          "question": "Kann ich meine Einladung vor der Zahlung sehen?",
+          "answer": "Ja. Ihr erhaltet zuerst eine private Vorschau; bezahlt wird erst, wenn ihr die Einladung freigebt."
+        },
+        {
+          "question": "Wie funktionieren die zwei Sprachen?",
+          "answer": "Wählt die zweite Sprache in eurer Anfrage: Wir bereiten beide Versionen vor, und die Gäste wählen ihre auf demselben Link."
+        },
+        {
+          "question": "Und wenn sich nach dem Versand etwas ändert?",
+          "answer": "Schreibt uns: Wir aktualisieren die Einladung und eure Gäste behalten denselben Link."
+        },
+        {
+          "question": "Müssen meine Gäste etwas installieren?",
+          "answer": "Nein. Sie öffnen den Link auf dem Handy und antworten in Sekunden, ohne Anmeldung."
+        }
+      ],
+      "ctaTitle": "Sollen wir loslegen?",
+      "ctaText": "Schickt uns eure Angaben: Wir melden uns mit eurer Vorschau."
+    },
   },
   demo: {
     metaTitle: "Demo – {name}",
@@ -212,6 +318,9 @@ export const de: SiteDict = {
       country: "Land",
       language: "Sprache der Einladung",
       languageHint: "Die Sprache, in der eure Gäste die Einladung lesen.",
+      secondLanguage: "Zweite Sprache (optional)",
+      secondLanguageNone: "Keine — nur eine Sprache",
+      secondLanguageHint: "Inklusive: Die Gäste wählen ihre Sprache auf demselben Link.",
       partnerOne: "Vorname der ersten Person",
       partnerTwo: "Vorname der zweiten Person",
       eventDate: "Datum des Festes",
@@ -278,6 +387,7 @@ export const de: SiteDict = {
       phone: "Telefon",
       country: "Land",
       language: "Sprache",
+      secondLanguage: "Zweite Sprache",
       template: "Design",
       names: "Vornamen",
       date: "Datum",

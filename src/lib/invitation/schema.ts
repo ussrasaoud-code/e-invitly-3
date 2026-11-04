@@ -516,6 +516,11 @@ export const invitationContentSchema = z.preprocess(upgradeContent, z.object({
     autoStart: z.boolean().default(false),
   }),
   music: z.object({ enabled: z.boolean().default(false), url: safeUrl }),
+  /**
+   * Invitations : deuxième langue (mêmes champs, textes traduits). Lu et vérifié par
+   * lib/invitation/bilingual.ts ; le design suit toujours la version principale.
+   */
+  alt: z.unknown().optional(),
 }));
 
 export type InvitationContent = z.infer<typeof invitationContentSchema>;

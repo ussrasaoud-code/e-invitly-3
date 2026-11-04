@@ -40,6 +40,7 @@ import { FONTS, FONT_GROUPS } from "@/lib/fonts";
 import { ShapeSvg } from "@/components/invitation/Shape";
 import { shapePresets } from "@/lib/invitation/shape-presets";
 import { ColorInput, UsedColorsContext, collectColors, useRecentColors } from "./ColorInput";
+import { TranslationDrawer, remainingCount, type TranslationSetup } from "./TranslationDrawer";
 import { HistoryDrawer, type HistoryApi } from "./HistoryDrawer";
 import { useEditorState } from "./useEditorState";
 
@@ -196,7 +197,10 @@ export function VisualEditor({
   history,
   publish,
   backupKey,
+  translation,
 }: {
+  /** Version traduite d'un modèle : panneau « Textes à traduire » */
+  translation?: TranslationSetup;
   /** Modèles : crée une version à partir du brouillon enregistré automatiquement */
   publish?: (content: InvitationContentInput, base?: string) => Promise<SaveResult>;
   /** Identifiant de la copie de secours locale */
@@ -257,6 +261,7 @@ export function VisualEditor({
   const [replay, setReplay] = useState(0);
   const [picker, setPicker] = useState<null | "add" | "replace">(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showTexts, setShowTexts] = useState(false);
   const [shapeMenu, setShapeMenu] = useState(false);
   const [clipboard, setClipboard] = useState<InvitationLayer | null>(null);
   const [notice, setNotice] = useState("");
@@ -749,6 +754,14 @@ export function VisualEditor({
           {history ? (
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowHistory(true)}>Historique</button>
           ) : null}
+          {translation ? (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowTexts(true)}>
+              Textes à traduire
+              {remainingCount(translation.main, ed.content) ? (
+                <span className="ms-1.5 rounded-full bg-warning/80 px-1.5 text-[0.65rem] text-white">{remainingCount(translation.main, ed.content)}</span>
+              ) : <span className="ms-1.5 text-success">✓</span>}
+            </button>
+          ) : null}
         </div>
       </header>
       {ed.recovered ? (
@@ -1119,6 +1132,9 @@ export function VisualEditor({
           else addLayer(newLayer("image", { src: m.url, name: m.name.slice(0, 60) }));
         }}
       />
+      {translation && showTexts ? (
+        <TranslationDrawer setup={translation} content={ed.content} update={ed.update} onClose={() => setShowTexts(false)} />
+      ) : null}
       {history && showHistory ? (
         <HistoryDrawer
           api={history}

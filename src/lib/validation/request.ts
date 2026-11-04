@@ -67,6 +67,8 @@ export const contactStep = z.object({
     .default(""),
   country: t(60).min(1, "Indiquez votre pays"),
   language: z.enum(LANGUAGES, { message: "Choisissez une langue" }),
+  /** Deuxième langue de l'invitation (incluse), vide = une seule langue */
+  secondLanguage: z.enum(LANGUAGES).or(z.literal("")).optional().default(""),
 });
 
 export const coupleStep = z.object({

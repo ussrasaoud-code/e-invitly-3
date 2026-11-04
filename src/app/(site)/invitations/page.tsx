@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SetupNotice } from "@/components/site/SetupNotice";
 import { TemplateCard } from "@/components/site/TemplateCard";
-import { CATEGORIES, STYLES } from "@/lib/catalog";
+import { CATEGORIES, STYLES, isCatalogStyle } from "@/lib/catalog";
 import { fmt, localePath } from "@/lib/i18n/config";
 import { pageMetadata } from "@/lib/i18n/metadata";
 import { getDict } from "@/lib/i18n/server";
@@ -39,7 +39,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Sear
 
   // Uniquement les filtres qui correspondent à au moins un modèle
   const categories = CATEGORIES.filter((x) => templates.some((tp) => tp.category === x.value));
-  const styles = STYLES.filter((x) => templates.some((tp) => tp.styles.includes(x.value)));
+  const custom = [...new Set(templates.flatMap((tp) => tp.styles.filter((s) => !isCatalogStyle(s))))].sort((a, b) => a.localeCompare(b, lang));
+  const styles = [...STYLES.filter((x) => templates.some((tp) => tp.styles.includes(x.value))), ...custom.map((v) => ({ value: v, label: v }))];
   const filtered = templates.filter((tp) => (!categorie || tp.category === categorie) && (!style || tp.styles.includes(style)));
   const qs = (next: { categorie?: string; style?: string }) => {
     const p = new URLSearchParams();

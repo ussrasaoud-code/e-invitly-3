@@ -128,6 +128,7 @@ export const fr = {
     choose: "Choisir ce modèle",
     chooseShort: "Choisir",
     demoAria: "Voir la démo du modèle {name}",
+    detailsAria: "Voir la fiche du modèle {name}",
     sheetAria: "Voir la fiche du modèle {name}",
     coverAlt: "Aperçu du modèle {name}",
     all: "Tous nos modèles",
@@ -178,6 +179,111 @@ export const fr = {
     phoneNote: "Aperçu mobile — contenu de démonstration",
     noPreview: "L'aperçu de ce modèle n'est pas encore disponible.",
     demoLabel: "Démonstration du modèle {name}",
+    journey: {
+      "eyebrow": "Votre invitation, de A à Z",
+      "title": "Ce modèle, à votre image",
+      "intro": "La démo raconte un mariage imaginaire. Voici ce que nous faisons de ce modèle pour en faire votre invitation.",
+      "price": "Prix",
+      "langsIncluded": "Jusqu'à 2 langues incluses sur le même lien",
+      "includedTitle": "Ce qui est inclus",
+      "included": [
+        {
+          "title": "Une création sur mesure",
+          "text": "Notre équipe met en page vos textes, vos lieux et votre programme : vous n'avez rien à composer."
+        },
+        {
+          "title": "Un aperçu avant de payer",
+          "text": "Vous découvrez votre invitation sur un lien privé et demandez vos retouches. Rien n'est publié sans votre accord."
+        },
+        {
+          "title": "Les réponses en ligne",
+          "text": "Vos invités confirment sans compte ni application ; vous suivez et exportez leurs réponses dans votre espace."
+        },
+        {
+          "title": "Deux langues incluses",
+          "text": "Un seul lien, deux langues : vos invités passent de l'une à l'autre d'un geste."
+        },
+        {
+          "title": "Des moments réservés",
+          "text": "Mairie, henné, fiançailles… un lien privé par groupe d'invités, pour ne montrer à chacun que ce qui le concerne."
+        },
+        {
+          "title": "Ouverture et musique",
+          "text": "Une enveloppe animée ou une vidéo d'ouverture, avec la musique de votre choix."
+        },
+        {
+          "title": "Toujours à jour",
+          "text": "Un horaire ou un lieu change ? Nous mettons l'invitation à jour, le lien reste le même."
+        },
+        {
+          "title": "Paiement sécurisé",
+          "text": "Par carte bancaire ou PayPal, en une fois, quand votre aperçu vous plaît."
+        }
+      ],
+      "stepsTitle": "Comment ça se passe",
+      "steps": [
+        {
+          "title": "Votre demande",
+          "text": "Remplissez le formulaire guidé : prénoms, date, lieux, programme et vos envies."
+        },
+        {
+          "title": "La création",
+          "text": "Notre équipe compose votre invitation dans l'univers du modèle, avec vos textes."
+        },
+        {
+          "title": "Votre aperçu",
+          "text": "Un lien privé pour la découvrir ; répondez simplement à l'e-mail pour demander des ajustements."
+        },
+        {
+          "title": "Le paiement",
+          "text": "Quand tout vous plaît, vous réglez en ligne, en toute sécurité."
+        },
+        {
+          "title": "La mise en ligne",
+          "text": "Votre lien personnalisé est activé : partagez-le par WhatsApp, SMS ou e-mail."
+        },
+        {
+          "title": "Les réponses",
+          "text": "Suivez les confirmations de vos invités en temps réel depuis votre espace."
+        }
+      ],
+      "delay": "Délai indicatif : {delay}",
+      "sectionsTitle": "Des rubriques à la carte",
+      "sectionsText": "Votre invitation ne garde que les rubriques utiles à votre événement, dans l'ordre que vous choisissez.",
+      "sections": [
+        "Programme de la journée",
+        "Lieux et itinéraires",
+        "Compte à rebours",
+        "Date à gratter",
+        "Dress code et palette",
+        "Hébergement et transports",
+        "Contacts utiles",
+        "Réponse des invités",
+        "Votre histoire, vos mots"
+      ],
+      "sectionsMore": "Une autre idée ? Dites-la-nous dans votre demande.",
+      "faqTitle": "Vos questions",
+      "faq": [
+        {
+          "question": "Puis-je voir mon invitation avant de payer ?",
+          "answer": "Oui. Vous recevez d'abord un aperçu privé ; le paiement n'intervient qu'une fois votre invitation validée."
+        },
+        {
+          "question": "Comment fonctionnent les deux langues ?",
+          "answer": "Choisissez la deuxième langue dans votre demande : nous préparons les deux versions, et vos invités choisissent la leur sur le même lien."
+        },
+        {
+          "question": "Et si un détail change après l'envoi ?",
+          "answer": "Écrivez-nous : nous mettons l'invitation à jour et vos invités gardent le même lien."
+        },
+        {
+          "question": "Mes invités doivent-ils installer quelque chose ?",
+          "answer": "Non. Ils ouvrent le lien depuis leur téléphone et répondent en quelques secondes, sans inscription."
+        }
+      ],
+      "ctaTitle": "On commence ?",
+      "ctaText": "Envoyez-nous vos informations : nous revenons vers vous avec votre aperçu."
+    },
   },
   demo: {
     metaTitle: "Démo — {name}",
@@ -215,6 +321,9 @@ export const fr = {
       country: "Pays",
       language: "Langue de l'invitation",
       languageHint: "La langue dans laquelle vos invités liront l'invitation.",
+      secondLanguage: "Deuxième langue (facultatif)",
+      secondLanguageNone: "Aucune — une seule langue",
+      secondLanguageHint: "Incluse : vos invités choisiront leur langue sur le même lien.",
       partnerOne: "Prénom de la première personne",
       partnerTwo: "Prénom de la seconde personne",
       eventDate: "Date de l'événement",
@@ -281,6 +390,7 @@ export const fr = {
       phone: "Téléphone",
       country: "Pays",
       language: "Langue",
+      secondLanguage: "Deuxième langue",
       template: "Modèle",
       names: "Prénoms",
       date: "Date",

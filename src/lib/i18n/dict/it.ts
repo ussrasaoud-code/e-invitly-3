@@ -125,6 +125,7 @@ export const it: SiteDict = {
     choose: "Scegli questo modello",
     chooseShort: "Scegli",
     demoAria: "Vedi la demo del modello {name}",
+    detailsAria: "Vedi la scheda del modello {name}",
     sheetAria: "Vedi il modello {name}",
     coverAlt: "Anteprima del modello {name}",
     all: "Tutti i nostri modelli",
@@ -175,6 +176,111 @@ export const it: SiteDict = {
     phoneNote: "Anteprima mobile — contenuto dimostrativo",
     noPreview: "L'anteprima di questo modello non è ancora disponibile.",
     demoLabel: "Demo del modello {name}",
+    journey: {
+      "eyebrow": "Il vostro invito, dall'inizio alla fine",
+      "title": "Questo modello, a vostra immagine",
+      "intro": "La demo racconta un matrimonio immaginario. Ecco come trasformiamo questo modello nel vostro invito.",
+      "price": "Prezzo",
+      "langsIncluded": "Fino a 2 lingue incluse sullo stesso link",
+      "includedTitle": "Cosa è incluso",
+      "included": [
+        {
+          "title": "Creazione su misura",
+          "text": "Il nostro team impagina i vostri testi, i luoghi e il programma: non dovete comporre nulla."
+        },
+        {
+          "title": "Un'anteprima prima di pagare",
+          "text": "Scoprite l'invito su un link privato e chiedete le modifiche. Nulla viene pubblicato senza il vostro consenso."
+        },
+        {
+          "title": "Risposte online",
+          "text": "Gli ospiti confermano senza account né app; seguite ed esportate le risposte nel vostro spazio."
+        },
+        {
+          "title": "Due lingue incluse",
+          "text": "Un solo link, due lingue: gli ospiti passano dall'una all'altra con un tocco."
+        },
+        {
+          "title": "Momenti riservati",
+          "text": "Rito civile, henné, fidanzamento… un link privato per gruppo di ospiti, per mostrare a ciascuno solo ciò che lo riguarda."
+        },
+        {
+          "title": "Apertura e musica",
+          "text": "Una busta animata o un video di apertura, con la musica che preferite."
+        },
+        {
+          "title": "Sempre aggiornato",
+          "text": "Cambia un orario o un luogo? Aggiorniamo l'invito e il link resta lo stesso."
+        },
+        {
+          "title": "Pagamento sicuro",
+          "text": "Con carta o PayPal, in un'unica soluzione, quando l'anteprima vi piace."
+        }
+      ],
+      "stepsTitle": "Come funziona",
+      "steps": [
+        {
+          "title": "La vostra richiesta",
+          "text": "Compilate il modulo guidato: nomi, data, luoghi, programma e desideri."
+        },
+        {
+          "title": "La creazione",
+          "text": "Il nostro team compone l'invito nello stile del modello, con i vostri testi."
+        },
+        {
+          "title": "La vostra anteprima",
+          "text": "Un link privato per scoprirlo; basta rispondere all'e-mail per chiedere modifiche."
+        },
+        {
+          "title": "Il pagamento",
+          "text": "Quando tutto vi piace, pagate online in tutta sicurezza."
+        },
+        {
+          "title": "La pubblicazione",
+          "text": "Il vostro link personale viene attivato: condividetelo via WhatsApp, SMS o e-mail."
+        },
+        {
+          "title": "Le risposte",
+          "text": "Seguite le conferme degli ospiti in tempo reale dal vostro spazio."
+        }
+      ],
+      "delay": "Tempi indicativi: {delay}",
+      "sectionsTitle": "Sezioni à la carte",
+      "sectionsText": "Il vostro invito tiene solo le sezioni utili al vostro evento, nell'ordine che scegliete.",
+      "sections": [
+        "Programma della giornata",
+        "Luoghi e indicazioni",
+        "Conto alla rovescia",
+        "Data da grattare",
+        "Dress code e palette",
+        "Alloggio e trasporti",
+        "Contatti utili",
+        "Risposte degli ospiti",
+        "La vostra storia, le vostre parole"
+      ],
+      "sectionsMore": "Un'altra idea? Scrivetela nella vostra richiesta.",
+      "faqTitle": "Le vostre domande",
+      "faq": [
+        {
+          "question": "Posso vedere l'invito prima di pagare?",
+          "answer": "Sì. Ricevete prima un'anteprima privata; il pagamento arriva solo dopo la vostra approvazione."
+        },
+        {
+          "question": "Come funzionano le due lingue?",
+          "answer": "Scegliete la seconda lingua nella richiesta: prepariamo entrambe le versioni e gli ospiti scelgono la loro sullo stesso link."
+        },
+        {
+          "question": "E se un dettaglio cambia dopo l'invio?",
+          "answer": "Scriveteci: aggiorniamo l'invito e gli ospiti mantengono lo stesso link."
+        },
+        {
+          "question": "I miei ospiti devono installare qualcosa?",
+          "answer": "No. Aprono il link dal telefono e rispondono in pochi secondi, senza registrarsi."
+        }
+      ],
+      "ctaTitle": "Iniziamo?",
+      "ctaText": "Inviateci le vostre informazioni: torneremo da voi con l'anteprima."
+    },
   },
   demo: {
     metaTitle: "Demo — {name}",
@@ -212,6 +318,9 @@ export const it: SiteDict = {
       country: "Paese",
       language: "Lingua dell'invito",
       languageHint: "La lingua in cui gli ospiti leggeranno l'invito.",
+      secondLanguage: "Seconda lingua (facoltativa)",
+      secondLanguageNone: "Nessuna — una sola lingua",
+      secondLanguageHint: "Inclusa: gli ospiti scelgono la lingua sullo stesso link.",
       partnerOne: "Nome della prima persona",
       partnerTwo: "Nome della seconda persona",
       eventDate: "Data dell'evento",
@@ -278,6 +387,7 @@ export const it: SiteDict = {
       phone: "Telefono",
       country: "Paese",
       language: "Lingua",
+      secondLanguage: "Seconda lingua",
       template: "Modello",
       names: "Nomi",
       date: "Data",
