@@ -17,7 +17,7 @@ export function isEmailConfigured() {
   return Boolean((process.env.RESEND_API_KEY && process.env.EMAIL_FROM) || process.env.EMAIL_OUTBOX_FILE);
 }
 
-type EmailMsg = { to: string; subject: string; heading: string; paragraphs: string[]; replyTo?: string; lang?: string; action?: { label: string; url: string }; after?: string[] };
+type EmailMsg = { to: string; subject: string; heading: string; paragraphs: string[]; replyTo?: string; lang?: string; action?: { label: string; url: string }; after?: string[]; footer?: string[] };
 
 /** Gabarit HTML des e-mails : logo, titre, texte, bouton. */
 export function renderEmail(msg: EmailMsg, lang = "fr", dir = "ltr"): string {
@@ -30,10 +30,12 @@ export function renderEmail(msg: EmailMsg, lang = "fr", dir = "ltr"): string {
 ${msg.paragraphs.map((p) => `<p style="margin:0 0 14px">${escape(p)}</p>`).join("")}
 ${msg.action ? `<p style="margin:24px 0;text-align:center"><a href="${escape(msg.action.url)}" style="display:inline-block;background:#586C60;color:#ffffff;text-decoration:none;padding:13px 28px;font-size:14px;letter-spacing:1px">${escape(msg.action.label)}</a></p>` : ""}
 ${(msg.after ?? []).map((p) => `<p style="margin:0 0 14px">${escape(p)}</p>`).join("")}
+${msg.footer?.length ? `<p style="margin:22px 0 0;padding-top:14px;border-top:1px solid #EFE7DC;font-size:12px;line-height:1.5;color:#8A7F72">${msg.footer.map(escape).join("<br>")}</p>` : ""}
 </td></tr></table></td></tr></table></body></html>`;
 }
 
-export async function sendEmail(msg: EmailMsg): Promise<EmailResult> {
+export async function sendEmail(input: EmailMsg): Promise<EmailResult> {
+  let msg = input;
   const lang = msg.lang ?? "fr";
   const dir = lang === "ar" ? "rtl" : "ltr";
   if (!isEmailConfigured()) return { sent: false, error: "Service e-mail non configuré" };
@@ -43,6 +45,18 @@ export async function sendEmail(msg: EmailMsg): Promise<EmailResult> {
     const urls = [msg.action?.url, ...(msg.paragraphs.join(" ").match(/https?:\/\/\S+/g) ?? [])].filter(Boolean);
     appendFileSync(process.env.EMAIL_OUTBOX_FILE, `${new Date().toISOString()} ${msg.to} ${urls[0] ?? "-"} ${JSON.stringify(msg.subject)}\n`);
     return { sent: true };
+  }
+  // Pied commun : « ne pas répondre » + WhatsApp et adresse de contact (Admin → Paramètres)
+  if (!msg.footer) {
+    try {
+      const { getSettings } = await import("@/lib/settings");
+      const { brand } = await getSettings();
+      const { emailFooter } = await import("@/lib/email-footer");
+      msg = { ...msg, footer: emailFooter(lang, { whatsapp: brand.whatsapp, email: brand.contactEmail }) };
+    } catch {
+      const { emailFooter } = await import("@/lib/email-footer");
+      msg = { ...msg, footer: emailFooter(lang, {}) };
+    }
   }
   const html = renderEmail(msg, lang, dir);
   try {
@@ -54,7 +68,7 @@ export async function sendEmail(msg: EmailMsg): Promise<EmailResult> {
         to: [msg.to],
         subject: msg.subject,
         html,
-        text: [msg.heading, ...msg.paragraphs, ...(msg.action ? [`${msg.action.label} : ${msg.action.url}`] : []), ...(msg.after ?? [])].join("\n\n"),
+        text: [msg.heading, ...msg.paragraphs, ...(msg.action ? [`${msg.action.label} : ${msg.action.url}`] : []), ...(msg.after ?? []), ...(msg.footer ?? [])].join("\n\n"),
         reply_to: msg.replyTo,
       }),
     });

@@ -40,6 +40,8 @@ import { FONTS, FONT_GROUPS } from "@/lib/fonts";
 import { ShapeSvg } from "@/components/invitation/Shape";
 import { shapePresets } from "@/lib/invitation/shape-presets";
 import { ColorInput, UsedColorsContext, collectColors, useRecentColors } from "./ColorInput";
+import { CopySectionDialog } from "./CopySectionDialog";
+import { FIELD_TOKENS, hasFields, linkNames } from "@/lib/invitation/fields";
 import { TranslationDrawer, remainingCount, type TranslationSetup } from "./TranslationDrawer";
 import { HistoryDrawer, type HistoryApi } from "./HistoryDrawer";
 import { useEditorState } from "./useEditorState";
@@ -262,6 +264,7 @@ export function VisualEditor({
   const [picker, setPicker] = useState<null | "add" | "replace">(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showTexts, setShowTexts] = useState(false);
+  const [showCopy, setShowCopy] = useState(false);
   const [shapeMenu, setShapeMenu] = useState(false);
   const [clipboard, setClipboard] = useState<InvitationLayer | null>(null);
   const [notice, setNotice] = useState("");
@@ -548,6 +551,23 @@ export function VisualEditor({
     const at = section ? c.sections.findIndex((x) => x.id === section.id) + 1 : c.sections.length;
     setSections((ss) => [...ss.slice(0, at), s, ...ss.slice(at)]);
     setSel({ sectionId: s.id, layerId: null });
+    window.setTimeout(() => scrollTo(s.id), 50);
+  };
+  /** Section copiée d'un autre modèle : ajoutée après la section sélectionnée, ou à la place de celle du même type */
+  const insertCopied = (src: InvitationSection, mode: "add" | "replace") => {
+    const s = cloneSection(src);
+    if (mode === "replace") {
+      const old = c.sections.find((x) => x.type === src.type);
+      if (old) {
+        setSections((ss) => ss.map((x) => (x.id === old.id ? s : x)));
+      } else setSections((ss) => [...ss, s]);
+    } else {
+      const at = section ? c.sections.findIndex((x) => x.id === section.id) + 1 : c.sections.length;
+      setSections((ss) => [...ss.slice(0, at), s, ...ss.slice(at)]);
+    }
+    setShowCopy(false);
+    setSel({ sectionId: s.id, layerId: null });
+    flash(mode === "replace" ? "Section remplacée par la copie (Ctrl+Z pour annuler)." : "Section copiée.");
     window.setTimeout(() => scrollTo(s.id), 50);
   };
   const scrollTo = (sectionId: string) => {
@@ -906,6 +926,9 @@ export function VisualEditor({
               {addable.map((t) => <option key={t} value={t}>{SECTION_LABELS[t]}</option>)}
             </select>
           </label>
+          <button type="button" className="mx-1 mt-2 text-start text-xs text-forest underline underline-offset-4 hover:text-charcoal" onClick={() => setShowCopy(true)}>
+            + Copier une section d&apos;un autre modèle…
+          </button>
         </aside>
 
         {/* ── Centre : l'invitation dans un téléphone ── */}
@@ -1000,6 +1023,7 @@ export function VisualEditor({
             />
           ) : layer && section ? (
             <LayerPanel
+              names={[c.couple.partnerOne, c.couple.partnerTwo]}
               key={layer.id}
               layer={layer}
               onChange={(patch) => patchLayer(section.id, layer.id, patch)}
@@ -1138,6 +1162,9 @@ export function VisualEditor({
           else addLayer(newLayer("image", { src: m.url, name: m.name.slice(0, 60) }));
         }}
       />
+      {showCopy ? (
+        <CopySectionDialog lang={c.language} present={c.sections.map((x) => x.type)} onCopy={insertCopied} onClose={() => setShowCopy(false)} />
+      ) : null}
       {translation && showTexts ? (
         <TranslationDrawer setup={translation} content={ed.content} update={ed.update} onClose={() => setShowTexts(false)} />
       ) : null}
@@ -1160,7 +1187,9 @@ export function VisualEditor({
 }
 
 /* ── Panneau d'un calque ──────────────────────────────────────────── */
-function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCopy, onMove, onReplay, onAlign }: {
+function LayerPanel({ layer: l, names, onChange, onReplace, onDelete, onDuplicate, onCopy, onMove, onReplay, onAlign }: {
+  /** Prénoms de l'invitation ouverte (pour relier un texte écrit « en dur ») */
+  names: [string, string];
   onAlign: (mode: AlignMode) => void;
   layer: InvitationLayer;
   onChange: (patch: Partial<InvitationLayer>) => void;
@@ -1189,6 +1218,7 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
           <Field label="Texte">
             <textarea aria-label="Texte" className="field min-h-16 text-sm" maxLength={240} value={l.text} onChange={(e) => onChange({ text: e.target.value })} />
           </Field>
+          <AutoFields text={l.text} names={names} onChange={(text) => onChange({ text })} />
           <Field label="Police">
             <FontSelect value={l.font} onChange={(v) => onChange({ font: v as InvitationLayer["font"] })} themeOptions />
           </Field>
@@ -2268,5 +2298,44 @@ function ThemeColorsPanel({ colors, swatches, onColors, onSwatches }: {
         </div>
       </div>
     </section>
+  );
+}
+
+
+/**
+ * Champs automatiques d'un calque texte : prénoms, date, lieu… remplis avec les
+ * informations de chaque invitation (ceux de la démo dans le modèle, ceux du client ensuite).
+ */
+function AutoFields({ text, names, onChange }: { text: string; names: [string, string]; onChange: (text: string) => void }) {
+  const linked = linkNames(text, names[0], names[1]);
+  const canLink = linked !== text;
+  const upper = text.trim().length > 0 && text === text.toLocaleUpperCase() && text !== text.toLocaleLowerCase();
+  return (
+    <div className="space-y-2 rounded-sm border border-line bg-paper p-2.5">
+      {canLink ? (
+        <div className="space-y-1.5">
+          <p className="text-xs text-charcoal">
+            Ce texte contient les prénoms de la démo écrits à la main : ils ne changeront pas pour le client.
+          </p>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => onChange(linked)}>
+            Remplacer par les prénoms automatiques
+          </button>
+        </div>
+      ) : null}
+      <p className="text-[0.7rem] uppercase tracking-wider text-stone">Insérer un champ automatique</p>
+      <div className="flex flex-wrap gap-1.5">
+        {FIELD_TOKENS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            className="rounded-full border border-line bg-ivory px-2.5 py-1 text-xs hover:border-forest"
+            onClick={() => onChange(`${text}${text && !/\s$/.test(text) ? " " : ""}{${upper ? f.key.toUpperCase() : f.key}}`)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+      {hasFields(text) ? <p className="text-[0.7rem] text-stone">Les champs entre accolades affichent les informations de chaque invitation. En majuscules ({"{PRENOM1}"}), ils s&apos;affichent en majuscules.</p> : null}
+    </div>
   );
 }

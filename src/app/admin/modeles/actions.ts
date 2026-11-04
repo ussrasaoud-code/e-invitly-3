@@ -17,6 +17,7 @@ import {
   templateDefinitionSchema,
   type InvitationContent,
   type InvitationContentInput,
+  type InvitationSection,
   type Language,
   type TemplateDefinition,
 } from "@/lib/invitation/schema";
@@ -437,4 +438,26 @@ export async function deleteTemplate(form: FormData) {
   refreshCatalog(id);
   revalidatePath("/admin/modeles");
   redirect(`/admin/modeles?archives=1&supprime=${encodeURIComponent(t.name)}`);
+}
+
+/* ── Copier une section d'un modèle vers un autre (éditeur visuel) ───────── */
+
+/** Modèles dont on peut copier des sections (tous, archivés exceptés). */
+export async function listTemplatesForCopy(): Promise<{ id: string; name: string }[]> {
+  await requireStaff();
+  const supabase = (await createClient())!;
+  const { data } = await supabase.from("templates").select("id, name, status").neq("status", "archived").order("name");
+  return (data ?? []).map((t) => ({ id: t.id as string, name: t.name as string }));
+}
+
+/** Sections d'un modèle (brouillon le plus récent), dans la langue demandée si elle existe. */
+export async function templateSectionsForCopy(templateId: string, lang: string): Promise<{ ok: true; sections: InvitationSection[] } | { ok: false; message: string }> {
+  await requireStaff();
+  if (!uuid.safeParse(templateId).success) return { ok: false, message: "Modèle inconnu." };
+  const supabase = (await createClient())!;
+  const w = await loadWorking(supabase, templateId);
+  if (!w?.def) return { ok: false, message: "Ce modèle n'a pas de version valide." };
+  const l = (LANGUAGES as readonly string[]).includes(lang) ? (lang as Language) : mainLang(w.def);
+  const content = getVariant(w.def, l) ?? w.def.sample;
+  return { ok: true, sections: content.sections };
 }

@@ -152,3 +152,28 @@ export function countByEvent(
   }
   return out;
 }
+
+/* ── Choix des mariés : ce que le formulaire de réponse demande aux invités ── */
+
+export const rsvpChoicesSchema = z.object({
+  fields: z.object(Object.fromEntries(RSVP_FIELD_KEYS.map((k) => [k, z.boolean()])) as Record<RsvpFieldKey, z.ZodBoolean>).partial().default({}),
+  maxCompanions: z.coerce.number().int().min(0).max(20).default(1),
+  questions: z
+    .array(customQuestionSchema.extend({ id: z.string().max(20).default(""), label: z.string().trim().max(160), options: z.array(z.string().trim().max(60)).max(8).default([]) }))
+    .max(5)
+    .default([]),
+});
+export type RsvpChoices = z.infer<typeof rsvpChoicesSchema>;
+
+export const DEFAULT_RSVP_CHOICES: RsvpChoices = { fields: { ...DEFAULT_RSVP_FIELDS }, maxCompanions: 1, questions: [] };
+
+/** Questions prêtes à enregistrer : identifiants stables, listes de choix valides. */
+export function cleanQuestions(questions: RsvpChoices["questions"]): { ok: true; questions: CustomQuestion[] } | { ok: false; label: string } {
+  const out: CustomQuestion[] = [];
+  questions.forEach((q, i) => {
+    if (!q.label.trim()) return;
+    out.push({ ...q, id: q.id || `q${Date.now().toString(36)}${i}`, options: q.type === "choice" ? q.options.filter((o) => o.trim()) : [] });
+  });
+  const bad = out.find((q) => q.type === "choice" && q.options.length < 2);
+  return bad ? { ok: false, label: bad.label } : { ok: true, questions: out };
+}

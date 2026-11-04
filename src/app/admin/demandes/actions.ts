@@ -10,6 +10,7 @@ import { requireStaff } from "@/lib/auth";
 import { buildInvitationFromRequest, type RequestFormData } from "@/lib/invitation/from-request";
 import { contentFor, getVariant } from "@/lib/invitation/variants";
 import { newAlt } from "@/lib/invitation/bilingual";
+import { DEFAULT_RSVP_FIELDS, cleanQuestions, rsvpChoicesSchema } from "@/lib/rsvp";
 import { sendWelcomeEmail } from "@/lib/login-link";
 import { LANGUAGES, templateDefinitionSchema, type Language } from "@/lib/invitation/schema";
 import { slugFromNames } from "@/lib/slug";
@@ -143,12 +144,26 @@ export async function convertRequestToInvitation(form: FormData) {
   }
 
   const deadline = content.rsvp.deadline ? zonedToUtc(`${content.rsvp.deadline}T23:59`, content.timezone)?.toISOString() : null;
+  // Formulaire de réponse : choix des mariés dans leur demande, sinon réglages par défaut
+  const chosen = rsvpChoicesSchema.safeParse((req.form_data as { details?: { rsvp?: unknown } } | null)?.details?.rsvp);
+  const cleaned = chosen.success ? cleanQuestions(chosen.data.questions) : null;
+  const rsvpRow = chosen.success
+    ? {
+        invitation_id: invitationId,
+        deadline,
+        fields: { ...DEFAULT_RSVP_FIELDS, ...chosen.data.fields },
+        max_companions: chosen.data.maxCompanions,
+        custom_questions: cleaned?.ok ? cleaned.questions : [],
+      }
+    : {
+        invitation_id: invitationId,
+        deadline,
+        fields: { lastName: true, companions: true, companionNames: true, events: content.events.length > 1, dietary: false, childMenus: false, comment: true },
+        max_companions: 1,
+        custom_questions: [] as unknown[],
+      };
   const [rsvpRes, accessRes, reqRes] = await Promise.all([
-    supabase.from("rsvp_forms").insert({
-      invitation_id: invitationId,
-      deadline,
-      fields: { lastName: true, companions: true, companionNames: true, events: content.events.length > 1, dietary: false, menu: false, comment: true },
-    }),
+    supabase.from("rsvp_forms").insert(rsvpRow),
     supabase.from("invitation_access").insert({ invitation_id: invitationId, email: req.email, role: "owner", granted_by: user.id }),
     supabase.from("client_requests").update({ status: "converted", invitation_id: invitationId }).eq("id", req.id),
   ]);

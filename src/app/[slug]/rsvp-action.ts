@@ -4,7 +4,7 @@ import { logActivity } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { env } from "@/lib/env";
 import { hashedClientIp } from "@/lib/net";
-import { forGroup } from "@/lib/invitation/audience";
+import { forGroup, rsvpEvents } from "@/lib/invitation/audience";
 import { groupForToken, loadPublicInvitation } from "@/lib/publication";
 import { rsvpSubmissionSchema, sanitizeSubmission, type RsvpResult, type RsvpSubmission } from "@/lib/rsvp";
 import { getOrCreateRsvpForm, toPublicConfig } from "@/lib/rsvp-server";
@@ -63,7 +63,7 @@ export async function submitRsvp(input: RsvpSubmission): Promise<RsvpResult> {
     fields: cfg.fields,
     maxCompanions: guest ? guest.max_companions : cfg.maxCompanions,
     questions: cfg.questions,
-    eventIds: visible.events.map((e) => e.id),
+    eventIds: rsvpEvents(visible.events).map((e) => e.id),
   });
   if (missing.length) return { ok: false, error: "invalid", fields: missing };
 

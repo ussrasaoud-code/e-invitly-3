@@ -23,38 +23,38 @@ function Screen({ src, name, className = "" }: { src?: string | null; name: stri
 export function PriceGrid({ templates, t: tr, lang }: { templates: CatalogTemplate[]; t: SiteDict["cards"]; lang: SiteLang }) {
   const href = (p: string) => localePath(lang, p);
   return (
-    <ul className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+    <ul className="grid grid-cols-2 gap-x-3.5 gap-y-9 sm:gap-x-6 sm:gap-y-12 lg:grid-cols-4">
       {templates.map((t) => {
         const second = t.gallery.find(Boolean) ?? null;
         return (
           <li key={t.id} className="group">
-            <Link href={href(`/invitations/${t.slug}`)} aria-label={tr.detailsAria.replace("{name}", t.name)} className="relative block aspect-square overflow-hidden rounded-[1.6rem] bg-[#e8e3da]">
+            <Link href={href(`/invitations/${t.slug}`)} aria-label={tr.detailsAria.replace("{name}", t.name)} className="relative block aspect-square overflow-hidden rounded-[1.1rem] bg-[#e8e3da] sm:rounded-[1.6rem]">
               {t.is_featured ? (
-                <span className="absolute start-4 top-4 z-10 rounded-full bg-forest px-3 py-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-ivory">{tr.featured}</span>
+                <span className="absolute start-2.5 top-2.5 z-10 rounded-full bg-forest px-2 py-0.5 text-[0.5rem] font-medium uppercase tracking-[0.14em] text-ivory sm:start-4 sm:top-4 sm:px-3 sm:py-1 sm:text-[0.62rem] sm:tracking-[0.18em]">{tr.featured}</span>
               ) : null}
               <span className={`absolute inset-0 flex items-center justify-center ${second ? "gap-[6%] ps-[4%]" : ""}`}>
                 {/* Téléphone à l'avant (enveloppe) */}
-                <span className="relative z-[1] aspect-[9/19] w-[30%] rounded-[1.1rem] bg-[#151515] p-[2.5%] shadow-[0_22px_30px_-14px_rgb(40_30_20/0.55)] transition-transform duration-500 group-hover:-translate-y-1.5">
-                  <span className="block h-full w-full overflow-hidden rounded-[0.85rem]">
+                <span className={`relative z-[1] aspect-[9/19] ${second ? "w-[32%] sm:w-[30%]" : "w-[38%] sm:w-[30%]"} rounded-[0.65rem] bg-[#151515] p-[2.5%] sm:rounded-[1.1rem] shadow-[0_22px_30px_-14px_rgb(40_30_20/0.55)] transition-transform duration-500 group-hover:-translate-y-1.5`}>
+                  <span className="block h-full w-full overflow-hidden rounded-[0.5rem] sm:rounded-[0.85rem]">
                     <Screen src={t.cover_image} name={t.name} />
                   </span>
                   <span aria-hidden="true" className="absolute left-1/2 top-[4%] h-[3.5%] w-[34%] -translate-x-1/2 rounded-full bg-black" />
                 </span>
                 {/* Invitation à l'arrière */}
                 {second ? (
-                  <span className="relative -mt-[12%] aspect-[9/19] w-[28%] overflow-hidden rounded-[0.9rem] shadow-[0_16px_26px_-14px_rgb(40_30_20/0.45)] transition-transform delay-75 duration-500 group-hover:-translate-y-1">
+                  <span className="relative -mt-[12%] aspect-[9/19] w-[30%] overflow-hidden rounded-[0.5rem] sm:w-[28%] sm:rounded-[0.9rem] shadow-[0_16px_26px_-14px_rgb(40_30_20/0.45)] transition-transform delay-75 duration-500 group-hover:-translate-y-1">
                     <Screen src={second} name={t.name} />
                   </span>
                 ) : null}
               </span>
             </Link>
-            <h3 className="mt-5 font-serif text-[1.65rem] leading-tight">
+            <h3 className="mt-3.5 font-serif text-[1.2rem] leading-tight sm:mt-5 sm:text-[1.65rem]">
               <Link href={href(`/invitations/${t.slug}`)} className="hover:text-forest">{t.name}</Link>
             </h3>
-            {t.short_description ? <p className="mt-2 text-[0.95rem] leading-relaxed text-stone">{t.short_description}</p> : null}
-            {t.price_label ? <p className="mt-3 font-medium text-forest">{t.price_label}</p> : null}
+            {t.short_description ? <p className="mt-1.5 text-[0.82rem] leading-snug text-stone sm:mt-2 sm:text-[0.95rem] sm:leading-relaxed">{t.short_description}</p> : null}
+            {t.price_label ? <p className="mt-2 text-[0.9rem] font-semibold text-forest sm:mt-3 sm:text-base sm:font-medium">{t.price_label}</p> : null}
             {t.languages?.length > 1 ? (
-              <p className="mt-2 text-xs text-stone">
+              <p className="mt-1.5 text-[0.68rem] text-stone sm:mt-2 sm:text-xs">
                 {tr.languages.replace("{list}", t.languages.map((l) => LANG_META[l as SiteLang]?.native ?? l).join(" · "))}
               </p>
             ) : null}

@@ -1,5 +1,6 @@
 import { invitationContentSchema, type InvitationContent, type Language } from "./schema";
 import { syncDesign } from "./variants";
+import { linkNamesInContent } from "./fields";
 
 /**
  * Invitation en deux langues : la version principale porte le design ; la deuxième
@@ -59,7 +60,7 @@ export function contentInLang(c: InvitationContent, lang: string | null | undefi
 export function newAlt(main: InvitationContent, lang: Language, tpl?: { main: InvitationContent; variant: InvitationContent } | null): InvitationContent {
   const m = stripAlt(main);
   if (!tpl) return { ...structuredClone(m), language: lang, alt: undefined };
-  const v = { ...tpl.variant, language: lang };
+  const v = linkNamesInContent({ ...tpl.variant, language: lang }, tpl.variant.couple.partnerOne, tpl.variant.couple.partnerTwo);
   const synced = syncInvitationAlt(m, v);
   const same = (a: string, b: string) => a.trim() === b.trim();
   return {

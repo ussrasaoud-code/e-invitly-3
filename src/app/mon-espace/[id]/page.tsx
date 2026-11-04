@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CoupleHeader } from "@/components/couple/CoupleHeader";
 import { CoupleHelp } from "@/components/contact/CoupleHelp";
+import { CoupleRsvpSettings } from "@/components/couple/CoupleRsvpSettings";
+import { DEFAULT_RSVP_FIELDS } from "@/lib/rsvp";
 import { getSettings } from "@/lib/settings";
 import { getCurrentUser } from "@/lib/auth";
 import { publicUrl } from "@/lib/publication";
@@ -31,7 +33,10 @@ export default async function CoupleResponses({ params, searchParams }: { params
   const o = await loadRsvpOverview(supabase, id);
   if (!o) notFound();
 
-  const { data: invLang } = await supabase.from("invitations").select("language").eq("id", id).maybeSingle();
+  const { data: invLang } = await supabase.from("invitations").select("language, timezone").eq("id", id).maybeSingle();
+  const tz = invLang?.timezone || "Europe/Paris";
+  // Date limite enregistrée en fin de journée, heure du lieu : on ré-affiche le jour
+  const deadlineDay = (iso: string, zone: string) => new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
   const lang = await getPreferredLang(invLang?.language);
   const t = dictFor(lang).couple;
   const { brand } = await getSettings();
@@ -129,6 +134,17 @@ export default async function CoupleResponses({ params, searchParams }: { params
             <p className="card mt-4 p-6 text-sm text-stone">{t.noResponse}</p>
           )}
         </section>
+        <CoupleRsvpSettings
+          invitationId={id}
+          t={dictFor(lang).rsvpSetup}
+          initial={{
+            fields: o.form?.fields ?? DEFAULT_RSVP_FIELDS,
+            maxCompanions: o.form?.max_companions ?? 1,
+            questions: o.form?.questions ?? [],
+          }}
+          initialDeadline={o.form?.deadline ? deadlineDay(o.form.deadline, tz) : ""}
+          initialOpen={o.form?.is_open ?? true}
+        />
         <p className="mt-8 text-xs text-stone">{t.fix}</p>
         <CoupleHelp brand={brand} t={dictFor(lang).contact} couple={o.title} />
       </main>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { rsvpChoicesSchema } from "@/lib/rsvp";
 import { LANGUAGES } from "@/lib/invitation/schema";
 
 /**
@@ -91,6 +92,8 @@ export const ceremonySchema = z.object({
   guestGroup: opt(60),
   venueName: opt(120),
   address: opt(240),
+  /** Jour de la cérémonie, s'il diffère de la date principale (vide = même jour) */
+  date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date invalide").optional().default(""),
   arrivalTime: time,
   startTime: time,
   notes: opt(500),
@@ -101,13 +104,29 @@ export const ceremoniesStep = z.object({
   ceremonies: z.array(ceremonySchema).max(6, "6 cérémonies maximum"),
 });
 
+export const MOMENT_KINDS = ["cocktail", "dinner", "cake", "party", "other"] as const;
+export const momentSchema = z.object({
+  kind: z.enum(MOMENT_KINDS),
+  title: opt(60),
+  time,
+  /** Petit mot affiché sous le moment, ex. « Rafraîchissements et musique live » */
+  note: opt(160),
+});
+export type MomentInput = z.input<typeof momentSchema>;
+
 export const receptionStep = z.object({
   reception: z.object({
     venueName: opt(120),
     address: opt(240),
+    /** Jour de la réception s'il diffère de la date principale */
+    date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date invalide").optional().default(""),
     arrivalTime: time,
-    cocktailTime: time,
-    dinnerTime: time,
+    /** Déroulé construit par les mariés (dans l'ordre choisi) */
+    moments: z.array(momentSchema).max(10).optional().default([]),
+    endTime: time.optional().default(""),
+    // Anciennes demandes (avant le déroulé libre)
+    cocktailTime: time.optional().default(""),
+    dinnerTime: time.optional().default(""),
     otherTimes: opt(500),
     mapsUrl: url,
     parking: opt(500),
@@ -120,6 +139,8 @@ export const detailsStep = z.object({
   details: z.object({
     dressCode: opt(600),
     rsvpDeadline: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date invalide").optional().default(""),
+    /** Ce que le formulaire de réponse demande aux invités (choisi par les mariés) */
+    rsvp: rsvpChoicesSchema.optional(),
     program: opt(1500),
     witnesses: opt(800),
     phoneNumbers: opt(500),

@@ -582,13 +582,20 @@ export function programV2Items(section: InvitationSection, content: InvitationCo
   const events = multi
     ? [...content.events].sort((a, b) => `${dayOf(a)} ${a.startTime || "99:99"}`.localeCompare(`${dayOf(b)} ${b.startTime || "99:99"}`))
     : content.events;
+  // Même lieu que le moment précédent : le lieu et l'adresse ne sont pas répétés dans la frise
+  let prevPlace = "";
   return events
     .filter((e) => e.title || e.startTime)
-    .map((e) => ({
-      id: e.id,
-      time: e.startTime ? formatTime(e.startTime) : "",
-      title: e.title,
-      detail: [multi && formatDay ? formatDay(dayOf(e)) : "", e.venueName, e.description || e.address].filter(Boolean).join("\n"),
-      fromEvent: true as const,
-    }));
+    .map((e) => {
+      const place = `${dayOf(e)}|${e.venueName.trim().toLowerCase()}`;
+      const repeat = !!e.venueName.trim() && place === prevPlace;
+      if (e.venueName.trim()) prevPlace = place;
+      return {
+        id: e.id,
+        time: e.startTime ? formatTime(e.startTime) : "",
+        title: e.title,
+        detail: [multi && formatDay ? formatDay(dayOf(e)) : "", repeat ? "" : e.venueName, e.description || (repeat ? "" : e.address)].filter(Boolean).join("\n"),
+        fromEvent: true as const,
+      };
+    });
 }

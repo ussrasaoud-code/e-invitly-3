@@ -102,7 +102,7 @@ export function translationRows(main: InvitationContent, variant: InvitationCont
     .map((f) => {
       const source = src.get(f.key) ?? "";
       const value = getText(variant, f.path);
-      return { ...f, source, value, todo: !!source.trim() && value.trim() === source.trim() && /\p{L}/u.test(source) };
+      return { ...f, source, value, todo: !!source.trim() && value.trim() === source.trim() && /\p{L}/u.test(source.replace(/\{[A-Za-z_0-9]+\}/g, "")) };
     })
     .filter((r) => r.source.trim() || r.value.trim());
 }

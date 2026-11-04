@@ -132,11 +132,19 @@ with sync_playwright() as p:
     page.screenshot(path=SHOTS / "07-formulaire-ceremonies.png", full_page=True)
     page.get_by_role("button", name="Continuer").click()
     page.get_by_label("Nom du lieu de réception").fill("Château de la Colle")
-    page.get_by_label("Cocktail").fill("17:30")
-    page.get_by_label("Dîner").fill("20:00")
+    page.get_by_label(re.compile(r"^Heure\s*(\(facultatif\))?$")).nth(0).fill("17:30")
+    page.get_by_label(re.compile(r"^Petit mot")).nth(0).fill("Rafraîchissements et musique live")
+    page.get_by_label(re.compile(r"^Heure\s*(\(facultatif\))?$")).nth(1).fill("20:00")
+    page.get_by_role("button", name="Retirer : Pièce montée").click()
+    page.get_by_label("Heure de fin").fill("02:00")
     page.get_by_label("Stationnement").fill("Parking dans la cour")
     page.get_by_role("button", name="Continuer").click()
     page.get_by_label("Contacts des témoins").fill("Léo (témoin de Mark) 06 11 22 33 44")
+    # Les mariés choisissent ce que le formulaire de réponse demande
+    page.get_by_label("Régime alimentaire / allergies").check()
+    page.get_by_role("button", name="+ Ajouter une question").click()
+    page.get_by_label("Question 1").fill("Avez-vous besoin d'une navette ?")
+    page.get_by_label("Type de réponse").select_option("yesno")
     page.get_by_role("button", name="Continuer").click()
     expect(page.get_by_text("Mark & Alice").first).to_be_visible()
     page.get_by_role("button", name="Envoyer ma demande").click()
@@ -169,7 +177,8 @@ with sync_playwright() as p:
     ensure_user("admin@e-invitly.test", "admin")
     desk = browser.new_context(viewport={"width": 1440, "height": 900})
     a = desk.new_page()
-    a.on("dialog", lambda d: d.accept())  # confirmations « Publier ? », « Dépublier ? »
+    accept_dialog = lambda d: d.accept()  # confirmations « Publier ? », « Dépublier ? »
+    a.on("dialog", accept_dialog)
     a.goto(f"{BASE}/admin")
     expect(a).to_have_url(re.compile(r"/connexion"))
     ok("scénario 7 : /admin sans session → page de connexion")
@@ -204,9 +213,14 @@ with sync_playwright() as p:
     a.screenshot(path=SHOTS / "13-admin-invitation-editeur.png", full_page=True)
     inv = api("GET", f"/rest/v1/invitations?id=eq.{inv_id}&select=slug,status,draft_content,internal_notes,template_version_id")[0]
     events = [e["title"] for e in inv["draft_content"]["events"]]
-    assert events == ["Cérémonie laïque", "Cocktail", "Dîner"], events
+    assert events == ["Cérémonie laïque", "Cocktail", "Dîner", "Fin de la soirée"], events
+    evs = inv["draft_content"]["events"]
+    assert evs[1]["description"] == "Rafraîchissements et musique live" and evs[1]["venueName"] == "Château de la Colle"
+    assert evs[2]["venueName"] == "" and evs[2]["address"] == "", "le lieu n'est pas répété"
     assert inv["draft_content"]["eventAt"] == "2027-09-18T16:00"
     assert "Léo" in inv["internal_notes"]
+    rf = api("GET", f"/rest/v1/rsvp_forms?invitation_id=eq.{inv_id}&select=fields,custom_questions")[0]
+    assert rf["fields"]["dietary"] is True and rf["custom_questions"][0]["label"] == "Avez-vous besoin d'une navette ?" and rf["custom_questions"][0]["type"] == "yesno", rf
     ok("scénario 2 : informations reprises, cérémonie civile masquée, slug mark-alice")
 
     # Édition + sauvegarde automatique
@@ -276,8 +290,18 @@ with sync_playwright() as p:
 
     # Paiement : publication refusée tant que rien n'est payé
     a.get_by_role("button", name="Publier", exact=True).click()
-    a.wait_for_timeout(1500)
+    expect(a.get_by_role("alert").filter(has_text="Publication impossible")).to_contain_text("paiement n'a pas encore été reçu", timeout=15000)
     assert api("GET", f"/rest/v1/invitations?id=eq.{inv_id}&select=status")[0]["status"] != "published"
+    # Navigateur qui bloque les fenêtres de confirmation : la confirmation s'affiche sur la page
+    a.remove_listener("dialog", accept_dialog)
+    dismiss_dialog = lambda d: d.dismiss()
+    a.on("dialog", dismiss_dialog)
+    a.get_by_role("button", name="Publier", exact=True).click()
+    box = a.get_by_role("alertdialog")
+    expect(box).to_be_visible()
+    box.get_by_role("button", name="Annuler").click()
+    a.remove_listener("dialog", dismiss_dialog)
+    a.on("dialog", accept_dialog)
     a.goto(f"{BASE}/admin/invitations/{inv_id}?onglet=publication")
     a.get_by_role("button", name=re.compile("Créer le lien de paiement")).click()
     expect(a.get_by_text("En attente de paiement")).to_be_visible(timeout=10000)
@@ -769,6 +793,17 @@ with sync_playwright() as p:
         raise
     ok("éditeur visuel : texte libre, copier-coller entre sections, Suppr et Ctrl+Z")
 
+    # Prénoms écrits à la main → champs automatiques (suivent les prénoms de l'invitation)
+    a.locator('[data-section="hero"] [data-layer]').filter(has_text="Save the date").first.click()
+    props.get_by_label("Texte", exact=True).fill("MARK & ALICE")
+    props.get_by_role("button", name="Remplacer par les prénoms automatiques").click()
+    expect(props.get_by_label("Texte", exact=True)).to_have_value("{PRENOM1} & {PRENOM2}")
+    expect(a.locator('[data-section="hero"] [data-layer]').filter(has_text="MARK & ALICE")).to_have_count(1)
+    wait_draft(lambda d: any(l.get("text") == "{PRENOM1} & {PRENOM2}" for l in sec(d, "hero")[0]["layers"]), "champs automatiques enregistrés")
+    props.get_by_label("Texte", exact=True).fill("Save the date")
+    wait_draft(lambda d: any(l.get("text") == "Save the date" for l in sec(d, "hero")[0]["layers"]), "texte remis")
+    ok("éditeur visuel : prénoms écrits à la main remplacés par des champs automatiques")
+
     left.get_by_label("Ajouter une section").select_option("text")
     props.get_by_label("Titre affiché").fill("Notre histoire")
     props.get_by_label("Texte", exact=True).fill("Rencontrés à Lyon en 2019.")
@@ -781,6 +816,18 @@ with sync_playwright() as p:
     a.wait_for_timeout(300)
     a.screenshot(path=SHOTS / "29-editeur-visuel.png")
     ok("éditeur visuel : section « texte libre » ajoutée, dupliquée, supprimée")
+
+    # Copier une section depuis un autre modèle (ici : remplacer le message final par celui de Province)
+    before = len(draft()["sections"])
+    a.get_by_role("button", name=re.compile("Copier une section d")).click()
+    dlg = a.get_by_role("dialog", name="Copier une section d'un autre modèle")
+    dlg.get_by_label("Modèle source").select_option(label="Province")
+    row = dlg.locator("li", has_text="Message final")
+    row.get_by_role("button", name="Remplacer la mienne").click()
+    expect(dlg).to_have_count(0)
+    expect(a.get_by_text("Section remplacée par la copie")).to_be_visible()
+    d = wait_draft(lambda d: len(d["sections"]) == before and len([x for x in d["sections"] if x["type"] == "closing"]) == 1, "section copiée enregistrée")
+    ok("éditeur visuel : section copiée depuis un autre modèle (remplacement)")
 
     # Éléments intégrés au modèle : sélectionner, modifier, déplacer, retirer
     left.get_by_role("button", name=re.compile(r"^Invitation principale")).click()
@@ -1106,7 +1153,7 @@ with sync_playwright() as p:
     v.screenshot(path=SHOTS / "50-groupe-invites.png", full_page=True)
     v.get_by_role("button", name="Continuer").click()
     v.get_by_label("Nom du lieu de réception").fill("Salle Andalouse")
-    v.get_by_label("Dîner").fill("20:00")
+    v.get_by_label(re.compile(r"^Heure\s*(\(facultatif\))?$")).nth(1).fill("20:00")
     v.get_by_role("button", name="Continuer").click()
     v.get_by_role("button", name="Continuer").click()
     expect(v.get_by_text("réservé : Famille proche")).to_be_visible()
@@ -1371,6 +1418,13 @@ with sync_playwright() as p:
     c.screenshot(path=SHOTS / "25-espace-couple-reponses.png", full_page=True)
     cx = c.context.request.get(f"{BASE}/api/exports/{inv_id}?format=csv")
     assert cx.status == 200 and "Paul" in cx.text()
+    # Le couple règle lui-même son formulaire de réponse
+    rs = c.get_by_role("region", name="Votre formulaire de réponse")
+    rs.get_by_label("Menus enfant").check()
+    rs.get_by_role("button", name="Enregistrer").click()
+    expect(rs.get_by_role("status")).to_contain_text("Formulaire mis à jour")
+    rf = api("GET", f"/rest/v1/rsvp_forms?invitation_id=eq.{inv_id}&select=fields")[0]
+    assert rf["fields"]["childMenus"] is True, rf
     naomi_id = api("GET", "/rest/v1/invitations?slug=eq.naomi-kate&select=id")[0]["id"]
     c.goto(f"{BASE}/mon-espace/{naomi_id}")
     expect(c.get_by_text("Page introuvable")).to_be_visible()

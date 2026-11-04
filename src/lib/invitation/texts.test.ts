@@ -23,3 +23,14 @@ describe("textes à traduire", () => {
     expect(setText(main, row, "x".repeat(500)).kicker.length).toBe(120);
   });
 });
+
+describe("champs automatiques", () => {
+  it("relie les prénoms écrits à la main et les affiche", async () => {
+    const { fillFields, fieldValues, linkNames } = await import("./fields");
+    expect(linkNames("CAMILLE\n&\nELIAS", "Camille", "Elias")).toBe("{PRENOM1}\n&\n{PRENOM2}");
+    expect(linkNames("Témoin d'Elias, Camilleri", "Camille", "Elias")).toBe("Témoin d'{prenom2}, Camilleri");
+    const v = fieldValues({ couple: { partnerOne: "Sara", partnerTwo: "Youssef", photoUrl: "" }, eventAt: "2027-06-12T16:00", mainVenue: { name: "Riad", city: "Fès" }, language: "fr" });
+    expect(fillFields("{PRENOM1} & {prenom2} · {date}", v)).toBe("SARA & Youssef · 12 · 06 · 2027");
+    expect(fillFields("{heure}", v)).toBe("16h00");
+  });
+});

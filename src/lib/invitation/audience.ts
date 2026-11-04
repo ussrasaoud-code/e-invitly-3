@@ -44,3 +44,8 @@ export function isMultiDay(content: InvitationContent, events = content.events) 
 export function sortByDay(content: InvitationContent, events = content.events) {
   return [...events].sort((a, b) => `${eventDay(a, content)} ${a.startTime || a.arrivalTime || "99:99"}`.localeCompare(`${eventDay(b, content)} ${b.startTime || b.arrivalTime || "99:99"}`));
 }
+
+/** Moments auxquels les invités répondent (la « fin de la soirée » n'en est pas un). */
+export function rsvpEvents<T extends { id: string }>(events: T[]): T[] {
+  return events.filter((e) => !e.id.endsWith("-fin"));
+}

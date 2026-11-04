@@ -34,12 +34,12 @@ const TABS = [
   { value: "notes", label: "Notes internes" },
 ] as const;
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ onglet?: string; nouvelle?: string; acces?: string; publiee?: string; q?: string; presence?: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ onglet?: string; nouvelle?: string; acces?: string; publiee?: string; erreur?: string; q?: string; presence?: string }> };
 
 export default async function InvitationPage({ params, searchParams }: Props) {
   await requireStaff();
   const { id } = await params;
-  const { onglet = "contenu", nouvelle, acces, publiee, q, presence } = await searchParams;
+  const { onglet = "contenu", nouvelle, acces, publiee, erreur, q, presence } = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const supabase = (await createClient())!;
 
@@ -104,8 +104,9 @@ export default async function InvitationPage({ params, searchParams }: Props) {
               <a href={`/${inv.slug}`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Voir en ligne ↗</a>
             ) : null}
             <Link href={`/admin/invitations/${inv.id}/editeur`} className="btn btn-secondary btn-sm">Éditeur visuel</Link>
-            <Link href={`/admin/invitations/${inv.id}?onglet=publication`} className="btn btn-primary btn-sm">
-              {isLive ? "Publication" : "Publier"}
+            {/* Mène au bouton de publication (en bas de la carte « Publication »), qui demande confirmation */}
+            <Link href={`/admin/invitations/${inv.id}?onglet=publication#publier`} className="btn btn-primary btn-sm">
+              {isLive ? "Publication" : "Publier…"}
             </Link>
             <form action={duplicateInvitation}>
               <input type="hidden" name="id" value={inv.id} />
@@ -164,6 +165,11 @@ export default async function InvitationPage({ params, searchParams }: Props) {
 
       {tab === "publication" ? (
         <div className="grid gap-6 lg:grid-cols-2">
+          {erreur ? (
+            <p role="alert" className="border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger lg:col-span-2">
+              Publication impossible : {erreur.slice(0, 300)}
+            </p>
+          ) : null}
           {publiee ? (
             <p role="status" className="border border-sage bg-sage-soft px-4 py-3 text-sm text-forest-deep lg:col-span-2">
               Version {publiee} publiée. Elle est visible à l&apos;adresse ci-dessous : copiez le lien et envoyez-le au couple.
@@ -250,7 +256,7 @@ export default async function InvitationPage({ params, searchParams }: Props) {
               </p>
             ) : null}
 
-            <div className="mt-5 flex flex-wrap items-end gap-3 border-t border-line pt-5">
+            <div id="publier" className="mt-5 flex scroll-mt-28 flex-wrap items-end gap-3 rounded-sm border-t border-line pt-5 target:bg-sage-soft/60 target:p-4 target:ring-2 target:ring-sage">
               {status === "archived" ? (
                 <p className="text-sm text-stone">Restaurez l&apos;invitation (en haut de page) pour pouvoir la publier.</p>
               ) : (

@@ -43,7 +43,7 @@ export default async function PersonalisationPage({ params, searchParams }: { pa
           <h1 className="mt-3 font-serif text-4xl md:text-5xl">{fmt(r.title, { name: template.name })}</h1>
           <p className="mt-4 max-w-2xl leading-relaxed text-stone">{r.intro}</p>
           <div className="mt-10">
-            <RequestForm templateSlug={template.slug} templateName={template.name} t={r} lang={lang} invitationLang={invitationLang} languages={enabled} />
+            <RequestForm templateSlug={template.slug} templateName={template.name} t={r} rsvpT={t.rsvpSetup} lang={lang} invitationLang={invitationLang} languages={enabled} />
           </div>
         </div>
         <aside className="hidden lg:block">

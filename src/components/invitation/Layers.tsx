@@ -7,6 +7,8 @@ import type { InvitationLayer, InvitationSection } from "@/lib/invitation/schema
 import { LayerEditorContext, SectionContext, type LayerEditor } from "./editor-context";
 import { guideSettings, showSnap, snapMove, unionBox } from "./snap";
 import { cq } from "./units";
+import { FieldsContext } from "./fields-context";
+import { fillFields } from "@/lib/invitation/fields";
 import { AnimationContext, SectionAnimationContext } from "./Sections";
 import { ShapeSvg } from "./Shape";
 
@@ -185,6 +187,7 @@ function LayerView({ layer: l, section, frame, play, animate }: {
   play: boolean;
   animate: boolean;
 }) {
+  const fields = useContext(FieldsContext);
   const editor = useContext(LayerEditorContext);
   const sectionId = section.id;
   const sel = editor?.selected;
@@ -225,7 +228,7 @@ function LayerView({ layer: l, section, frame, play, animate }: {
           transform: l.flip ? "scaleX(-1)" : undefined,
         }}
       >
-        {l.text}
+        {fillFields(l.text, fields)}
       </p>
     );
   } else if (l.kind === "shape") {

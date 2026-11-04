@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { invitationContentSchema, type InvitationContent, type RendererKey } from "@/lib/invitation/schema";
@@ -22,19 +22,27 @@ export const accessCookieName = (invitationId: string) => `ei_acces_${invitation
 
 /* ── Liens privés des groupes d'invités ─────────────────────────────── */
 /** Jeton d'un lien privé : <adresse>?g=<jeton> (16 caractères). */
-export const newGroupToken = () => randomBytes(12).toString("base64url");
+/**
+ * Code d'un lien privé : 6 caractères faciles à lire (sans 0/O, 1/I/L), ex. « K7M2QX ».
+ * Lien court (e-invitly.com/prenoms?g=K7M2QX) mais impossible à deviner : près d'un
+ * milliard de combinaisons. Un mot fixe (« ?prive ») serait trouvé par n'importe quel invité.
+ */
+const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+export const newGroupToken = () => Array.from({ length: 6 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join("");
 export const groupUrl = (slug: string, token: string) => `${env.siteUrl}/${slug}?g=${encodeURIComponent(token)}`;
 
 /** Groupe correspondant au jeton d'un lien privé de cette invitation (lecture serveur uniquement), sinon null. */
 export async function groupForToken(invitationId: string, token: string | undefined | null): Promise<string | null> {
-  if (!token || token.length < 12 || token.length > 64) return null;
+  if (!token || token.length < 6 || token.length > 64) return null;
+  // Codes courts : insensibles aux majuscules (un invité peut retaper le lien)
+  const wanted = token.length <= 8 ? token.toUpperCase() : token;
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const db = createAdminClient();
   if (!db) return null;
   const { data, error } = await db.from("invitations").select("private_links").eq("id", invitationId).maybeSingle();
   if (error || !data?.private_links) return null;
   for (const [group, t] of Object.entries(data.private_links as Record<string, string>)) {
-    if (typeof t === "string" && sameHash(t, token)) return group;
+    if (typeof t === "string" && sameHash(t.length <= 8 ? t.toUpperCase() : t, wanted)) return group;
   }
   return null;
 }

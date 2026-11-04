@@ -9,6 +9,11 @@ export type TranslateResult = { ok: true; texts: string[] } | { ok: false; messa
 
 export const MAX_CHARS = 60_000;
 
+const protect = (t: string) =>
+  t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\{[A-Za-z_0-9]+\}/g, (m) => `<x>${m}</x>`);
+const unprotect = (t: string) =>
+  t.replace(/<\/?x>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+
 export function deeplConfigured(): boolean {
   return !!process.env.DEEPL_API_KEY;
 }
@@ -30,7 +35,8 @@ export async function deeplTranslate(texts: string[], from: Language, to: Langua
       const res = await fetch(`${host}/v2/translate`, {
         method: "POST",
         headers: { Authorization: `DeepL-Auth-Key ${key.trim()}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ text: texts.slice(i, i + 50), source_lang: SOURCE[from], target_lang: TARGET[to], preserve_formatting: true }),
+        // Champs automatiques ({prenom1}…) protégés : jamais traduits
+        body: JSON.stringify({ text: texts.slice(i, i + 50).map(protect), source_lang: SOURCE[from], target_lang: TARGET[to], preserve_formatting: true, tag_handling: "xml", ignore_tags: ["x"] }),
         cache: "no-store",
       });
       if (res.status === 403) return { ok: false, message: "Clé DeepL refusée : vérifiez DEEPL_API_KEY dans Netlify." };
@@ -38,7 +44,7 @@ export async function deeplTranslate(texts: string[], from: Language, to: Langua
       if (!res.ok) return { ok: false, message: `DeepL ne répond pas correctement (erreur ${res.status}). Réessayez dans un instant.` };
       const data = (await res.json()) as { translations?: { text: string }[] };
       if (!data.translations || data.translations.length !== Math.min(50, texts.length - i)) return { ok: false, message: "Réponse DeepL inattendue." };
-      out.push(...data.translations.map((t) => t.text));
+      out.push(...data.translations.map((t) => unprotect(t.text)));
     }
   } catch {
     return { ok: false, message: "Impossible de joindre DeepL. Réessayez dans un instant." };

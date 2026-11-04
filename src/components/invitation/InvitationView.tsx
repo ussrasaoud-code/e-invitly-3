@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState, type CSSProperties, useLayoutEffect } from "react";
+import { useCallback, useMemo, useRef, useState, type CSSProperties, useLayoutEffect } from "react";
+import { FieldsContext } from "./fields-context";
+import { fieldValues } from "@/lib/invitation/fields";
 import type { FontKey, InvitationContent, RendererKey, SectionType } from "@/lib/invitation/schema";
 import type { PublicRsvpConfig } from "@/lib/rsvp";
 import { FONTS } from "@/lib/fonts";
@@ -63,6 +65,7 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const isArabic = content.language === "ar";
+  const fields = useMemo(() => fieldValues(content), [content]);
 
   // Mise à l'échelle : l'invitation est composée sur 390 px (largeur de l'éditeur) puis
   // agrandie ou réduite à la largeur réelle de l'écran (au plus 480 px). Les textes et
@@ -140,6 +143,7 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
         // Contenu caché derrière l'enveloppe : ni lu, ni atteignable au clavier
         inert={!opened}
       >
+        <FieldsContext.Provider value={fields}>
         <AnimationContext.Provider value={animations && content.theme.animation !== "none"}>
         {content.sections
           .filter((s) => s.visible)
@@ -163,6 +167,7 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
             );
           })}
         </AnimationContext.Provider>
+        </FieldsContext.Provider>
       </main>
 
       {content.music.enabled && content.music.url ? (

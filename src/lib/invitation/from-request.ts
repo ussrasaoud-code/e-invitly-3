@@ -1,3 +1,4 @@
+import { linkNamesInContent } from "./fields";
 import { groupId } from "./audience";
 import { invitationContentSchema, type GuestGroup, type InvitationContent, type InvitationEvent } from "./schema";
 import { CEREMONY_LABELS, type RequestData } from "@/lib/validation/request";
@@ -16,6 +17,10 @@ import { CEREMONY_LABELS, type RequestData } from "@/lib/validation/request";
 export type RequestFormData = Omit<RequestData, "consent" | "website" | "templateSlug">;
 
 const slugId = (prefix: string, i: number) => `${prefix}-${i + 1}`;
+
+/** Intitulés par défaut des moments de la réception (si les mariés n'en ont pas saisi) */
+const MOMENT_TITLES = { cocktail: "Cocktail", dinner: "Dîner", cake: "Pièce montée", party: "Soirée dansante", other: "Moment" } as const;
+const END_LABEL: Record<string, string> = { fr: "Fin de la soirée", en: "End of the evening", ar: "نهاية السهرة", es: "Fin de la velada", it: "Fine della serata", de: "Ende des Abends", nl: "Einde van de avond" };
 
 export function buildInvitationFromRequest(
   templateSample: InvitationContent,
@@ -51,30 +56,63 @@ export function buildInvitationFromRequest(
       arrivalTime: c.arrivalTime ?? "",
       startTime: c.startTime ?? "",
       description: c.notes ?? "",
-      date: "",
+      // Autre jour que la date principale (ex. mairie la veille)
+      date: c.date && c.date !== form.eventDate ? c.date : "",
       groups: c.restricted ? [groupFor(c.guestGroup?.trim() || `Invités · ${c.label || CEREMONY_LABELS[c.type]}`)] : [],
     });
   });
 
-  if (reception && (reception.venueName || reception.address || reception.cocktailTime || reception.dinnerTime)) {
+  const moments = (reception?.moments ?? []).filter((m) => m.time || m.note?.trim());
+  if (reception && moments.length) {
+    // Déroulé construit par les mariés : un moment par ligne, dans leur ordre.
+    // Le lieu n'est indiqué qu'une fois (sur le premier moment) : il ne se répète pas dans la frise.
+    const day = reception.date && reception.date !== form.eventDate ? reception.date : "";
+    moments.forEach((m, i) => {
+      events.push({
+        id: `reception-${i + 1}`,
+        type: m.kind === "cake" ? "cake" : m.kind === "other" ? "other" : m.kind,
+        title: m.title?.trim() || MOMENT_TITLES[m.kind],
+        venueName: i === 0 ? reception.venueName ?? "" : "",
+        address: i === 0 ? reception.address ?? "" : "",
+        mapsUrl: i === 0 ? reception.mapsUrl ?? "" : "",
+        arrivalTime: i === 0 ? reception.arrivalTime ?? "" : "",
+        startTime: m.time ?? "",
+        description: m.note?.trim() ?? "",
+        date: day,
+        groups: [],
+      });
+    });
+    if (reception.endTime) {
+      events.push({ id: "reception-fin", type: "other", title: END_LABEL[form.language ?? "fr"] ?? END_LABEL.fr, venueName: "", address: "", mapsUrl: "", arrivalTime: "", startTime: reception.endTime, description: "", date: day, groups: [] });
+    }
+  } else if (reception && (reception.venueName || reception.address || reception.cocktailTime || reception.dinnerTime || reception.arrivalTime)) {
     const base = {
       venueName: reception.venueName ?? "",
       address: reception.address ?? "",
       mapsUrl: reception.mapsUrl ?? "",
       description: "",
-      date: "",
+      date: reception.date && reception.date !== form.eventDate ? reception.date : "",
       groups: [] as string[],
     };
     if (reception.cocktailTime || (!reception.dinnerTime && reception.arrivalTime)) {
       events.push({ ...base, id: "cocktail", type: "cocktail", title: "Cocktail", arrivalTime: reception.arrivalTime ?? "", startTime: reception.cocktailTime || reception.arrivalTime || "" });
     }
     if (reception.dinnerTime) {
-      events.push({ ...base, id: "diner", type: "dinner", title: "Dîner", arrivalTime: reception.cocktailTime ? "" : reception.arrivalTime ?? "", startTime: reception.dinnerTime });
+      // Même lieu que le cocktail : l'adresse n'est pas répétée
+      const sameVenue = events.some((e) => e.id === "cocktail");
+      events.push({ ...base, ...(sameVenue ? { venueName: "", address: "", mapsUrl: "" } : {}), id: "diner", type: "dinner", title: "Dîner", arrivalTime: reception.cocktailTime ? "" : reception.arrivalTime ?? "", startTime: reception.dinnerTime });
     }
+    if (reception.endTime) events.push({ ...base, venueName: "", address: "", mapsUrl: "", id: "reception-fin", type: "other", title: END_LABEL[form.language ?? "fr"] ?? END_LABEL.fr, arrivalTime: "", startTime: reception.endTime });
     if (reception.otherTimes) notes.push(`Autres horaires à intégrer : ${reception.otherTimes}`);
   }
 
-  events.sort((a, b) => (a.startTime || "99:99").localeCompare(b.startTime || "99:99"));
+  // Tri : par jour, puis par heure ; une heure avant 6h compte comme la fin de la nuit (02:00 après 23:00)
+  const sortKey = (e: InvitationEvent) => {
+    const t = e.startTime || "99:99";
+    const night = t < "06:00" ? `${String(+t.slice(0, 2) + 24).padStart(2, "0")}${t.slice(2)}` : t;
+    return `${e.date || form.eventDate || ""}|${night}`;
+  };
+  events.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
 
   // Lieu principal et heure du compte à rebours : pris parmi les moments ouverts à tous
   // (un lieu réservé à un groupe ne doit pas apparaître sur le lien principal)
@@ -118,5 +156,7 @@ export function buildInvitationFromRequest(
     music: { enabled: false, url: "" },
   });
 
-  return { content, notesToReview: notes };
+  // Prénoms de la démo écrits dans des calques texte : remplacés par les champs automatiques,
+  // qui affichent les prénoms du couple
+  return { content: linkNamesInContent(content, templateSample.couple.partnerOne, templateSample.couple.partnerTwo), notesToReview: notes };
 }

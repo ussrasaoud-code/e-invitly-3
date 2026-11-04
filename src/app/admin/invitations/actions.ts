@@ -195,19 +195,21 @@ export async function publishInvitation(form: FormData) {
   const supabase = (await createClient())!;
   const { data: inv } = await supabase.from("invitations").select("slug, title, status, draft_content, published_version_id").eq("id", invitationId).single();
   if (!inv) throw new Error("Invitation introuvable.");
-  if (inv.status === "archived") throw new Error("Restaurez l'invitation avant de la publier.");
+  // Erreurs affichées sur la page (et non une page d'erreur générique)
+  const refuse = (msg: string): never => redirect(`/admin/invitations/${invitationId}?onglet=publication&erreur=${encodeURIComponent(msg)}`);
+  if (inv.status === "archived") refuse("Restaurez l'invitation avant de la publier.");
   // Première publication : le paiement doit être reçu (sauf choix explicite « publier sans paiement »)
   if (!inv.published_version_id && form.get("sans_paiement") !== "on") {
     const { data: paid, error: payErr } = await supabase.from("payments").select("id").eq("invitation_id", invitationId).eq("status", "paid").limit(1);
     if (!payErr && !paid?.length) {
-      throw new Error("Le paiement n'a pas encore été reçu. Envoyez le lien de paiement au client, ou cochez « Publier sans paiement ».");
+      refuse("Le paiement n'a pas encore été reçu. Envoyez le lien de paiement au client, ou cochez « Publier sans paiement ».");
     }
   }
   const parsed = invitationContentSchema.safeParse(inv.draft_content);
-  if (!parsed.success) throw new Error("Le brouillon contient des valeurs invalides : corrigez-les dans l'éditeur avant de publier.");
+  if (!parsed.success) return refuse("Le brouillon contient des valeurs invalides : corrigez-les dans l'éditeur avant de publier.");
   const content = parsed.data;
-  if (!content.couple.partnerOne || !content.couple.partnerTwo) throw new Error("Les deux prénoms sont nécessaires avant de publier.");
-  if (!content.eventAt) throw new Error("La date de l'événement est nécessaire avant de publier.");
+  if (!content.couple.partnerOne || !content.couple.partnerTwo) refuse("Les deux prénoms sont nécessaires avant de publier.");
+  if (!content.eventAt) refuse("La date de l'événement est nécessaire avant de publier (onglet Contenu).");
 
   let versionId: string | null = null;
   let versionNumber = 0;
@@ -482,7 +484,7 @@ export async function sendPreviewEmail(invitationId: string, url: string, expire
       heading: t.heading,
       paragraphs: [t.text, ...(cleanNote ? [`${t.noteLabel} ${cleanNote}`] : [])],
       action: { label: t.button, url },
-      after: [fmt(t.validUntil, { date }), t.changes, ...(settings.brand.whatsapp ? [`${dictFor(lang).contact.whatsapp} : ${settings.brand.whatsapp}`] : []), fmt(dictFor(lang).access.signature, { brand: settings.brand.name })],
+      after: [fmt(t.validUntil, { date }), t.changes, fmt(dictFor(lang).access.signature, { brand: settings.brand.name })],
       replyTo: settings.brand.contactEmail,
       lang,
     });

@@ -7,7 +7,7 @@ import { calendarHref } from "@/lib/ics";
 import { ScratchCard } from "./ScratchCard";
 import { LayerEditorContext } from "./editor-context";
 import { LOCALES, formatDayLabel, formatDotDate, formatLongDate, formatTime, zonedToUtc } from "@/lib/time";
-import { eventDay, isMultiDay, sortByDay } from "@/lib/invitation/audience";
+import { eventDay, isMultiDay, sortByDay, rsvpEvents } from "@/lib/invitation/audience";
 import type { PublicRsvpConfig } from "@/lib/rsvp";
 import type { Labels } from "./i18n";
 import { El, ElText, elKey } from "./Element";
@@ -285,6 +285,9 @@ export function ProgramSection({ content, renderer, labels, title }: SectionProp
         {events.map((e, i) => {
           const k = `list.${elKey(e.id)}`;
           const newDay = multi && (i === 0 || eventDay(events[i - 1], content) !== eventDay(e, content));
+          // Même lieu que le moment précédent (même jour) : on ne le répète pas
+          const prev = events.slice(0, i).reverse().find((x) => x.venueName.trim());
+          const showPlace = !!e.venueName.trim() && !(prev && prev.venueName.trim().toLowerCase() === e.venueName.trim().toLowerCase() && eventDay(prev, content) === eventDay(e, content));
           return (
           <Fragment key={e.id}>
           {newDay ? (
@@ -302,7 +305,7 @@ export function ProgramSection({ content, renderer, labels, title }: SectionProp
                 <span aria-hidden="true" className="relative z-10 mt-2.5 h-2 w-2 shrink-0 rotate-45" style={{ backgroundColor: "var(--inv-accent)", marginInlineStart: "-0.5rem" }} />
                 <div>
                   <El id={`${k}.title`}><p className="text-[1.05rem]" style={{ color: "var(--inv-ink)" }}>{e.title || EVENT_TYPE_LABELS[e.type]}</p></El>
-                  {e.venueName ? <El id={`${k}.place`}><p className="text-sm" style={{ color: "var(--inv-muted)" }}>{e.venueName}</p></El> : null}
+                  {showPlace ? <El id={`${k}.place`}><p className="text-sm" style={{ color: "var(--inv-muted)" }}>{e.venueName}</p></El> : null}
                   {e.description ? <El id={`${k}.desc`}><p className="mt-1 text-sm" style={{ color: "var(--inv-muted)" }}>{e.description}</p></El> : null}
                 </div>
               </>
@@ -319,7 +322,7 @@ export function ProgramSection({ content, renderer, labels, title }: SectionProp
                     {e.title || EVENT_TYPE_LABELS[e.type]}
                   </p>
                 </El>
-                {e.venueName ? <El id={`${k}.place`}><p className="mt-1 text-sm" style={{ color: "var(--inv-muted)" }}>{e.venueName}</p></El> : null}
+                {showPlace ? <El id={`${k}.place`}><p className="mt-1 text-sm" style={{ color: "var(--inv-muted)" }}>{e.venueName}</p></El> : null}
                 {e.description ? <El id={`${k}.desc`}><p className="mt-1 text-sm italic" style={{ color: "var(--inv-muted)" }}>{e.description}</p></El> : null}
               </>
             )}
@@ -644,7 +647,7 @@ export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp
       <El id="form">
       {mode === "live" ? (
         rsvp && slug ? (
-          <LiveRsvpForm slug={slug} config={rsvp} events={content.events} labels={labels} />
+          <LiveRsvpForm slug={slug} config={rsvp} events={rsvpEvents(content.events)} labels={labels} />
         ) : (
           <p className="mx-auto max-w-[300px] text-center leading-relaxed" style={{ color: "var(--inv-ink)" }}>
             {labels.rsvpSoon}
