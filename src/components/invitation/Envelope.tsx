@@ -11,6 +11,8 @@ type Props = {
   labels: Labels;
   scope: "fixed" | "absolute";
   onOpened: () => void;
+  /** Démos : rien ne démarre avant que le visiteur touche l'écran */
+  manualStart?: boolean;
 };
 
 /**
@@ -21,8 +23,9 @@ type Props = {
  *   « Ouvrir l'invitation » apparaît.
  * - Respecte prefers-reduced-motion (ouverture instantanée).
  */
-export function Envelope({ envelope, colors, labels, scope, onOpened }: Props) {
+export function Envelope({ envelope, colors, labels, scope, onOpened, manualStart = false }: Props) {
   const [phase, setPhase] = useState<"closed" | "opening" | "gone">("closed");
+  const [started, setStarted] = useState(!manualStart);
   const [videoFailed, setVideoFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -43,19 +46,19 @@ export function Envelope({ envelope, colors, labels, scope, onOpened }: Props) {
 
   // Démarrage automatique (option)
   useEffect(() => {
-    if (envelope.mode === "animation" && envelope.autoStart) {
+    if (envelope.mode === "animation" && envelope.autoStart && !manualStart) {
       const t = window.setTimeout(open, 1200);
       return () => window.clearTimeout(t);
     }
-  }, [envelope.mode, envelope.autoStart, open]);
+  }, [envelope.mode, envelope.autoStart, open, manualStart]);
 
   // Vidéo : tentative de lecture, repli si bloquée
   useEffect(() => {
-    if (envelope.mode !== "video") return;
+    if (envelope.mode !== "video" || !started) return;
     const v = videoRef.current;
     if (!v) return;
     v.play().catch(() => setVideoFailed(true));
-  }, [envelope.mode]);
+  }, [envelope.mode, started]);
 
   if (phase === "gone") return null;
   const pos = scope === "fixed" ? "fixed" : "absolute";
@@ -68,16 +71,30 @@ export function Envelope({ envelope, colors, labels, scope, onOpened }: Props) {
         <video
           ref={videoRef}
           className="h-full w-full object-cover"
-          src={envelope.videoUrl}
+          // En attente du toucher : première image affichée (#t=…) si aucune affiche n'est définie
+          src={!started && !envelope.posterUrl ? `${envelope.videoUrl}#t=0.05` : envelope.videoUrl}
           poster={envelope.posterUrl || undefined}
           muted
           playsInline
-          autoPlay
-          preload="auto"
+          autoPlay={started}
+          preload={started ? "auto" : "metadata"}
           onEnded={finish}
           onError={() => setVideoFailed(true)}
         />
-        <div className="absolute inset-x-0 bottom-8 flex justify-center gap-3">
+        {!started ? (
+          <button
+            type="button"
+            onClick={() => setStarted(true)}
+            className="absolute inset-0 flex flex-col items-center justify-end gap-3 bg-gradient-to-t from-black/45 via-transparent to-transparent pb-16"
+          >
+            <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-charcoal shadow-lg">
+              <span aria-hidden="true" className="absolute inset-0 animate-ping rounded-full bg-white/40" />
+              <svg viewBox="0 0 24 24" className="ms-1 h-6 w-6" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor" /></svg>
+            </span>
+            <span className="rounded-full bg-black/35 px-4 py-1.5 text-xs uppercase tracking-[0.2em] text-white backdrop-blur-sm">{labels.open}</span>
+          </button>
+        ) : null}
+        <div className={`absolute inset-x-0 bottom-8 flex justify-center gap-3 ${started ? "" : "hidden"}`}>
           {videoFailed ? (
             <button type="button" onClick={finish} className="btn btn-primary">
               {labels.open}

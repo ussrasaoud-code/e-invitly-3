@@ -14,7 +14,7 @@ export function InteractiveDemo({ items, initial = 0, showTabs = true, labels }:
   return (
     <div>
       {showTabs && items.length > 1 ? (
-        <div role="tablist" aria-label={labels.tabs} className="mb-8 flex justify-center gap-2">
+        <div role="tablist" aria-label={labels.tabs} className="mb-8 flex flex-wrap justify-center gap-2">
           {items.map((it, i) => (
             <button
               key={it.slug}

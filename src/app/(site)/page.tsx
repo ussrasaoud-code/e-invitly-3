@@ -149,7 +149,7 @@ export default async function HomePage() {
       {/* ── Aperçu interactif ── */}
       <section className="relative overflow-hidden px-5 py-20 md:py-28">
         <Sprig className="pointer-events-none absolute -right-4 top-20 hidden h-80 text-sage md:block" stroke="#586C60" fill="#A6B5A2" />
-        <div className="mx-auto grid max-w-5xl items-center gap-14 md:grid-cols-2">
+        <div className="mx-auto grid max-w-5xl items-center gap-14 md:grid-cols-2 [&>*]:min-w-0">
           <div className="text-center md:text-start">
             <p className="eyebrow">{h.previewEyebrow}</p>
             <h2 className="mt-4 font-serif text-4xl md:text-5xl">{h.previewTitle}</h2>

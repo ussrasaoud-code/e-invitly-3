@@ -59,7 +59,16 @@ export function El({ id, children, className = "", style, as: Tag = "div" }: { i
   if (st) {
     // Propriétés individuelles (translate / rotate / scale) : elles se combinent
     // avec les animations, qui agissent sur « transform »
-    if (st.dx || st.dy) css.translate = `${st.dx}cqw ${st.dy}cqw`;
+    const zoomed = !!st.zoom && st.zoom !== 1;
+    if ((st.dx || st.dy) && zoomed && !/(^|\s)(absolute|fixed|sticky)(\s|$)/.test(className)) {
+      // Taille du texte modifiée : « translate » + « zoom » sur le même élément ne donnent pas
+      // le même résultat sur Safari (iPhone) et Chrome. Un décalage relatif (left / top) est
+      // agrandi par « zoom » de la même façon partout. L'invitation est composée sur 390 px :
+      // 1 cqw = 3,9 px, le rendu reste identique à l'éditeur.
+      css.position = "relative";
+      css.left = `${(st.dx * 390) / 100}px`;
+      css.top = `${(st.dy * 390) / 100}px`;
+    } else if (st.dx || st.dy) css.translate = `${st.dx}cqw ${st.dy}cqw`;
     if (st.rotation) css.rotate = `${st.rotation}deg`;
     if (st.scale !== 1) css.scale = String(st.scale);
     if (st.zoom && st.zoom !== 1) css.zoom = st.zoom;

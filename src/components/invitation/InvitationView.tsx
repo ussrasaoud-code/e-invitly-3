@@ -127,6 +127,7 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
           labels={labels}
           scope={framed ? "absolute" : "fixed"}
           onOpened={onOpened}
+          manualStart={mode === "demo"}
         />
       ) : null}
 
