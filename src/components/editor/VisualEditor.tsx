@@ -235,6 +235,25 @@ export function VisualEditor({
   }, [sel]);
   const [width, setWidth] = useState<(typeof WIDTHS)[number]>(390);
   const [animate, setAnimate] = useState(false);
+  // Repères (centre + marges) : préférence gardée sur cet ordinateur
+  const [guides, setGuides] = useState(true);
+  const [guideMargin, setGuideMargin] = useState(8);
+  useEffect(() => {
+    try {
+      const g = localStorage.getItem("ve-guides");
+      const m = Number(localStorage.getItem("ve-guide-margin"));
+      if (g === "0") setGuides(false);
+      if ([0, 5, 8, 10, 12, 15].includes(m)) setGuideMargin(m);
+    } catch {}
+  }, []);
+  const saveGuides = (on: boolean, m: number) => {
+    setGuides(on);
+    setGuideMargin(m);
+    try {
+      localStorage.setItem("ve-guides", on ? "1" : "0");
+      localStorage.setItem("ve-guide-margin", String(m));
+    } catch {}
+  };
   const [replay, setReplay] = useState(0);
   const [picker, setPicker] = useState<null | "add" | "replace">(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -706,6 +725,23 @@ export function VisualEditor({
           >
             {animate ? "Arrêter l'aperçu animé" : "Aperçu animé"}
           </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${guides ? "btn-primary" : "btn-secondary"}`}
+            aria-pressed={guides}
+            title="Lignes de centre et marges, avec aimantation pendant le déplacement (Alt : déplacer sans aimanter)"
+            onClick={() => saveGuides(!guides, guideMargin)}
+          >
+            Repères
+          </button>
+          {guides ? (
+            <>
+              <label className="sr-only" htmlFor="ve-margin">Marges des repères</label>
+              <select id="ve-margin" value={guideMargin} onChange={(e) => saveGuides(true, Number(e.target.value))} className="field min-h-8 w-auto py-0.5 text-xs">
+                {[0, 5, 8, 10, 12, 15].map((m) => <option key={m} value={m}>{m === 0 ? "Centre seulement" : `Marges ${m} %`}</option>)}
+              </select>
+            </>
+          ) : null}
           <label className="sr-only" htmlFor="ve-width">Largeur du téléphone</label>
           <select id="ve-width" value={width} onChange={(e) => setWidth(Number(e.target.value) as (typeof WIDTHS)[number])} className="field min-h-8 w-auto py-0.5 text-xs">
             {WIDTHS.map((w) => <option key={w} value={w}>{w === 360 ? "Petit téléphone" : w === 390 ? "Téléphone (référence)" : "Grand téléphone"} · {w}px</option>)}
@@ -886,7 +922,10 @@ export function VisualEditor({
             ) : (
               <LayerEditorContext.Provider value={editorApi}>
                 {/* Composée sur 390 px puis mise à l'échelle, comme sur les vrais téléphones */}
-                <div style={width === 390 ? undefined : { width: 390, zoom: width / 390 }}>
+                <div
+                  className={guides ? `ve-guides ${guideMargin === 0 ? "ve-guides-nomargin" : ""}` : undefined}
+                  style={{ ...(width === 390 ? {} : { width: 390, zoom: width / 390 }), ["--guide-m" as string]: `${guideMargin}` }}
+                >
                   <InvitationView key={`${replay}-${animate}`} content={c} renderer={renderer} mode="preview" framed skipEnvelope animations={animate} />
                 </div>
               </LayerEditorContext.Provider>

@@ -691,6 +691,21 @@ with sync_playwright() as p:
     assert L["opacity"] == 0.6 and L["enter"]["type"] == "draw" and L["rotation"] != 0, L
     ok("éditeur visuel : déplacer, pivoter, opacité, animation d'apparition et mouvement continu")
 
+    # Repères : en approchant le centre, le calque s'y aimante et la ligne s'allume
+    frame = a.locator('[data-section="program"]').first
+    fb = frame.bounding_box()
+    box = layer.bounding_box()
+    cx, cy = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    a.mouse.move(cx, cy)
+    a.mouse.down()
+    a.mouse.move(fb["x"] + fb["width"] / 2 + 4, cy + 10, steps=8)
+    expect(frame).to_have_attribute("data-snap", re.compile(r"\bcx\b"))
+    expect(frame.locator(".inv-guide-cx")).to_have_css("opacity", "1")
+    a.mouse.up()
+    expect(frame).not_to_have_attribute("data-snap", re.compile("."))
+    wait_draft(lambda d: sec(d, "program")[0]["layers"][0]["x"] == 50, "aimantation au centre")
+    ok("éditeur visuel : repères — le calque s'aimante au centre de la section")
+
     left.get_by_role("button", name="+ Texte").click()
     props.get_by_label("Texte", exact=True).fill("Save the date")
     d = wait_draft(lambda d: any(l["text"] == "Save the date" for l in sec(d, "program")[0]["layers"]), "calque texte")

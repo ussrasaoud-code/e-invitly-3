@@ -5,6 +5,7 @@ import { useContext, useEffect, useRef, useState, type CSSProperties, type Point
 import { FONTS } from "@/lib/fonts";
 import type { InvitationLayer, InvitationSection } from "@/lib/invitation/schema";
 import { LayerEditorContext, SectionContext, type LayerEditor } from "./editor-context";
+import { guideSettings, showSnap, snapMove, unionBox } from "./snap";
 import { AnimationContext, SectionAnimationContext } from "./Sections";
 import { ShapeSvg } from "./Shape";
 
@@ -150,6 +151,16 @@ export function SectionFrame({ section, children }: { section: InvitationSection
           />
         </>
       ) : null}
+      {editor ? (
+        <div className="inv-guides" aria-hidden="true">
+          <span className="inv-guide inv-guide-v inv-guide-cx" />
+          <span className="inv-guide inv-guide-v inv-guide-ml" />
+          <span className="inv-guide inv-guide-v inv-guide-mr" />
+          <span className="inv-guide inv-guide-h inv-guide-cy" />
+          <span className="inv-guide inv-guide-h inv-guide-mt" />
+          <span className="inv-guide inv-guide-h inv-guide-mb" />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -261,13 +272,14 @@ function LayerView({ layer: l, section, frame, play, animate }: {
 }
 
 /* ── Manipulation à la souris ou au doigt (éditeur seulement) ──────── */
-function drag(e: ReactPointerEvent, onMove: (ev: PointerEvent) => void) {
+function drag(e: ReactPointerEvent, onMove: (ev: PointerEvent) => void, onUp?: () => void) {
   e.preventDefault();
   e.stopPropagation();
   const target = e.currentTarget as HTMLElement;
   target.setPointerCapture?.(e.pointerId);
   const move = (ev: PointerEvent) => onMove(ev);
   const up = () => {
+    onUp?.();
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", up);
@@ -307,15 +319,29 @@ function startMove(e: ReactPointerEvent, l: InvitationLayer, section: Invitation
   const sx = e.clientX;
   const sy = e.clientY;
   const starts = section.layers.filter((x) => ids.includes(x.id) && !x.locked).map((x) => ({ id: x.id, x: x.x, y: x.y }));
+  // Repères magnétiques : boîte de départ de tout ce qui bouge (Alt pour les ignorer)
+  const frameEl = frame.current;
+  const guides = guideSettings(frameEl);
+  const box = guides.on
+    ? unionBox(starts.map((s) => frameEl!.querySelector(`[data-layer="${s.id}"]`)?.getBoundingClientRect()).filter((r): r is DOMRect => !!r))
+    : null;
   drag(e, (ev) => {
-    const dx = ((ev.clientX - sx) / rect.width) * 100;
-    const dy = ((ev.clientY - sy) / rect.height) * 100;
+    let px = ev.clientX - sx;
+    let py = ev.clientY - sy;
+    if (box && !ev.altKey) {
+      const s = snapMove(rect, box, px, py, guides.margin);
+      px = s.dx;
+      py = s.dy;
+      showSnap(frameEl, s.lines);
+    } else showSnap(frameEl, []);
+    const dx = (px / rect.width) * 100;
+    const dy = (py / rect.height) * 100;
     const patches: Record<string, Partial<InvitationLayer>> = {};
     for (const s of starts) {
       patches[s.id] = { x: round(Math.min(160, Math.max(-60, s.x + dx))), y: round(Math.min(160, Math.max(-60, s.y + dy))) };
     }
     editor.changeLayers(sectionId, patches);
-  });
+  }, () => showSnap(frameEl, []));
 }
 
 function startResize(e: ReactPointerEvent, l: InvitationLayer, sectionId: string, frame: React.RefObject<HTMLDivElement | null>, editor: LayerEditor) {

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, type CSSPropert
 import { FONTS } from "@/lib/fonts";
 import type { ElementStyle } from "@/lib/invitation/schema";
 import { AnimationContext, LayerEditorContext, SectionContext, type LayerEditor } from "./editor-context";
+import { guideSettings, showSnap, snapMove } from "./snap";
 export { elKey } from "@/lib/invitation/elements";
 
 /** Élément parent le plus proche (pour les groupes : prénoms, listes…) */
@@ -111,17 +112,29 @@ function startElementMove(e: ReactPointerEvent<HTMLElement>, sectionId: string, 
   editor.selectElement(sectionId, id);
   if (e.button !== 0) return;
   e.preventDefault();
-  const frame = (e.currentTarget as HTMLElement).closest(".inv-frame")?.getBoundingClientRect();
+  const frameEl = (e.currentTarget as HTMLElement).closest(".inv-frame") as HTMLElement | null;
+  const frame = frameEl?.getBoundingClientRect();
   if (!frame) return;
+  const guides = guideSettings(frameEl);
+  const start = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const box = { left: start.left, right: start.right, top: start.top, bottom: start.bottom };
   const sx = e.clientX;
   const sy = e.clientY;
   const dx0 = st?.dx ?? 0;
   const dy0 = st?.dy ?? 0;
   let moved = false;
   const move = (ev: PointerEvent) => {
-    const ddx = ((ev.clientX - sx) / frame.width) * 100;
-    const ddy = ((ev.clientY - sy) / frame.width) * 100;
     if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 3) return;
+    let px = ev.clientX - sx;
+    let py = ev.clientY - sy;
+    if (guides.on && !ev.altKey) {
+      const s = snapMove(frame, box, px, py, guides.margin);
+      px = s.dx;
+      py = s.dy;
+      showSnap(frameEl, s.lines);
+    } else showSnap(frameEl, []);
+    const ddx = (px / frame.width) * 100;
+    const ddy = (py / frame.width) * 100;
     moved = true;
     editor.changeElement(sectionId, id, {
       dx: Math.round(Math.min(100, Math.max(-100, dx0 + ddx)) * 10) / 10,
@@ -129,6 +142,7 @@ function startElementMove(e: ReactPointerEvent<HTMLElement>, sectionId: string, 
     });
   };
   const up = () => {
+    showSnap(frameEl, []);
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", up);

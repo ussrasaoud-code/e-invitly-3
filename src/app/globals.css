@@ -341,3 +341,27 @@
 .inv-el[data-align="right"] > *:not(.inv-el) { margin-left: auto !important; margin-right: 0 !important; }
 .inv-el[data-align="left"] .justify-center, .inv-el[data-align="left"].justify-center { justify-content: flex-start !important; }
 .inv-el[data-align="right"] .justify-center, .inv-el[data-align="right"].justify-center { justify-content: flex-end !important; }
+
+/* ── Repères de l'éditeur : centre et marges de sécurité ─────────────── */
+.inv-guides { display: none; }
+.ve-guides .inv-guides { display: block; position: absolute; inset: 0; pointer-events: none; z-index: 30; }
+.inv-guide { position: absolute; opacity: 0; transition: opacity .12s; }
+.inv-guide-v { top: 0; bottom: 0; width: 0; border-left: 1px dashed rgba(196, 64, 120, 0.85); }
+.inv-guide-h { left: 0; right: 0; height: 0; border-top: 1px dashed rgba(196, 64, 120, 0.85); }
+.inv-guide-cx { left: 50%; }
+.inv-guide-cy { top: 50%; }
+.inv-guide-ml { left: calc(var(--guide-m, 8) * 1%); }
+.inv-guide-mr { right: calc(var(--guide-m, 8) * 1%); }
+.inv-guide-mt { top: calc(var(--guide-m, 8) * 1cqw); }
+.inv-guide-mb { bottom: calc(var(--guide-m, 8) * 1cqw); }
+/* Section sélectionnée : repères discrets en permanence */
+.ve-guides .inv-frame-selected .inv-guide-cx,
+.ve-guides .inv-frame-selected .inv-guide-ml,
+.ve-guides .inv-frame-selected .inv-guide-mr { opacity: 0.35; }
+/* Marges à 0 : pas de traits de marge */
+.ve-guides-nomargin .inv-guide-ml, .ve-guides-nomargin .inv-guide-mr,
+.ve-guides-nomargin .inv-guide-mt, .ve-guides-nomargin .inv-guide-mb { display: none; }
+/* Pendant un déplacement : le repère atteint s'allume */
+.inv-frame[data-snap~="cx"] .inv-guide-cx, .inv-frame[data-snap~="cy"] .inv-guide-cy,
+.inv-frame[data-snap~="ml"] .inv-guide-ml, .inv-frame[data-snap~="mr"] .inv-guide-mr,
+.inv-frame[data-snap~="mt"] .inv-guide-mt, .inv-frame[data-snap~="mb"] .inv-guide-mb { opacity: 1; border-style: solid; }
