@@ -64,6 +64,9 @@ export function El({ id, children, className = "", style, as: Tag = "div" }: { i
     if (st.zoom && st.zoom !== 1) css.zoom = st.zoom;
     if (st.opacity !== 1) css.opacity = st.opacity;
     if (st.color) Object.assign(css, { "--inv-ink": st.color, "--inv-accent": st.color, "--inv-muted": st.color, "--inv-soft": st.color });
+    // Textes et cadres réglables séparément
+    if (st.textColor) Object.assign(css, { "--inv-ink": st.textColor, "--inv-muted": st.textColor });
+    if (st.detailColor) Object.assign(css, { "--inv-accent": st.detailColor, "--inv-soft": st.detailColor });
     if (st.font) {
       const stack = FONTS[st.font].stack;
       Object.assign(css, { "--inv-display": stack, "--inv-script": stack, "--inv-body": stack, "--el-font": stack, fontFamily: stack });

@@ -45,7 +45,7 @@ import { useEditorState } from "./useEditorState";
 
 const CLIPBOARD_KEY = "ei-layer-clipboard";
 const DEFAULT_ELEMENT_STYLE: ElementStyle = {
-  hidden: false, dx: 0, dy: 0, scale: 1, rotation: 0, opacity: 1, color: "", font: "", text: "", ungrouped: false,
+  hidden: false, dx: 0, dy: 0, scale: 1, rotation: 0, opacity: 1, color: "", textColor: "", detailColor: "", font: "", text: "", ungrouped: false,
   zoom: 1, weight: "", style: "", align: "", enter: { type: "none", delay: 0, duration: 1200 }, loop: "none",
 };
 
@@ -442,6 +442,26 @@ export function VisualEditor({
     const ids = multi.map((l) => l.id);
     patchLayers(section.id, (ls) => ls.map((l) => (ids.includes(l.id) ? { ...l, ...patch } : l)));
   };
+  /** Applique un réglage calque par calque (dans l'ordre de lecture : de haut en bas, puis de gauche à droite). */
+  const patchEach = (fn: (l: InvitationLayer, index: number) => Partial<InvitationLayer>) => {
+    if (!section) return;
+    const order = [...multi].sort((a, b) => a.y - b.y || a.x - b.x).map((l) => l.id);
+    patchLayers(section.id, (ls) => ls.map((l) => (order.includes(l.id) ? { ...l, ...fn(l, order.indexOf(l.id)) } : l)));
+  };
+  /** Duplique la sélection (ou le groupe) : les copies forment un nouveau groupe, décalé pour être visible. */
+  const duplicateMany = () => {
+    if (!section || multi.length < 2) return;
+    const grouped = multi.every((l) => l.group && l.group === multi[0].group);
+    const gid = grouped ? `g-${Math.random().toString(36).slice(2, 8)}` : "";
+    const copies = multi.map((l) => {
+      const copy = { ...structuredClone(l), x: Math.min(160, l.x + 4), y: Math.min(160, l.y + 4), locked: false, group: grouped ? gid : "" };
+      copy.id = newLayer(l.kind).id;
+      return copy;
+    });
+    patchLayers(section.id, (ls) => [...ls, ...copies]);
+    setSel({ sectionId: section.id, layerId: copies[0].id, layerIds: copies.map((x) => x.id) });
+    flash(grouped ? "Groupe dupliqué : la copie est sélectionnée, déplacez-la où vous voulez." : `${copies.length} calques dupliqués.`);
+  };
   const duplicateLayer = () => {
     if (!section || !layer) return;
     const copy = newLayer(layer.kind, { ...structuredClone(layer), x: Math.min(160, layer.x + 4), y: Math.min(160, layer.y + 4) });
@@ -620,7 +640,7 @@ export function VisualEditor({
   const addable = SECTION_TYPES.filter((t) => REPEATABLE_SECTIONS.includes(t) || !c.sections.some((s) => s.type === t));
 
   return (
-    <UsedColorsContext.Provider value={{ used: usedColors, recent: recentColors.recent, remember: recentColors.remember }}>
+    <UsedColorsContext.Provider value={{ palette: [...c.theme.swatches, ...Object.values(c.theme.colors)].filter((x, i, a) => a.indexOf(x) === i), used: usedColors, recent: recentColors.recent, remember: recentColors.remember }}>
     <ThemeFontsContext.Provider value={c.theme.fonts}>
     <div
       className="fixed inset-0 z-50 flex flex-col bg-[#efece5] text-charcoal"
@@ -893,6 +913,12 @@ export function VisualEditor({
               onGroup={groupSelected}
               onUngroup={ungroupSelected}
               onPatch={patchMany}
+              onPatchEach={patchEach}
+              onDuplicate={duplicateMany}
+              onReplay={() => {
+                setAnimate(true);
+                setReplay((r) => r + 1);
+              }}
               onDelete={deleteLayer}
               onAlign={alignLayers}
             />
@@ -934,6 +960,7 @@ export function VisualEditor({
             <SectionPanel
               section={section}
               themeColors={c.theme.colors}
+              themeSwatches={c.theme.swatches}
               onApplyBackgroundToAll={() => {
                 const bg = section.background;
                 setSections((ss) => ss.map((x) => ({ ...x, background: { ...bg } })));
@@ -947,10 +974,18 @@ export function VisualEditor({
               onAddImage={() => setPicker("add")}
               onAddText={() => addLayer(newLayer("text", { y: 30 }))}
               onAddShape={() => setShapeMenu(true)}
+              palette={c.dressCode.palette}
+              onPalette={(palette) => update((x) => ({ ...x, dressCode: { ...x.dressCode, palette } }))}
             />
           ) : (
             <div className="space-y-4 text-sm">
               <h2 className="font-serif text-2xl">Éditeur visuel</h2>
+              <ThemeColorsPanel
+                colors={c.theme.colors}
+                swatches={c.theme.swatches}
+                onColors={(patch) => update((x) => ({ ...x, theme: { ...x.theme, colors: { ...x.theme.colors, ...patch } } }))}
+                onSwatches={(swatches) => update((x) => ({ ...x, theme: { ...x.theme, swatches } }))}
+              />
               <p className="text-stone">Cliquez sur n&apos;importe quel élément du téléphone (titre, prénoms, ornement, illustration) pour le modifier, le déplacer, le recolorer ou le retirer. La liste de gauche montre aussi, pour chaque section, ses calques et les éléments du modèle, même retirés.</p>
               <p className="text-stone">Sélectionnez une section pour y ajouter des fleurs, des colombes, des textures ou un texte libre.</p>
               <p className="text-stone">
@@ -1215,8 +1250,11 @@ function LayerPanel({ layer: l, onChange, onReplace, onDelete, onDuplicate, onCo
 /* ── Panneau d'une section ────────────────────────────────────────── */
 const NOT_DUPLICABLE: InvitationSection["type"][] = ["hero", "rsvp", "countdown"];
 
-function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHref, canDelete, onChange, onDuplicate, onDelete, onAddImage, onAddText, onAddShape }: {
+function SectionPanel({ section: s, themeColors, themeSwatches = [], onApplyBackgroundToAll, formHref, canDelete, onChange, onDuplicate, onDelete, onAddImage, onAddText, onAddShape, palette, onPalette }: {
   onAddShape: () => void;
+  palette: string[];
+  onPalette: (palette: string[]) => void;
+  themeSwatches?: string[];
   section: InvitationSection;
   themeColors: InvitationContent["theme"]["colors"];
   onApplyBackgroundToAll: () => void;
@@ -1255,6 +1293,7 @@ function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHre
         </p>
       ) : null}
       {s.type === "program2" ? <ProgramV2Editor section={s} onChange={onChange} /> : null}
+      {s.type === "dresscode" ? <PaletteEditor palette={palette} onChange={onPalette} /> : null}
       {s.type === "scratch" ? <ScratchOptionsEditor section={s} themeColors={themeColors} onChange={onChange} /> : null}
       {s.type === "venues" ? <VenuesOptionsEditor section={s} themeColors={themeColors} onChange={onChange} /> : null}
       <Field label="Apparition du contenu">
@@ -1295,17 +1334,19 @@ function SectionPanel({ section: s, themeColors, onApplyBackgroundToAll, formHre
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5" aria-label="Couleurs du thème">
-          {(["background", "surface", "accentSoft", "accent", "ink"] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              title={themeColors[k]}
-              aria-label={`Fond ${themeColors[k]}`}
-              onClick={() => onChange({ background: { ...s.background, color: themeColors[k] } })}
-              className="h-7 w-7 rounded-full border border-line"
-              style={{ backgroundColor: themeColors[k] }}
-            />
-          ))}
+          {[...themeSwatches, ...(["background", "surface", "accentSoft", "accent", "ink"] as const).map((k) => themeColors[k])]
+            .filter((x, i, a) => a.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i)
+            .map((col) => (
+              <button
+                key={col}
+                type="button"
+                title={col}
+                aria-label={`Fond ${col}`}
+                onClick={() => onChange({ background: { ...s.background, color: col } })}
+                className="h-7 w-7 rounded-full border border-line"
+                style={{ backgroundColor: col }}
+              />
+            ))}
         </div>
         <Field label="Image ou texture de fond (facultatif)">
           <MediaUrlField kinds={["image", "svg"]} className={inputCls} label="Image de fond" value={s.background.image} onChange={(v) => onChange({ background: { ...s.background, image: v } })} />
@@ -1436,7 +1477,10 @@ function TextStyleBar({ bold, italic, align, onBold, onItalic, onAlign }: {
 }
 
 /* ── Plusieurs calques sélectionnés ───────────────────────────────── */
-function MultiLayerPanel({ layers, onGroup, onUngroup, onPatch, onDelete, onAlign }: {
+function MultiLayerPanel({ layers, onGroup, onUngroup, onPatch, onPatchEach, onDuplicate, onReplay, onDelete, onAlign }: {
+  onPatchEach: (fn: (l: InvitationLayer, index: number) => Partial<InvitationLayer>) => void;
+  onDuplicate: () => void;
+  onReplay: () => void;
   onAlign: (mode: AlignMode, relativeTo: "selection" | "section") => void;
   layers: InvitationLayer[];
   onGroup: () => void;
@@ -1459,6 +1503,7 @@ function MultiLayerPanel({ layers, onGroup, onUngroup, onPatch, onDelete, onAlig
         ) : (
           <button type="button" className="btn btn-primary btn-sm" onClick={onGroup}>Grouper</button>
         )}
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onDuplicate}>{grouped ? "Dupliquer le groupe" : "Dupliquer"}</button>
         <button type="button" className="btn btn-danger btn-sm" onClick={onDelete}>Supprimer les {layers.length} calques</button>
       </div>
       <MultiAlign count={layers.length} onAlign={onAlign} />
@@ -1483,7 +1528,76 @@ function MultiLayerPanel({ layers, onGroup, onUngroup, onPatch, onDelete, onAlig
         </fieldset>
       ) : null}
       <NumberSlider label="Opacité" value={Math.round((layers[0].opacity ?? 1) * 100)} min={0} max={100} unit="%" onChange={(v) => onPatch({ opacity: v / 100 })} />
+      <GroupAnimation layers={layers} onPatch={onPatch} onPatchEach={onPatchEach} onReplay={onReplay} />
     </div>
+  );
+}
+
+/** Animation commune d'un groupe : même apparition pour tous, avec un décalage pour une entrée « en cascade ». */
+function GroupAnimation({ layers, onPatch, onPatchEach, onReplay }: {
+  layers: InvitationLayer[];
+  onPatch: (patch: Partial<InvitationLayer>) => void;
+  onPatchEach: (fn: (l: InvitationLayer, index: number) => Partial<InvitationLayer>) => void;
+  onReplay: () => void;
+}) {
+  const same = <T,>(get: (l: InvitationLayer) => T) => (layers.every((l) => get(l) === get(layers[0])) ? get(layers[0]) : null);
+  const type = same((l) => l.enter.type);
+  const sorted = [...layers].sort((a, b) => a.y - b.y || a.x - b.x);
+  const start = Math.min(...layers.map((l) => l.enter.delay));
+  const guessStep = sorted.length > 1 ? Math.max(0, sorted[1].enter.delay - sorted[0].enter.delay) : 0;
+  const [step, setStep] = useState(guessStep);
+  const duration = same((l) => l.enter.duration) ?? layers[0].enter.duration;
+  const apply = (patch: { type?: InvitationLayer["enter"]["type"]; start?: number; step?: number; duration?: number }) => {
+    const s0 = patch.start ?? start;
+    const st = patch.step ?? step;
+    onPatchEach((l, i) => ({
+      enter: { type: patch.type ?? (type ?? l.enter.type), delay: Math.round(s0 + i * st), duration: patch.duration ?? l.enter.duration },
+    }));
+  };
+  const loop = same((l) => l.loop);
+  const scroll = same((l) => l.scroll.type);
+  return (
+    <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
+      <legend className="mb-1 font-serif text-lg">Animation du groupe</legend>
+      <Field label="Apparition">
+        <select aria-label="Apparition du groupe" className={inputCls} value={type ?? ""} onChange={(e) => apply({ type: e.target.value as InvitationLayer["enter"]["type"] })}>
+          {type === null ? <option value="">Différentes selon les calques</option> : null}
+          {ENTER_ANIMATIONS.map((a) => <option key={a} value={a}>{ENTER_ANIMATION_LABELS[a]}</option>)}
+        </select>
+      </Field>
+      {type !== "none" ? (
+        <>
+          <NumberSlider label="Départ" value={start / 1000} min={0} max={6} step={0.1} unit="s" onChange={(v) => apply({ start: Math.round(v * 1000) })} />
+          <NumberSlider label="Décalage entre les calques (cascade)" value={step / 1000} min={0} max={2} step={0.05} unit="s" onChange={(v) => { const ms = Math.round(v * 1000); setStep(ms); apply({ step: ms }); }} />
+          <NumberSlider label="Durée" value={duration / 1000} min={0.2} max={6} step={0.1} unit="s" onChange={(v) => apply({ duration: Math.round(v * 1000) })} />
+          <p className="text-[0.7rem] text-stone">Avec un décalage, les calques apparaissent l&apos;un après l&apos;autre, de haut en bas.</p>
+        </>
+      ) : null}
+      <Field label="Mouvement continu">
+        <select aria-label="Mouvement continu du groupe" className={inputCls} value={loop ?? ""} onChange={(e) => onPatch({ loop: e.target.value as InvitationLayer["loop"] })}>
+          {loop === null ? <option value="">Différents selon les calques</option> : null}
+          {LOOP_ANIMATIONS.map((a) => <option key={a} value={a}>{LOOP_ANIMATION_LABELS[a]}</option>)}
+        </select>
+      </Field>
+      <Field label="Au défilement de l'écran">
+        <select
+          aria-label="Défilement du groupe"
+          className={inputCls}
+          value={scroll ?? ""}
+          onChange={(e) => {
+            const t = e.target.value as InvitationLayer["scroll"]["type"];
+            onPatchEach((l) => ({
+              scroll: { ...l.scroll, type: t, ...(t === "parallax" && l.scroll.dy === 60 ? { dy: -25 } : {}), ...(t === "rotate" && !l.scroll.amount ? { amount: 90 } : {}), ...(t === "zoom" && !l.scroll.amount ? { amount: 40 } : {}), ...(t === "part" ? { dx: l.x < 50 ? -75 : 75, amount: 45 } : {}) },
+              ...(t === "part" ? { placement: "front" as const } : {}),
+            }));
+          }}
+        >
+          {scroll === null ? <option value="">Différents selon les calques</option> : null}
+          {SCROLL_MOTIONS.map((m) => <option key={m} value={m}>{SCROLL_MOTION_LABELS[m]}</option>)}
+        </select>
+      </Field>
+      <button type="button" className="btn btn-secondary btn-sm" onClick={onReplay}>▶ Voir l&apos;animation</button>
+    </fieldset>
   );
 }
 
@@ -1622,6 +1736,9 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
         <h2 className="font-serif text-2xl">{def.label}</h2>
       </div>
       {st.hidden ? <p className="rounded-sm bg-paper px-3 py-2 text-sm">Cet élément est retiré : il n&apos;apparaît pas sur l&apos;invitation.</p> : null}
+      {section.type === "dresscode" && def.id === "palette" ? (
+        <PaletteEditor palette={c.dressCode.palette} onChange={(palette) => onContent((x) => ({ ...x, dressCode: { ...x.dressCode, palette } }))} />
+      ) : null}
       {isGroup ? (
         <div className="rounded-sm border border-line bg-white p-3 text-sm">
           {groupOpen ? (
@@ -1669,12 +1786,25 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
         <NumberSlider label={isText ? "Échelle (sans décaler le reste)" : "Taille"} value={Math.round(st.scale * 100)} min={30} max={300} unit="%" onChange={(v) => onStyle({ scale: v / 100 })} />
         <NumberSlider label="Rotation" value={st.rotation} min={-180} max={180} unit="°" onChange={(v) => onStyle({ rotation: v })} />
         <NumberSlider label="Opacité" value={Math.round(st.opacity * 100)} min={0} max={100} unit="%" onChange={(v) => onStyle({ opacity: v / 100 })} />
-        <Field label="Couleur">
-          <span className="flex items-center gap-2">
-            <input type="checkbox" checked={!!st.color} onChange={(e) => onStyle({ color: e.target.checked ? c.theme.colors.accent : "" })} className="h-4 w-4 accent-forest" aria-label="Imposer une couleur" />
-            {st.color ? <ColorInput value={st.color} onChange={(e) => onStyle({ color: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur de l'élément" /> : <span className="text-xs text-stone">couleurs du thème</span>}
-          </span>
-        </Field>
+        <fieldset className="space-y-2">
+          <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Couleurs</legend>
+          {([
+            ["textColor", "Textes", c.theme.colors.ink],
+            ["detailColor", "Cadres, boutons, lignes et petits titres", c.theme.colors.accent],
+            ["color", "Tout l'élément (une seule couleur)", c.theme.colors.accent],
+          ] as const).map(([key, label, fallback]) => (
+            <span key={key} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={!!st[key]} onChange={(e) => onStyle({ [key]: e.target.checked ? fallback : "" })} className="h-4 w-4 accent-forest" aria-label={`Imposer : ${label}`} />
+              {st[key] ? (
+                <ColorInput value={st[key]} onChange={(e) => onStyle({ [key]: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label={label} />
+              ) : (
+                <span className="inline-block h-8 w-10 rounded-sm border border-dashed border-line" aria-hidden="true" />
+              )}
+              <span className={st[key] ? "" : "text-stone"}>{label}</span>
+            </span>
+          ))}
+          <p className="text-[0.7rem] text-stone">Non coché : couleur du thème. « Textes » et « Cadres » l&apos;emportent sur « Tout l&apos;élément ».</p>
+        </fieldset>
       </fieldset>
       <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="mb-1 font-serif text-lg">Animation</legend>
@@ -1996,5 +2126,86 @@ function ScratchOptionsEditor({ section: s, themeColors, onChange }: { section: 
         </div>
       </div>
     </fieldset>
+  );
+}
+
+/** Couleurs du dress code (pastilles), modifiables directement depuis l'éditeur visuel. */
+function PaletteEditor({ palette, onChange }: { palette: string[]; onChange: (palette: string[]) => void }) {
+  return (
+    <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
+      <legend className="mb-1 font-serif text-lg">Couleurs du dress code</legend>
+      {palette.length ? (
+        <div className="flex flex-wrap gap-3">
+          {palette.map((col, i) => (
+            <div key={i} className="flex flex-col items-center gap-1">
+              <ColorInput
+                value={col}
+                onChange={(e) => onChange(palette.map((p, j) => (j === i ? e.target.value.toUpperCase() : p)))}
+                className="h-10 w-10 cursor-pointer rounded-full border border-line"
+                aria-label={`Couleur ${i + 1} du dress code`}
+              />
+              <div className="flex gap-0.5 text-xs">
+                <button type="button" className="px-1 text-stone hover:text-forest disabled:opacity-30" disabled={i === 0} aria-label={`Déplacer la couleur ${i + 1} vers la gauche`} onClick={() => { const n = [...palette]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; onChange(n); }}>←</button>
+                <button type="button" className="px-1 text-stone hover:text-danger" aria-label={`Retirer la couleur ${i + 1}`} onClick={() => onChange(palette.filter((_, j) => j !== i))}>×</button>
+                <button type="button" className="px-1 text-stone hover:text-forest disabled:opacity-30" disabled={i === palette.length - 1} aria-label={`Déplacer la couleur ${i + 1} vers la droite`} onClick={() => { const n = [...palette]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; onChange(n); }}>→</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-stone">Aucune couleur : les pastilles ne s&apos;affichent pas.</p>
+      )}
+      {palette.length < 8 ? (
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange([...palette, palette.at(-1) ?? "#A6B5A2"])}>
+          + Ajouter une couleur
+        </button>
+      ) : null}
+    </fieldset>
+  );
+}
+
+/** Couleurs du modèle : celles du thème (utilisées partout) et votre palette, proposée dans tous les sélecteurs. */
+function ThemeColorsPanel({ colors, swatches, onColors, onSwatches }: {
+  colors: InvitationContent["theme"]["colors"];
+  swatches: string[];
+  onColors: (patch: Partial<InvitationContent["theme"]["colors"]>) => void;
+  onSwatches: (s: string[]) => void;
+}) {
+  const roles: Array<[keyof InvitationContent["theme"]["colors"], string]> = [
+    ["background", "Fond"],
+    ["surface", "Fond des encadrés"],
+    ["ink", "Texte principal"],
+    ["muted", "Texte secondaire"],
+    ["accent", "Couleur principale"],
+    ["accentSoft", "Couleur douce"],
+  ];
+  return (
+    <section className="space-y-3 rounded-sm border border-line bg-white p-3">
+      <h3 className="font-serif text-lg">Couleurs du modèle</h3>
+      <p className="text-xs text-stone">Les couleurs du thème s&apos;appliquent à toute l&apos;invitation (titres, textes, boutons, décors).</p>
+      <div className="grid grid-cols-2 gap-2">
+        {roles.map(([k, label]) => (
+          <label key={k} className="flex items-center gap-2 text-xs">
+            <ColorInput value={colors[k]} onChange={(e) => onColors({ [k]: e.target.value })} className="h-8 w-9 cursor-pointer rounded-sm border border-line" aria-label={label} />
+            {label}
+          </label>
+        ))}
+      </div>
+      <div className="border-t border-line pt-3">
+        <p className="text-xs font-medium">Ma palette</p>
+        <p className="text-[0.7rem] text-stone">Vos codes couleur pour ce modèle : ils apparaissent en premier dans tous les sélecteurs (fonds, textes, formes, boutons…).</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {swatches.map((col, i) => (
+            <span key={i} className="relative">
+              <ColorInput value={col} onChange={(e) => onSwatches(swatches.map((x, j) => (j === i ? e.target.value.toLowerCase() : x)))} className="h-8 w-8 cursor-pointer rounded-full border border-line" aria-label={`Couleur ${i + 1} de ma palette`} />
+              <button type="button" aria-label={`Retirer la couleur ${i + 1}`} onClick={() => onSwatches(swatches.filter((_, j) => j !== i))} className="absolute -right-1.5 -top-1.5 h-4 w-4 rounded-full bg-white text-[0.6rem] leading-none text-stone shadow hover:text-danger">×</button>
+            </span>
+          ))}
+          {swatches.length < 12 ? (
+            <button type="button" className="btn btn-ghost btn-sm !px-2" onClick={() => onSwatches([...swatches, swatches.at(-1) ?? colors.accent])}>+ Couleur</button>
+          ) : null}
+        </div>
+      </div>
+    </section>
   );
 }

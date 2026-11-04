@@ -5,7 +5,8 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 const RECENT_KEY = "ei-recent-colors";
 
 /** Couleurs proposées : celles déjà utilisées dans l'invitation, puis les dernières choisies. */
-export const UsedColorsContext = createContext<{ used: string[]; recent: string[]; remember: (c: string) => void }>({
+export const UsedColorsContext = createContext<{ palette?: string[]; used: string[]; recent: string[]; remember: (c: string) => void }>({
+  palette: [],
   used: [],
   recent: [],
   remember: () => {},
@@ -60,7 +61,9 @@ export function ColorInput({
   className?: string;
   "aria-label"?: string;
 }) {
-  const { used, recent, remember } = useContext(UsedColorsContext);
+  const { palette = [], used: allUsed, recent, remember } = useContext(UsedColorsContext);
+  const mine = palette.map((c) => c.toLowerCase());
+  const used = allUsed.filter((c) => !mine.includes(c));
   const [open, setOpen] = useState(false);
   const [hex, setHex] = useState(value);
   const box = useRef<HTMLSpanElement>(null);
@@ -83,7 +86,7 @@ export function ColorInput({
     onChange({ target: { value: c } });
     remember(c);
   };
-  const recentOnly = recent.filter((c) => !used.includes(c));
+  const recentOnly = recent.filter((c) => !used.includes(c) && !mine.includes(c));
 
   return (
     <span ref={box} className="relative inline-block">
@@ -99,9 +102,15 @@ export function ColorInput({
       </button>
       {open ? (
         <span role="dialog" aria-label="Choisir une couleur" className="absolute left-0 top-full z-[70] mt-1 block w-60 rounded-sm border border-line bg-white p-3 shadow-xl">
+          {mine.length ? (
+            <>
+              <span className="mb-1 block text-[0.65rem] uppercase tracking-wider text-stone">Palette du modèle</span>
+              <Swatches colors={mine} current={value} onPick={pick} />
+            </>
+          ) : null}
           {used.length ? (
             <>
-              <span className="mb-1 block text-[0.65rem] uppercase tracking-wider text-stone">Couleurs de l&apos;invitation</span>
+              <span className={`mb-1 block text-[0.65rem] uppercase tracking-wider text-stone ${mine.length ? "mt-2" : ""}`}>Autres couleurs de l&apos;invitation</span>
               <Swatches colors={used} current={value} onPick={pick} />
             </>
           ) : null}

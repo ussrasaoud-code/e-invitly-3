@@ -289,6 +289,10 @@ export const elementStyleSchema = z.object({
   opacity: num(0, 1, 1),
   /** Couleur imposée à tout l'élément (vide = couleurs du thème) */
   color: hexColor.or(z.literal("")).default(""),
+  /** Couleur des textes seulement (prioritaire sur « color ») */
+  textColor: hexColor.or(z.literal("")).default(""),
+  /** Couleur des cadres, boutons, lignes, icônes et petits titres (prioritaire sur « color ») */
+  detailColor: hexColor.or(z.literal("")).default(""),
   /** Police imposée (vide = polices du thème) */
   font: z.enum(["", ...FONT_KEYS]).default(""),
   /** Texte remplaçant un libellé fixe (ex. « & » → « et ») */
@@ -424,6 +428,8 @@ export const themeSchema = z.object({
     accent: hexColor,
     accentSoft: hexColor,
   }),
+  /** Palette du modèle : vos couleurs, proposées en premier dans tous les sélecteurs */
+  swatches: z.array(hexColor).max(12).default([]),
   fonts: z.object({
     display: z.enum(FONT_KEYS),
     script: z.enum(FONT_KEYS),
