@@ -1,7 +1,7 @@
 import type { FontKey } from "@/lib/invitation/schema";
 
 /** Polices disponibles dans les invitations (chargées seulement si utilisées). */
-export const FONTS: Record<FontKey, { label: string; stack: string; kind: "Titres" | "Manuscrites" | "Texte" }> = {
+export const FONTS: Record<FontKey, { label: string; stack: string; kind: "Titres" | "Manuscrites" | "Texte" | "Arabe" }> = {
   aboreto: { label: "Aboreto — capitales gravées", stack: '"Aboreto", "Cormorant Garamond", serif', kind: "Titres" },
   italiana: { label: "Italiana — fine et élancée", stack: '"Italiana", "Cormorant Garamond", serif', kind: "Titres" },
   playfair: { label: "Playfair Display — classique", stack: '"Playfair Display", Georgia, serif', kind: "Titres" },
@@ -13,10 +13,47 @@ export const FONTS: Record<FontKey, { label: string; stack: string; kind: "Titre
   jost: { label: "Jost — moderne lisible", stack: '"Jost Variable", "Jost", system-ui, sans-serif', kind: "Texte" },
   montserrat: { label: "Montserrat — moderne", stack: '"Montserrat", system-ui, sans-serif', kind: "Texte" },
   lora: { label: "Lora — serif douce", stack: '"Lora", Georgia, serif', kind: "Texte" },
-  amiri: { label: "Amiri — arabe", stack: '"Amiri", serif', kind: "Texte" },
+  amiri: { label: "Amiri — naskh classique", stack: '"Amiri", serif', kind: "Arabe" },
+  cinzel: { label: "Cinzel — capitales romaines", stack: '"Cinzel", serif', kind: "Titres" },
+  cinzeldeco: { label: "Cinzel Decorative — capitales ornées", stack: '"Cinzel Decorative", serif', kind: "Titres" },
+  bodoni: { label: "Bodoni Moda — haute couture", stack: '"Bodoni Moda", serif', kind: "Titres" },
+  marcellus: { label: "Marcellus — gravée douce", stack: '"Marcellus", serif', kind: "Titres" },
+  prata: { label: "Prata — serif mode", stack: '"Prata", serif', kind: "Titres" },
+  dmserif: { label: "DM Serif Display — contrastée", stack: '"DM Serif Display", serif', kind: "Titres" },
+  gilda: { label: "Gilda Display — raffinée", stack: '"Gilda Display", serif', kind: "Titres" },
+  bellefair: { label: "Bellefair — fine et lumineuse", stack: '"Bellefair", serif', kind: "Titres" },
+  forum: { label: "Forum — antique", stack: '"Forum", serif', kind: "Titres" },
+  allura: { label: "Allura — calligraphie fluide", stack: '"Allura", cursive', kind: "Manuscrites" },
+  alexbrush: { label: "Alex Brush — pinceau élégant", stack: '"Alex Brush", cursive', kind: "Manuscrites" },
+  sacramento: { label: "Sacramento — fine et moderne", stack: '"Sacramento", cursive', kind: "Manuscrites" },
+  tangerine: { label: "Tangerine — plume italique", stack: '"Tangerine", cursive', kind: "Manuscrites" },
+  delafield: { label: "Mrs Saint Delafield — signature", stack: '"Mrs Saint Delafield", cursive', kind: "Manuscrites" },
+  italianno: { label: "Italianno — italienne fine", stack: '"Italianno", cursive', kind: "Manuscrites" },
+  petitformal: { label: "Petit Formal Script — carton d'invitation", stack: '"Petit Formal Script", cursive', kind: "Manuscrites" },
+  doulaise: { label: "Monsieur La Doulaise — ornée", stack: '"Monsieur La Doulaise", cursive', kind: "Manuscrites" },
+  rouge: { label: "Rouge Script — romantique", stack: '"Rouge Script", cursive', kind: "Manuscrites" },
+  windsong: { label: "WindSong — très aérienne", stack: '"WindSong", cursive', kind: "Manuscrites" },
+  corinthia: { label: "Corinthia — calligraphie fine", stack: '"Corinthia", cursive', kind: "Manuscrites" },
+  ebgaramond: { label: "EB Garamond — livre classique", stack: '"EB Garamond", Georgia, serif', kind: "Texte" },
+  baskerville: { label: "Libre Baskerville — serif lisible", stack: '"Libre Baskerville", Georgia, serif', kind: "Texte" },
+  raleway: { label: "Raleway — moderne fine", stack: '"Raleway", system-ui, sans-serif', kind: "Texte" },
+  josefin: { label: "Josefin Sans — géométrique vintage", stack: '"Josefin Sans", system-ui, sans-serif', kind: "Texte" },
+  poppins: { label: "Poppins — ronde moderne", stack: '"Poppins", system-ui, sans-serif', kind: "Texte" },
+  quicksand: { label: "Quicksand — douce et arrondie", stack: '"Quicksand", system-ui, sans-serif', kind: "Texte" },
+  tenor: { label: "Tenor Sans — élégante épurée", stack: '"Tenor Sans", system-ui, sans-serif', kind: "Texte" },
+  arefruqaa: { label: "Aref Ruqaa — calligraphie Ruqʿa", stack: '"Aref Ruqaa", serif', kind: "Arabe" },
+  reemkufi: { label: "Reem Kufi — coufique moderne", stack: '"Reem Kufi", sans-serif', kind: "Arabe" },
+  elmessiri: { label: "El Messiri — élégante", stack: '"El Messiri", sans-serif', kind: "Arabe" },
+  scheherazade: { label: "Scheherazade New — naskh classique", stack: '"Scheherazade New", serif', kind: "Arabe" },
+  lateef: { label: "Lateef — naskh fine", stack: '"Lateef", serif', kind: "Arabe" },
+  mirza: { label: "Mirza — nastaʿlīq douce", stack: '"Mirza", serif', kind: "Arabe" },
+  marhey: { label: "Marhey — manuscrite ronde", stack: '"Marhey", sans-serif', kind: "Arabe" },
+  rakkas: { label: "Rakkas — titres marqués", stack: '"Rakkas", serif', kind: "Arabe" },
+  cairo: { label: "Cairo — moderne lisible", stack: '"Cairo", sans-serif', kind: "Arabe" },
+  tajawal: { label: "Tajawal — moderne fine", stack: '"Tajawal", sans-serif', kind: "Arabe" },
 };
 
-export const FONT_GROUPS = (["Titres", "Manuscrites", "Texte"] as const).map((kind) => ({
+export const FONT_GROUPS = (["Titres", "Manuscrites", "Texte", "Arabe"] as const).map((kind) => ({
   kind,
   keys: (Object.keys(FONTS) as FontKey[]).filter((k) => FONTS[k].kind === kind),
 }));

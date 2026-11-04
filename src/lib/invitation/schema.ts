@@ -42,7 +42,7 @@ export function isCssSafeUrl(v: string): boolean {
 
 const text = (max = 400) => z.string().trim().max(max);
 const optionalText = (max = 400) => text(max).optional().default("");
-export const FONT_KEYS = ["aboreto", "dancing", "jost", "cormorant", "amiri", "playfair", "italiana", "lora", "montserrat", "greatvibes", "pinyon", "parisienne"] as const;
+export const FONT_KEYS = ["aboreto", "dancing", "jost", "cormorant", "amiri", "playfair", "italiana", "lora", "montserrat", "greatvibes", "pinyon", "parisienne", "cinzel", "cinzeldeco", "bodoni", "marcellus", "prata", "dmserif", "gilda", "bellefair", "forum", "allura", "alexbrush", "sacramento", "tangerine", "delafield", "italianno", "petitformal", "doulaise", "rouge", "windsong", "corinthia", "ebgaramond", "baskerville", "raleway", "josefin", "poppins", "quicksand", "tenor", "arefruqaa", "reemkufi", "elmessiri", "scheherazade", "lateef", "mirza", "marhey", "rakkas", "cairo", "tajawal"] as const;
 export type FontKey = (typeof FONT_KEYS)[number];
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur hexadécimale attendue (#RRGGBB)");
 const safeUrl = z
