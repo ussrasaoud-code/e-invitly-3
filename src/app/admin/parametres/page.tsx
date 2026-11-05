@@ -32,7 +32,8 @@ function F({ label, children, className = "" }: { label: string; children: React
   );
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ instagram?: string }> }) {
+  const { instagram: igMsg } = await searchParams;
   const user = await requireStaff();
   const isAdmin = user.role === "admin";
   const settings = await getSettings();
@@ -192,10 +193,16 @@ export default async function SettingsPage() {
           </form>
         </Card>
 
+        <div id="instagram" className="scroll-mt-24" />
         <Card
           title="Instagram — derniers posts sur le site"
           description="Affiche une bande « Suivez-nous sur Instagram » en bas du site vitrine avec vos derniers posts (mise à jour toutes les heures). Nécessite un compte Instagram professionnel (Créateur ou Entreprise). Les images passent par votre site : aucun cookie Instagram n'est déposé chez vos visiteurs."
         >
+          {igMsg === "ok" ? (
+            <p role="status" className="mb-4 border border-sage bg-sage-soft px-3 py-2 text-sm text-forest-deep">Instagram connecté. La bande apparaît sur le site après une ou deux actualisations (au moins 3 posts nécessaires).</p>
+          ) : igMsg ? (
+            <p role="alert" className="mb-4 border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{igMsg}</p>
+          ) : null}
           {ig ? (
             <div className="space-y-3 text-sm">
               <p>

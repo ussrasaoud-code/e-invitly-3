@@ -77,8 +77,14 @@ export async function checkToken(token: string, igUserId = ""): Promise<CheckRes
     }
     if (igUserId) {
       const { ok, status, j } = await getJson(`${fbBase()}/${encodeURIComponent(igUserId)}?fields=id,username&access_token=${t}`);
-      if (!ok || typeof j.username !== "string") return { ok: false, message: j.error?.message ?? `Erreur ${status}` };
-      return { ok: true, username: j.username, igUserId };
+      if (ok && typeof j.username === "string") return { ok: true, username: j.username, igUserId };
+      // Certains jetons ne lisent pas la fiche du compte mais bien ses posts : on vérifie les posts
+      const m = await getJson(`${fbBase()}/${encodeURIComponent(igUserId)}/media?fields=id,username&limit=1&access_token=${t}`);
+      if (m.ok && Array.isArray(m.j.data)) {
+        const first = (m.j.data as Array<{ username?: string }>)[0];
+        return { ok: true, username: first?.username ?? "compte Instagram", igUserId };
+      }
+      return { ok: false, message: j.error?.message ?? m.j.error?.message ?? `Erreur ${status}` };
     }
     const { ok, j } = await getJson(`${fbBase()}/me/accounts?fields=instagram_business_account{id,username}&access_token=${t}`);
     const found = ok ? ((j.data as Array<{ instagram_business_account?: { id: string; username: string } }> | undefined) ?? []).find((p) => p.instagram_business_account)?.instagram_business_account : undefined;

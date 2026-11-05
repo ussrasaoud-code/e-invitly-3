@@ -1583,6 +1583,12 @@ with sync_playwright() as p:
     igc.get_by_role("button", name="Déconnecter Instagram").click()
     expect(igc.get_by_role("button", name="Connecter Instagram")).to_be_visible(timeout=15000)
     ok("Instagram : jeton vérifié et gardé en privé, bande des 8 derniers posts, images servies par le site, absente pendant la commande")
+    # Jeton refusé : message clair dans la carte (pas de page d'erreur)
+    igc = a.locator("section.card").filter(has_text="Instagram — derniers posts")
+    igc.get_by_label("Jeton d'accès Instagram").fill("EAAfaux-0123456789abcdefghij")
+    igc.get_by_label(re.compile("Identifiant du compte Instagram")).fill("17841400000000001")
+    igc.get_by_role("button", name="Connecter Instagram").click()
+    expect(a.get_by_role("alert").filter(has_text="Instagram a refusé le jeton")).to_be_visible(timeout=15000)
     # Jeton Meta Business (EAA…, utilisateur système) : identifiant du compte Instagram demandé, posts via l'API Facebook
     igc = a.locator("section.card").filter(has_text="Instagram — derniers posts")
     igc.get_by_label("Jeton d'accès Instagram").fill("EAAtest-0123456789abcdefghij")

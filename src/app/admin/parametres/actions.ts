@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { instagramUrl } from "@/lib/instagram";
 import { logActivity } from "@/lib/audit";
@@ -109,14 +110,27 @@ export async function saveAnalytics(form: FormData) {
 /** Instagram : vérifie le jeton d'accès puis l'enregistre (paramètre privé, jamais envoyé au navigateur). */
 export async function connectInstagram(form: FormData) {
   const user = await requireAdmin();
-  const token = z.string().trim().min(20, "Collez le jeton d'accès Instagram").max(600).parse(form.get("igToken") ?? "");
-  const igId = z.string().trim().regex(/^\d{0,30}$/, "L'identifiant du compte Instagram ne contient que des chiffres").parse(form.get("igUserId") ?? "");
+  // Les erreurs sont affichées dans la carte (et non une page d'erreur au message masqué)
+  const fail = (msg: string): never => {
+    console.error("[instagram] connexion refusée :", msg);
+    redirect(`/admin/parametres?instagram=${encodeURIComponent(msg.slice(0, 300))}#instagram`);
+  };
+  const token = String(form.get("igToken") ?? "").trim();
+  const igId = String(form.get("igUserId") ?? "").trim();
+  if (token.length < 20 || token.length > 600) fail("Collez le jeton d'accès en entier (il est très long).");
+  if (!/^\d{0,30}$/.test(igId)) fail("L'identifiant du compte Instagram ne contient que des chiffres.");
   const check = await checkToken(token, igId);
-  if (!check.ok) throw new Error(`Jeton refusé par Instagram : ${check.message}`);
+  if (!check.ok) fail(`Instagram a refusé le jeton : ${check.message}`);
+  const ok = check as Extract<typeof check, { ok: true }>;
   const now = new Date().toISOString();
-  await saveConnection({ token, username: check.username, kind: tokenKind(token), igUserId: check.igUserId, savedAt: now, refreshedAt: now }, user.id);
-  await logActivity({ actorId: user.id, action: "settings.updated", resourceType: "settings", resourceId: "instagram", summary: `Instagram connecté (@${check.username})` });
+  try {
+    await saveConnection({ token, username: ok.username, kind: tokenKind(token), igUserId: ok.igUserId, savedAt: now, refreshedAt: now }, user.id);
+  } catch (e) {
+    fail(`Enregistrement impossible : ${e instanceof Error ? e.message : "erreur inconnue"}`);
+  }
+  await logActivity({ actorId: user.id, action: "settings.updated", resourceType: "settings", resourceId: "instagram", summary: `Instagram connecté (@${ok.username})` });
   revalidatePath("/", "layout");
+  redirect("/admin/parametres?instagram=ok#instagram");
 }
 
 export async function disconnectInstagram() {
