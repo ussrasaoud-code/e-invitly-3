@@ -10,6 +10,7 @@ import { dictFor } from "@/lib/i18n/server";
 import { amountFromPriceLabel, formatMoney } from "@/lib/payment-amount";
 import { loadPaymentByToken, markPaymentPaid, newPaymentToken, paymentUrl } from "@/lib/payments";
 import { getSettings } from "@/lib/settings";
+import { orderStateFor } from "@/lib/orders";
 import { createClient } from "@/lib/supabase/server";
 
 const uuid = z.string().uuid();
@@ -52,16 +53,21 @@ export async function sendPaymentLink(form: FormData) {
   const ctx = await loadPaymentByToken(row.token);
   if (!ctx || ctx.payment.status !== "pending") throw new Error("Ce lien n'est plus en attente de paiement.");
   if (!ctx.clientEmail) throw new Error("Aucun e-mail client sur cette invitation : copiez le lien et envoyez-le vous-même.");
-  const m = dictFor(ctx.lang).payment;
+  const d = dictFor(ctx.lang);
+  const m = d.payment;
   const settings = await getSettings();
   const amount = formatMoney(ctx.payment.amount_cents, ctx.payment.currency, LANG_META[ctx.lang].intl);
+  // Commande en ligne non réglée : rappel « finalisez votre commande » (et non « votre invitation est prête »)
+  const order = await orderStateFor(supabase, row.invitation_id);
   const res = await sendEmail({
     to: ctx.clientEmail,
-    subject: m.emailLinkSubject,
-    heading: m.emailLinkHeading,
-    paragraphs: [fmt(m.emailLinkText, { couple: ctx.couple, amount })],
+    subject: order.selfService ? fmt(d.order.emailSubject, { ref: order.reference ?? "" }) : m.emailLinkSubject,
+    heading: order.selfService ? d.order.emailHeading : m.emailLinkHeading,
+    paragraphs: order.selfService
+      ? [fmt(d.order.emailText, { template: ctx.templateName, couple: ctx.couple, amount })]
+      : [fmt(m.emailLinkText, { couple: ctx.couple, amount })],
     action: { label: m.payButton, url: paymentUrl(row.token, ctx.lang) },
-    after: [fmt(m.emailSignature, { brand: settings.brand.name })],
+    after: [...(order.selfService ? [d.order.emailAfter] : []), fmt(m.emailSignature, { brand: settings.brand.name })],
     replyTo: settings.brand.contactEmail || undefined,
     lang: ctx.lang,
   });

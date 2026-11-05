@@ -54,7 +54,9 @@ export default async function PaymentPage({ params, searchParams }: Props) {
   const amount = formatMoney(payment.amount_cents, payment.currency, intl);
   const paypalId = isPayPalConfigured() ? process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? null : null;
   const stripeOn = isStripeConfigured();
-  const testMode = process.env.PAYPAL_ENV !== "live" && (paypalId !== null || stripeOn) && !(process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_live");
+  // Clé Stripe réelle : sk_live_… ou clé restreinte rk_live_…
+  const stripeLive = /^(sk|rk)_live_/.test(process.env.STRIPE_SECRET_KEY ?? "");
+  const testMode = (paypalId !== null && process.env.PAYPAL_ENV !== "live") || (stripeOn && !stripeLive);
 
   return (
     <main className="px-5 pb-24 pt-12 md:pt-16">

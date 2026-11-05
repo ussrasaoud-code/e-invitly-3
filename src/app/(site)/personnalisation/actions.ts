@@ -14,7 +14,7 @@ import { templateDefinitionSchema } from "@/lib/invitation/schema";
 import { ensureAccount } from "@/lib/login-link";
 import { composeInvitation, rsvpSettings } from "@/lib/orders";
 import { amountFromPriceLabel, formatMoney } from "@/lib/payment-amount";
-import { newPaymentToken, paymentUrl } from "@/lib/payments";
+import { newPaymentToken } from "@/lib/payments";
 import { slugFromNames } from "@/lib/slug";
 import { suggestSlug } from "@/lib/slug-db";
 
@@ -258,18 +258,10 @@ export async function startOrder(input: OrderInput, uiLang: string = "fr"): Prom
   await logActivity({ action: "order.created", resourceType: "invitation", resourceId: invitationId, summary: `Commande en ligne ${req.reference} — ${couple} (${template.name}), paiement en attente` });
 
   const settings = await getSettings();
-  const o = t.order;
   const price = formatMoney(amount, "EUR", LANG_META[l].intl);
-  const mail = await sendEmail({
-    to: data.email,
-    subject: fmt(o.emailSubject, { ref: req.reference }),
-    heading: o.emailHeading,
-    paragraphs: [fmt(t.email.hello, { name: data.firstName }), fmt(o.emailText, { template: template.name, couple, amount: price })],
-    action: { label: t.payment.payButton, url: paymentUrl(token, l) },
-    after: [o.emailAfter, fmt(t.email.signature, { brand: settings.brand.name })],
-    lang: l,
-  });
-  if (!mail.sent) console.warn("[order] e-mail client non envoyé :", mail.error);
+  // Pas d'e-mail au client ici : il est envoyé directement sur la page de paiement, et reçoit
+  // la confirmation juste après avoir payé. S'il abandonne, l'équipe peut lui renvoyer le lien
+  // depuis l'admin (Publication → Paiement → « Envoyer le lien »).
 
   const adminTo = process.env.ADMIN_NOTIFICATION_EMAIL || settings.brand.contactEmail;
   if (adminTo && settings.notifications.notifyOnNewRequest) {
@@ -280,7 +272,7 @@ export async function startOrder(input: OrderInput, uiLang: string = "fr"): Prom
       paragraphs: [
         `${data.firstName} ${data.lastName} (${data.email}) — modèle ${template.name}, ${price}.`,
         `Couple : ${couple}${data.eventDate ? `, le ${data.eventDate}` : ""}. Langue : ${data.language.toUpperCase()}${data.secondLanguage && data.secondLanguage !== data.language ? ` + ${data.secondLanguage.toUpperCase()} (bilingue)` : ""}.`,
-        `Le client va payer puis remplir son formulaire détaillé. Suivi : ${env.siteUrl}/admin/invitations/${invitationId}`,
+        `Le client est envoyé sur la page de paiement. S'il ne paie pas, vous pouvez lui renvoyer le lien depuis l'admin : ${env.siteUrl}/admin/invitations/${invitationId}?onglet=publication`,
       ],
     });
     if (!notice.sent) console.warn("[order] e-mail admin non envoyé :", notice.error);
