@@ -13,11 +13,11 @@ describe("buildInvitationFromRequest", () => {
     eventDate: "2027-09-18",
     introText: "",
     ceremonies: [
-      { type: "civil", label: "", showOnInvitation: false, restricted: false, guestGroup: "", venueName: "Mairie", address: "1 place", date: "", arrivalTime: "", startTime: "11:00", notes: "" },
-      { type: "secular", label: "", showOnInvitation: true, restricted: false, guestGroup: "", venueName: "Château", address: "Route du Château", date: "", arrivalTime: "15:30", startTime: "16:00", notes: "" },
+      { type: "civil", label: "", showOnInvitation: false, restricted: false, guestGroup: "", venueName: "Mairie", address: "1 place", date: "", arrivalTime: "", startTime: "11:00", endTime: "", notes: "" },
+      { type: "secular", label: "", showOnInvitation: true, restricted: false, guestGroup: "", venueName: "Château", address: "Route du Château", date: "", arrivalTime: "15:30", startTime: "16:00", endTime: "", notes: "" },
     ],
     reception: { venueName: "Château", address: "Route du Château", date: "", moments: [], endTime: "", arrivalTime: "", cocktailTime: "17:30", dinnerTime: "20:00", otherTimes: "", mapsUrl: "", parking: "Parking sur place", shuttles: "", lodging: "" },
-    details: { dressCode: "", rsvpDeadline: "2027-08-01", program: "", witnesses: "Léo", phoneNumbers: "", customText: "", preferences: "", photos: "", music: "", comments: "" },
+    details: { dressCode: "", rsvpDeadline: "2027-08-01", program: "", witnesses: "Léo", phoneNumbers: "", customText: "", preferences: "", photos: "", music: "", comments: "", dressColors: [], contacts: [], photoFiles: [] },
   });
 
   it("reprend les prénoms, la date et l'heure de la première étape visible", () => {
@@ -49,9 +49,9 @@ describe("buildInvitationFromRequest", () => {
     const { content } = buildInvitationFromRequest(sample, {
       partnerOne: "Mark", partnerTwo: "Alice", eventDate: "2027-09-18", language: "fr",
       ceremonies: [
-        { type: "civil", label: "", showOnInvitation: true, restricted: true, guestGroup: "Famille proche", venueName: "Mairie", address: "", date: "", arrivalTime: "", startTime: "11:00", notes: "" },
-        { type: "other", label: "Fiançailles", showOnInvitation: true, restricted: true, guestGroup: "famille proche", venueName: "", address: "", date: "", arrivalTime: "", startTime: "18:00", notes: "" },
-        { type: "secular", label: "", showOnInvitation: true, restricted: false, guestGroup: "", venueName: "Château", address: "", date: "", arrivalTime: "", startTime: "16:00", notes: "" },
+        { type: "civil", label: "", showOnInvitation: true, restricted: true, guestGroup: "Famille proche", venueName: "Mairie", address: "", date: "", arrivalTime: "", startTime: "11:00", endTime: "", notes: "" },
+        { type: "other", label: "Fiançailles", showOnInvitation: true, restricted: true, guestGroup: "famille proche", venueName: "", address: "", date: "", arrivalTime: "", startTime: "18:00", endTime: "", notes: "" },
+        { type: "secular", label: "", showOnInvitation: true, restricted: false, guestGroup: "", venueName: "Château", address: "", date: "", arrivalTime: "", startTime: "16:00", endTime: "", notes: "" },
       ],
     });
     expect(content.guestGroups).toEqual([{ id: "famille-proche", name: "Famille proche" }]);
@@ -62,8 +62,8 @@ describe("buildInvitationFromRequest", () => {
     const { content } = buildInvitationFromRequest(sample, {
       partnerOne: "Mark", partnerTwo: "Alice", eventDate: "2027-09-18", language: "fr",
       ceremonies: [
-        { type: "civil", label: "", showOnInvitation: true, restricted: false, guestGroup: "", venueName: "Mairie", address: "", date: "2027-09-17", arrivalTime: "", startTime: "11:00", notes: "" },
-        { type: "secular", label: "", showOnInvitation: true, restricted: false, guestGroup: "", venueName: "Château", address: "", date: "2027-09-18", arrivalTime: "", startTime: "16:00", notes: "" },
+        { type: "civil", label: "", showOnInvitation: true, restricted: false, guestGroup: "", venueName: "Mairie", address: "", date: "2027-09-17", arrivalTime: "", startTime: "11:00", endTime: "", notes: "" },
+        { type: "secular", label: "", showOnInvitation: true, restricted: false, guestGroup: "", venueName: "Château", address: "", date: "2027-09-18", arrivalTime: "", startTime: "16:00", endTime: "", notes: "" },
       ],
     });
     expect(content.events.map((e) => e.date)).toEqual(["2027-09-17", ""]);

@@ -110,6 +110,10 @@ export const DEFAULT_SETTINGS: { [K in keyof SettingsMap]: { value: SettingsMap[
             "C'est un mini-site pensé pour le téléphone, accessible par un simple lien. Vos invités y retrouvent le programme, les lieux, le dress code, un compte à rebours et le formulaire de réponse.",
         },
         {
+          question: "Quand dois-je payer ?",
+          answer: "À la commande, en ligne et en toute sécurité. Vous nous transmettez ensuite vos informations depuis votre espace, recevez l'aperçu sous 24 h et demandez autant de retouches que nécessaire.",
+        },
+        {
           question: "Puis-je modifier les informations après publication ?",
           answer:
             "Oui. Nous mettons à jour votre invitation et le lien reste identique : vos invités voient toujours la dernière version validée.",
@@ -134,7 +138,7 @@ export const DEFAULT_SETTINGS: { [K in keyof SettingsMap]: { value: SettingsMap[
         },
         {
           question: "Combien de temps mon invitation reste-t-elle disponible ?",
-          answer: "La durée de mise en ligne vous est précisée lors de la validation de votre demande.",
+          answer: "La durée de mise en ligne vous est précisée lors de la validation de votre aperçu.",
         },
       ],
     },

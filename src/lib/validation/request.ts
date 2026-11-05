@@ -94,8 +94,10 @@ export const ceremonySchema = z.object({
   address: opt(240),
   /** Jour de la cérémonie, s'il diffère de la date principale (vide = même jour) */
   date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date invalide").optional().default(""),
+  /** Ancien champ (remplacé par l'heure de fin) */
   arrivalTime: time,
   startTime: time,
+  endTime: time,
   notes: opt(500),
 });
 export type CeremonyInput = z.input<typeof ceremonySchema>;
@@ -104,7 +106,7 @@ export const ceremoniesStep = z.object({
   ceremonies: z.array(ceremonySchema).max(6, "6 cérémonies maximum"),
 });
 
-export const MOMENT_KINDS = ["cocktail", "dinner", "cake", "party", "other"] as const;
+export const MOMENT_KINDS = ["welcome", "cocktail", "dinner", "openingDance", "cake", "party", "end", "other"] as const;
 export const momentSchema = z.object({
   kind: z.enum(MOMENT_KINDS),
   title: opt(60),
@@ -141,6 +143,32 @@ export const detailsStep = z.object({
     rsvpDeadline: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date invalide").optional().default(""),
     /** Ce que le formulaire de réponse demande aux invités (choisi par les mariés) */
     rsvp: rsvpChoicesSchema.optional(),
+    /** Palette du dress code choisie par les mariés */
+    dressColors: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).max(8).optional().default([]),
+    /** Témoins et contacts à afficher : chaque numéro reste attaché à sa personne */
+    contacts: z
+      .array(
+        z.object({
+          name: opt(80),
+          role: opt(80),
+          phone: z
+            .string()
+            .trim()
+            .max(30)
+            .refine((v) => v === "" || /^[+\d][\d\s().-]{5,}$/.test(v), "Numéro de téléphone invalide")
+            .optional()
+            .default(""),
+        }),
+      )
+      .max(6)
+      .optional()
+      .default([]),
+    /** Photos envoyées depuis l'espace client (stockage privé) */
+    photoFiles: z
+      .array(z.object({ path: z.string().regex(/^clients\/[0-9a-f-]{36}\/[a-z0-9-]+\.(jpg|png|webp)$/), name: opt(120) }))
+      .max(10)
+      .optional()
+      .default([]),
     program: opt(1500),
     witnesses: opt(800),
     phoneNumbers: opt(500),

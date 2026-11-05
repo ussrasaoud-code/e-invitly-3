@@ -10,30 +10,11 @@ import { LANG_META, fmt, localePath } from "@/lib/i18n/config";
 import { dictFor, getPreferredLang } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ProjectTimeline, type ProjectState } from "@/components/couple/ProjectTimeline";
 
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getPreferredLang();
   return { title: dictFor(lang).couple.metaTitle, robots: { index: false } };
-}
-
-function OrderBanner({ order, id, o }: { order: { paid: boolean; token?: string; detailsAt: string | null }; id: string; o: ReturnType<typeof dictFor>["order"] }) {
-  if (!order.paid) {
-    return (
-      <div className="mt-4 border border-warning/40 bg-[#fbf3e2] p-4 text-sm">
-        <p>{o.bannerPay}</p>
-        {order.token ? <Link href={`/paiement/${order.token}`} className="btn btn-primary btn-sm mt-3">{o.bannerPayButton}</Link> : null}
-      </div>
-    );
-  }
-  if (!order.detailsAt) {
-    return (
-      <div className="mt-4 border border-sage bg-sage-soft p-4 text-sm text-forest-deep">
-        <p>{o.bannerDetails}</p>
-        <Link href={`/mon-espace/${id}/informations`} className="btn btn-primary btn-sm mt-3">{o.paidButton}</Link>
-      </div>
-    );
-  }
-  return <p className="mt-4 border border-sage bg-sage-soft p-4 text-sm text-forest-deep">{o.bannerReceived}</p>;
 }
 
 /** Espace des mariés : uniquement LEURS invitations (règles RLS côté base). */
@@ -42,7 +23,7 @@ export default async function ClientSpace() {
   if (!user) redirect("/connexion?suite=/mon-espace");
   const supabase = (await createClient())!;
   const [{ data: invitations }, { data: stats }, { data: tokens }] = await Promise.all([
-    supabase.from("invitations").select("id, title, slug, status, event_at, language").neq("status", "archived").order("event_at"),
+    supabase.from("invitations").select("id, title, slug, status, event_at, language, templates(name, category)").neq("status", "archived").order("event_at"),
     supabase.from("rsvp_stats").select("*"),
     // Liens privés des groupes d'invités (colonne ajoutée par la migration « groupes_invites » ; ignorée si absente)
     supabase.from("invitations").select("id, private_links, groups:draft_content->guestGroups"),
@@ -57,29 +38,34 @@ export default async function ClientSpace() {
   // Commandes en ligne : paiement puis formulaire détaillé (ids issus de la lecture protégée ci-dessus)
   const ids = (invitations ?? []).map((i) => i.id);
   const admin = ids.length ? createAdminClient() : null;
-  const [{ data: orderRows }, { data: payRows }] = admin
+  const [{ data: orderRows }, { data: payRows }, { data: previewRows }] = admin
     ? await Promise.all([
         admin.from("client_requests").select("invitation_id, form_data").in("invitation_id", ids),
         admin.from("payments").select("invitation_id, token, status").in("invitation_id", ids).order("created_at", { ascending: false }),
+        admin.from("preview_tokens").select("invitation_id").in("invitation_id", ids),
       ])
-    : [{ data: null }, { data: null }];
-  const orders = new Map(
-    (orderRows ?? [])
-      .filter((r) => (r.form_data as { selfService?: boolean } | null)?.selfService)
-      .map((r) => {
-        const pays = (payRows ?? []).filter((p) => p.invitation_id === r.invitation_id);
-        return [
-          r.invitation_id as string,
-          {
-            paid: pays.some((p) => p.status === "paid"),
-            token: pays.find((p) => p.status === "pending")?.token as string | undefined,
-            detailsAt: (r.form_data as { detailsAt?: string }).detailsAt ?? null,
-          },
-        ];
-      }),
-  );
+    : [{ data: null }, { data: null }, { data: null }];
   const lang = await getPreferredLang(invitations?.[0]?.language);
   const o = dictFor(lang).order;
+  const cats = dictFor(lang).categories as Record<string, string>;
+  const project = (i: NonNullable<typeof invitations>[number]): ProjectState => {
+    const fd = ((orderRows ?? []).find((r) => r.invitation_id === i.id)?.form_data ?? {}) as { selfService?: boolean; detailsAt?: string; validatedAt?: string; eventType?: string };
+    const pays = (payRows ?? []).filter((p) => p.invitation_id === i.id);
+    const tpl = i.templates as unknown as { name: string; category: string } | null;
+    return {
+      id: i.id,
+      eventLabel: cats[fd.eventType ?? tpl?.category ?? "mariage"] ?? cats.mariage,
+      templateName: tpl?.name ?? "",
+      selfService: !!fd.selfService,
+      paid: pays.some((p) => p.status === "paid"),
+      payToken: pays.find((p) => p.status === "pending")?.token as string | undefined,
+      detailsAt: fd.detailsAt ?? null,
+      previewSent: (previewRows ?? []).some((p) => p.invitation_id === i.id),
+      validatedAt: fd.validatedAt ?? null,
+      status: i.status,
+      responses: byId.get(i.id)?.responses ?? 0,
+    };
+  };
   const t = dictFor(lang).couple;
   const { brand } = await getSettings();
   const byId = new Map((stats ?? []).map((s) => [s.invitation_id, s]));
@@ -101,9 +87,7 @@ export default async function ClientSpace() {
                 <li key={i.id} className="card p-5">
                   <h2 className="font-serif text-2xl">{i.title}</h2>
                   <p className="text-sm text-stone">{date(i.event_at)}</p>
-                  {orders.get(i.id) && !live ? (
-                    <OrderBanner order={orders.get(i.id)!} id={i.id} o={o} />
-                  ) : null}
+                  <ProjectTimeline p={project(i)} o={o} date={(iso) => new Intl.DateTimeFormat(LANG_META[lang].intl, { dateStyle: "long" }).format(new Date(iso))} />
                   <p className="mt-3 text-sm">
                     {live && privateLinks.get(i.id)?.length ? (
                       <span className="block space-y-1">
@@ -119,9 +103,7 @@ export default async function ClientSpace() {
                       <>
                         {t.yourLink} <a className="text-forest underline" dir="ltr" href={`/${i.slug}`}>{host}/{i.slug}</a>
                       </>
-                    ) : (
-                      t.preparing
-                    )}
+                    ) : null /* l'avancement est détaillé dans « Votre projet » */}
                   </p>
                   <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {[

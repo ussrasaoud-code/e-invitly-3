@@ -1,6 +1,9 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { slugify } from "@/lib/slug";
 import { logActivity } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
@@ -49,6 +52,15 @@ export async function submitDetails(invitationId: string, input: RequestInput): 
   const parsed = detailsSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: t.request.errors.invalid, fieldErrors: flattenErrors(parsed.error) };
   const { partnerOne, partnerTwo, eventDate, ...answers } = parsed.data;
+  // Photos : seulement celles réellement reçues dans le dossier de cette invitation
+  const store = db.storage.from(PHOTO_BUCKET);
+  const photos = [];
+  for (const ph of answers.details.photoFiles ?? []) {
+    if (!ph.path.startsWith(`clients/${own.id}/`)) continue;
+    const { data: info } = await store.info(ph.path);
+    if (info) photos.push(ph);
+  }
+  answers.details.photoFiles = photos;
   const detailsAt = new Date().toISOString();
   const formData = { ...fd, ...answers, detailsAt };
 
@@ -100,4 +112,85 @@ export async function submitDetails(invitationId: string, input: RequestInput): 
   }
   // Pas de revalidatePath : la page reste affichée avec son message de remerciement (les pages de l'espace sont dynamiques)
   return { ok: true };
+}
+
+const PHOTO_BUCKET = "uploads";
+const PHOTO_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+const PHOTO_MAX = 10 * 1024 * 1024;
+
+/** Invitation du client connecté, payée, dont le formulaire n'est pas encore envoyé. */
+async function openOrder(invitationId: string) {
+  const id = z.string().uuid().safeParse(invitationId);
+  const session = await createClient();
+  if (!id.success || !session || !(await getCurrentUser())) return null;
+  const { data: own } = await session.from("invitations").select("id").eq("id", id.data).maybeSingle();
+  const db = createAdminClient();
+  if (!own || !db) return null;
+  const [{ data: req }, { data: paid }] = await Promise.all([
+    db.from("client_requests").select("form_data").eq("invitation_id", own.id).maybeSingle(),
+    db.from("payments").select("id").eq("invitation_id", own.id).eq("status", "paid").limit(1),
+  ]);
+  const fd = (req?.form_data ?? {}) as { selfService?: boolean; detailsAt?: string };
+  if (!fd.selfService || fd.detailsAt || !paid?.length) return null;
+  return { id: own.id as string, db };
+}
+
+/**
+ * Photos du client : autorisation d'envoi à usage unique vers un stockage privé
+ * (seule l'équipe peut les voir). Le fichier part directement du navigateur.
+ */
+export async function requestPhotoUpload(invitationId: string, file: { name: string; type: string; size: number }) {
+  const order = await openOrder(invitationId);
+  if (!order) return { ok: false as const };
+  const ext = PHOTO_TYPES[file.type];
+  if (!ext || !Number.isFinite(file.size) || file.size <= 0 || file.size > PHOTO_MAX) return { ok: false as const };
+  const base = slugify(file.name.replace(/\.[^.]+$/, "")).slice(0, 40) || "photo";
+  const path = `clients/${order.id}/${randomUUID().slice(0, 8)}-${base}.${ext}`;
+  const { data, error } = await order.db.storage.from(PHOTO_BUCKET).createSignedUploadUrl(path);
+  if (error || !data) return { ok: false as const };
+  return { ok: true as const, path, token: data.token, mime: file.type };
+}
+
+/** Retire une photo envoyée (avant l'envoi du formulaire). */
+export async function removePhoto(invitationId: string, path: string) {
+  const order = await openOrder(invitationId);
+  if (!order || !path.startsWith(`clients/${order.id}/`) || path.includes("..")) return;
+  await order.db.storage.from(PHOTO_BUCKET).remove([path]);
+}
+
+/**
+ * Le client valide son aperçu depuis son espace : l'invitation passe « prête à publier »
+ * et l'équipe est prévenue (elle publie et envoie le lien final).
+ */
+export async function validateInvitation(form: FormData) {
+  const id = z.string().uuid().safeParse(form.get("id"));
+  const user = await getCurrentUser();
+  const session = await createClient();
+  if (!id.success || !user || !session) return;
+  const { data: own } = await session.from("invitations").select("id, title, status").eq("id", id.data).maybeSingle();
+  const db = createAdminClient();
+  if (!own || !db || own.status === "published" || own.status === "archived") return;
+  const [{ count: previews }, { data: req }] = await Promise.all([
+    db.from("preview_tokens").select("token_hash", { count: "exact", head: true }).eq("invitation_id", own.id),
+    db.from("client_requests").select("id, reference, form_data").eq("invitation_id", own.id).maybeSingle(),
+  ]);
+  if (!previews && own.status !== "pending_review") return; // pas encore d'aperçu à valider
+  const validatedAt = new Date().toISOString();
+  await Promise.all([
+    db.from("invitations").update({ status: "ready" }).eq("id", own.id),
+    req ? db.from("client_requests").update({ form_data: { ...((req.form_data ?? {}) as object), validatedAt } }).eq("id", req.id) : Promise.resolve(null),
+  ]);
+  await logActivity({ actorId: user.id, action: "invitation.validated_by_client", resourceType: "invitation", resourceId: own.id, summary: `Aperçu validé par le client — ${own.title}` });
+  const settings = await getSettings();
+  const adminTo = process.env.ADMIN_NOTIFICATION_EMAIL || settings.brand.contactEmail;
+  if (adminTo) {
+    const r = await sendEmail({
+      to: adminTo,
+      subject: `Invitation validée par le client — ${own.title}`,
+      heading: "Aperçu validé",
+      paragraphs: [`${user.email} a validé son invitation${req ? ` (${req.reference})` : ""}. Elle est prête à publier : ${env.siteUrl}/admin/invitations/${own.id}?onglet=publication`],
+    });
+    if (!r.sent) console.warn("[validation] notification équipe non envoyée :", r.error);
+  }
+  revalidatePath("/mon-espace");
 }

@@ -7,6 +7,18 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { requireStaff } from "@/lib/auth";
 import { REQUEST_STATUS, REQUEST_STATUSES, type RequestStatus } from "@/lib/status";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { categoryLabel } from "@/lib/catalog";
+
+const RSVP_LABELS: Record<string, string> = {
+  lastName: "Nom de famille",
+  companions: "Accompagnants",
+  companionNames: "Prénoms des accompagnants",
+  events: "Présence par moment",
+  dietary: "Régimes / allergies",
+  childMenus: "Menus enfant",
+  comment: "Message",
+};
 import { formatDateTime, formatShortDate } from "@/lib/time";
 import { CEREMONY_LABELS, type RequestData } from "@/lib/validation/request";
 import { convertRequestToInvitation, saveRequestNotes, setRequestArchived, updateRequestStatus } from "../actions";
@@ -44,7 +56,19 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
   const { data: r } = await supabase.from("client_requests").select("*, templates(name, slug)").eq("id", id).maybeSingle();
   if (!r) notFound();
 
-  const f = (r.form_data ?? {}) as Partial<RequestData>;
+  const f = (r.form_data ?? {}) as Partial<RequestData> & { eventType?: string; selfService?: boolean; orderedAt?: string; detailsAt?: string; validatedAt?: string };
+  // Photos du client (stockage privé) : liens de lecture valables une heure
+  const admin = createAdminClient();
+  const photos = await Promise.all(
+    (f.details?.photoFiles ?? []).map(async (p) => ({
+      ...p,
+      url: admin ? (await admin.storage.from("uploads").createSignedUrl(p.path, 3600)).data?.signedUrl ?? null : null,
+    })),
+  );
+  const { data: pay } = r.invitation_id && admin
+    ? await admin.from("payments").select("status, paid_at, provider_ref").eq("invitation_id", r.invitation_id).order("created_at", { ascending: false }).limit(1).maybeSingle()
+    : { data: null };
+  const rsvp = f.details?.rsvp;
   const tpl = r.templates as unknown as { name: string; slug: string } | null;
   const status = r.status as RequestStatus;
   const subject = encodeURIComponent(`Votre invitation E-Invitly — ${r.reference}`);
@@ -69,6 +93,18 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
 
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <div className="space-y-5">
+          <Block
+            title="Commande"
+            rows={[
+              ["Type d'événement", f.eventType ? categoryLabel(f.eventType) : "Mariage (demande complète)"],
+              ["Modèle", tpl?.name],
+              ["Parcours", f.selfService ? "Commande en ligne (paiement puis formulaire détaillé)" : "Demande complète (ancien parcours)"],
+              ["Commandée le", f.orderedAt ? formatDateTime(f.orderedAt) : ""],
+              ["Paiement", pay ? (pay.status === "paid" ? `Payé le ${formatDateTime(pay.paid_at)}${pay.provider_ref === "SIMULATION" ? " (simulation)" : ""}` : pay.status === "pending" ? "En attente" : "Annulé") : ""],
+              ["Formulaire détaillé", f.selfService ? (f.detailsAt ? `Reçu le ${formatDateTime(f.detailsAt)}` : "Pas encore envoyé") : ""],
+              ["Validation du client", f.validatedAt ? `Validée le ${formatDateTime(f.validatedAt)}` : ""],
+            ]}
+          />
           <Block
             title="Coordonnées"
             rows={[
@@ -101,9 +137,7 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
                     </p>
                     <p className="text-stone">{[c.venueName, c.address].filter(Boolean).join(" — ") || "Lieu non précisé"}</p>
                     <p className="text-stone">
-                      {c.arrivalTime ? `Arrivée ${c.arrivalTime}` : ""}
-                      {c.arrivalTime && c.startTime ? " · " : ""}
-                      {c.startTime ? `Début ${c.startTime}` : ""}
+                      {[c.date && c.date !== r.event_date ? formatShortDate(c.date) : "", c.arrivalTime ? `Arrivée ${c.arrivalTime}` : "", c.startTime ? `Début ${c.startTime}` : "", c.endTime ? `Fin ${c.endTime}` : ""].filter(Boolean).join(" · ")}
                     </p>
                     {c.notes ? <p className="mt-1 whitespace-pre-line">{c.notes}</p> : null}
                   </li>
@@ -118,6 +152,9 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
             rows={[
               ["Lieu", f.reception?.venueName],
               ["Adresse", f.reception?.address],
+              ["Date (si différente)", f.reception?.date ? formatShortDate(f.reception.date) : ""],
+              ["Déroulé de la soirée", (f.reception?.moments ?? []).filter((m) => m.time || m.note).map((m) => [m.time, m.title, m.note && `— ${m.note}`].filter(Boolean).join(" ")).join("\n")],
+              ["Fin de soirée", f.reception?.endTime],
               ["Arrivée des invités", f.reception?.arrivalTime],
               ["Cocktail", f.reception?.cocktailTime],
               ["Dîner", f.reception?.dinnerTime],
@@ -132,6 +169,8 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
             title="Autres informations"
             rows={[
               ["Dress code", f.details?.dressCode],
+              ["Réponses des invités (RSVP)", rsvp ? [Object.entries(rsvp.fields ?? {}).filter(([, v]) => v).map(([k]) => RSVP_LABELS[k] ?? k).join(", "), `${rsvp.maxCompanions ?? 1} accompagnant(s) max`, ...(rsvp.questions ?? []).filter((q) => q.label).map((q) => `Question : ${q.label}`)].filter(Boolean).join("\n") : ""],
+              ["Témoins et contacts", (f.details?.contacts ?? []).filter((c) => c.name).map((c) => [c.name, c.role && `(${c.role})`, c.phone && `— ${c.phone}`].filter(Boolean).join(" ")).join("\n")],
               ["Date limite RSVP", f.details?.rsvpDeadline ? formatShortDate(f.details.rsvpDeadline) : ""],
               ["Programme", f.details?.program],
               ["Témoins", f.details?.witnesses],
@@ -143,6 +182,38 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
               ["Commentaires", f.details?.comments],
             ]}
           />
+          {f.details?.dressColors?.length ? (
+            <section className="card p-5">
+              <h2 className="font-serif text-xl">Palette du dress code</h2>
+              <ul className="mt-3 flex flex-wrap gap-3">
+                {f.details.dressColors.map((c) => (
+                  <li key={c} className="flex items-center gap-2 text-xs">
+                    <span className="h-8 w-8 rounded-full border border-line" style={{ backgroundColor: c }} />
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {photos.length ? (
+            <section className="card p-5">
+              <h2 className="font-serif text-xl">Photos du client ({photos.length})</h2>
+              <p className="mt-1 text-xs text-stone">Stockage privé : liens valables une heure (rechargez la page pour en obtenir de nouveaux).</p>
+              <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {photos.map((p) => (
+                  <li key={p.path}>
+                    {p.url ? (
+                      <a href={p.url} target="_blank" rel="noopener" download={p.name}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={p.url} alt={p.name} className="aspect-square w-full rounded-sm border border-line object-cover" />
+                      </a>
+                    ) : null}
+                    <p className="mt-1 truncate text-xs text-stone">{p.name}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
           <p className="text-xs text-stone">Consentement donné le {formatDateTime(r.consent_at)}.</p>
         </div>
 

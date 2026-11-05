@@ -3,7 +3,7 @@ Parcours de bout en bout (scénarios 1, 2, 5, 7 du cahier des charges).
 Prérequis : banc d'essai local (scripts/local-stack/server.mjs) + `next dev`.
 Usage : PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers python3 scripts/e2e/run.py
 """
-import json, os, re, sys, time, urllib.request, urllib.error, urllib.parse
+import base64, json, os, re, sys, time, urllib.request, urllib.error, urllib.parse
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
@@ -211,31 +211,81 @@ with sync_playwright() as p:
     sc.get_by_role("button", name="+ Cérémonie religieuse").click()
     sc.get_by_label("Lieu").fill("Mosquée de Paris")
     sc.get_by_label("Début de la cérémonie").fill("14:00")
+    sc.get_by_label("Fin de la cérémonie").fill("15:00")
+    assert sc.get_by_label("Arrivée des invités").count() == 0, "« Arrivée des invités » remplacé par la fin de la cérémonie"
     sc.get_by_role("button", name="Continuer").click()
     sc.get_by_label("Nom du lieu de réception").fill("Domaine des Oliviers")
-    sc.get_by_label(re.compile(r"^Heure\s*(\(facultatif\))?$")).nth(1).fill("20:30")
+    # Moments proposés : un moment déjà présent n'est plus proposé, il revient si on le retire
+    assert sc.get_by_role("button", name="+ Cocktail").count() == 0
+    expect(sc.get_by_role("button", name="+ Ouverture de bal")).to_be_visible()
+    expect(sc.get_by_label("Petit mot").nth(2)).to_have_attribute("placeholder", "ex. Dîner servi à table")
+    sc.get_by_role("button", name="Retirer : Cocktail").click()
+    expect(sc.get_by_role("button", name="+ Cocktail")).to_be_visible()
+    times = sc.get_by_label(re.compile(r"^Heure\s*(\(facultatif\))?$"))
+    times.nth(1).fill("20:30")   # Dîner (Accueil, Dîner, Pièce montée, Soirée dansante, Fin de soirée)
+    times.nth(4).fill("02:00")   # Fin de soirée
     sc.get_by_role("button", name="Continuer").click()
     sc.get_by_label("Menus enfant").check()
+    sc.get_by_role("button", name="#C9A45C").click()
+    sc.get_by_role("button", name="#2F5D50").click()
+    sc.get_by_label("Nom 1").fill("Léa")
+    sc.get_by_label("Rôle").first.fill("Témoin de la mariée")
+    sc.get_by_label("Téléphone").first.fill("06 11 22 33 44")
+    sc.get_by_role("button", name="+ Ajouter un contact").click()
+    sc.get_by_label("Nom 2").fill("Yanis")
+    sc.get_by_label("Téléphone").nth(1).fill("06 55 66 77 88")
+    png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEklEQVR4nGP4z8AARAwMDAwMAPwYB/kQ1Wq2AAAAAElFTkSuQmCC")
+    sc.locator("input[type=file]").set_input_files([{"name": "couple.png", "mimeType": "image/png", "buffer": png}])
+    expect(sc.get_by_role("img", name="couple.png")).to_be_visible(timeout=15000)
     sc.get_by_role("button", name="Continuer").click()
     expect(sc.get_by_text("Sami & Lina").first).to_be_visible()
+    expect(sc.get_by_text("1 photo(s) envoyée(s)")).to_be_visible()
     sc.screenshot(path=SHOTS / "09-commande-informations.png", full_page=True)
     sc.get_by_role("button", name="Envoyer mes informations").click()
     expect(sc.get_by_text("Merci, c'est bien reçu !")).to_be_visible(timeout=20000)
     oinv = api("GET", f"/rest/v1/invitations?id=eq.{oid}&select=status,draft_content,event_at")[0]
+    dc = oinv["draft_content"]
     assert oinv["status"] == "customizing", oinv["status"]
-    assert [e["title"] for e in oinv["draft_content"]["events"]] == ["Cérémonie religieuse", "Dîner"], oinv["draft_content"]["events"]
-    assert oinv["draft_content"]["eventAt"] == "2027-05-22T14:00", oinv["draft_content"]["eventAt"]
+    assert [e["title"] for e in dc["events"]] == ["Cérémonie religieuse", "Dîner", "Fin de soirée"], dc["events"]
+    assert dc["events"][0]["endTime"] == "15:00" and dc["events"][2]["id"] == "reception-fin", dc["events"]
+    assert dc["eventAt"] == "2027-05-22T14:00", dc["eventAt"]
+    assert dc["dressCode"]["palette"] == ["#C9A45C", "#2F5D50"], dc["dressCode"]
+    assert dc["contacts"] == [{"name": "Léa", "role": "Témoin de la mariée", "phone": "06 11 22 33 44"}, {"name": "Yanis", "role": "", "phone": "06 55 66 77 88"}], dc["contacts"]
     orf = api("GET", f"/rest/v1/rsvp_forms?invitation_id=eq.{oid}&select=fields")[0]
     assert orf["fields"]["childMenus"] is True, orf
-    assert api("GET", f"/rest/v1/client_requests?id=eq.{order['id']}&select=form_data")[0]["form_data"].get("detailsAt")
+    ofd = api("GET", f"/rest/v1/client_requests?id=eq.{order['id']}&select=form_data")[0]["form_data"]
+    assert ofd.get("detailsAt") and len(ofd["details"]["photoFiles"]) == 1, ofd
     sc.goto(f"{BASE}/mon-espace/{oid}/informations")
     expect(sc.get_by_text("Vos informations nous ont été envoyées")).to_be_visible()
+    ok("formulaire : fin de cérémonie, moments proposés une seule fois, exemples par moment, palette, contacts reliés à leur numéro, photos envoyées")
+
+    # Espace client : bande « Votre projet », puis validation de l'aperçu par le client
     sc.goto(f"{BASE}/mon-espace")
-    expect(sc.get_by_text("Informations reçues")).to_be_visible()
+    proj = sc.get_by_role("region", name="Votre projet")
+    expect(proj).to_contain_text("Mariage · modèle The Garden")
+    expect(proj).to_contain_text("Nous préparons votre aperçu")
+    assert sc.get_by_role("button", name="Je valide mon invitation").count() == 0
     a.goto(f"{BASE}/admin/invitations/{oid}")
     expect(a.get_by_text("formulaire détaillé reçu")).to_be_visible()
+    a.get_by_role("link", name="Voir toutes ses réponses et ses photos").click()
+    expect(a.get_by_role("heading", name="Photos du client (1)")).to_be_visible()
+    assert a.evaluate("[...document.querySelectorAll('section img')].every(i => i.complete && i.naturalWidth > 0)"), "miniature de la photo"
+    expect(a.get_by_text("Léa (Témoin de la mariée) — 06 11 22 33 44")).to_be_visible()
+    a.screenshot(path=SHOTS / "09b-admin-commande.png", full_page=True)
+    a.goto(f"{BASE}/admin/invitations/{oid}?onglet=publication")
+    a.get_by_role("button", name="Créer un lien d'aperçu").click()
+    a.wait_for_timeout(1500)
+    sc.goto(f"{BASE}/mon-espace")
+    expect(proj).to_contain_text("Votre aperçu vous a été envoyé")
+    sc.screenshot(path=SHOTS / "09c-espace-projet.png", full_page=True)
+    sc.on("dialog", lambda d: d.accept())
+    sc.get_by_role("button", name="Je valide mon invitation").click()
+    expect(proj).to_contain_text("Invitation validée le", timeout=15000)
+    assert api("GET", f"/rest/v1/invitations?id=eq.{oid}&select=status")[0]["status"] == "ready"
+    a.goto(f"{BASE}/admin/invitations/{oid}")
+    expect(a.get_by_text("Aperçu validé par le client")).to_be_visible()
     sc.context.close()
-    ok("formulaire détaillé dans l'espace client : invitation préremplie, RSVP réglé, envoi unique, équipe prévenue")
+    ok("espace client : bande de suivi du projet, validation de l'aperçu par le client, équipe prévenue ; tout est visible dans l'admin")
 
     a.goto(f"{BASE}/admin/demandes")
     expect(a.get_by_role("link", name=ref)).to_be_visible()
@@ -877,6 +927,33 @@ with sync_playwright() as p:
     expect(a.get_by_text("Section remplacée par la copie")).to_be_visible()
     d = wait_draft(lambda d: len(d["sections"]) == before and len([x for x in d["sections"] if x["type"] == "closing"]) == 1, "section copiée enregistrée")
     ok("éditeur visuel : section copiée depuis un autre modèle (remplacement)")
+
+    # EI-19 : section Dress code sans texte ni couleurs → visible dans l'éditeur ; la copie reprend texte et couleurs
+    gv = api("GET", "/rest/v1/templates?slug=eq.the-garden&select=id,current_version_id")[0]
+    gdef = api("GET", f"/rest/v1/template_versions?id=eq.{gv['current_version_id']}&select=definition,renderer")[0]
+    dc_inv = api("POST", "/rest/v1/invitations", {
+        "slug": f"dress-{int(time.time())}", "title": "Dress & Code", "partner_one": "Dress", "partner_two": "Code",
+        "renderer": gdef["renderer"], "template_id": gv["id"], "template_version_id": gv["current_version_id"],
+        "draft_content": {**gdef["definition"]["sample"], "dressCode": {"text": "", "palette": []}}, "language": "fr", "status": "customizing",
+    })[0]["id"]
+    a.goto(f"{BASE}/admin/invitations/{dc_inv}/editeur")
+    dsec = a.locator('[data-section="dresscode"]').first
+    expect(dsec).to_contain_text("Texte du dress code — à écrire", timeout=20000)
+    a.get_by_role("button", name=re.compile("Copier une section d")).click()
+    dlg = a.get_by_role("dialog", name="Copier une section d'un autre modèle")
+    dlg.get_by_label("Modèle source").select_option(label="Province")
+    dlg.locator("li", has_text="Dress code").get_by_role("button", name="Remplacer la mienne").click()
+    expect(a.get_by_text("Texte et couleurs du dress code repris")).to_be_visible()
+    src_dc = (lambda d: d["dressCode"])(api("GET", f"/rest/v1/template_versions?id=eq.{api('GET', '/rest/v1/templates?slug=eq.province&select=current_version_id')[0]['current_version_id']}&select=definition")[0]["definition"]["sample"])
+    for _ in range(40):
+        got = api("GET", f"/rest/v1/invitations?id=eq.{dc_inv}&select=draft_content")[0]["draft_content"]["dressCode"]
+        if got["text"]: break
+        time.sleep(0.25)
+    assert got == src_dc, (got, src_dc)
+    api("DELETE", f"/rest/v1/invitations?id=eq.{dc_inv}", prefer="return=minimal")
+    a.goto(f"{BASE}/admin/invitations/{inv_id}/editeur")
+    a.wait_for_url(re.compile(r"/editeur$"))
+    ok("EI-19 : dress code vide visible dans l'éditeur ; copié d'un autre modèle avec son texte et ses couleurs")
 
     # Éléments intégrés au modèle : sélectionner, modifier, déplacer, retirer
     left.get_by_role("button", name=re.compile(r"^Invitation principale")).click()

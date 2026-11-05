@@ -111,6 +111,8 @@ export const eventSchema = z.object({
   mapsUrl: safeUrl,
   arrivalTime: optionalText(5),
   startTime: optionalText(5),
+  /** Heure de fin (facultative), affichée avec l'heure de début dans « Lieux » */
+  endTime: z.string().max(5).optional(),
   description: optionalText(400),
   /** Jour du moment s'il diffère de la date principale (mariage sur plusieurs jours) */
   date: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date au format AAAA-MM-JJ").optional().default(""),

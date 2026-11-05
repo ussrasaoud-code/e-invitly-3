@@ -17,6 +17,8 @@ import {
 } from "@/lib/validation/request";
 import { submitRequest } from "../actions";
 import { submitDetails } from "@/app/mon-espace/details-actions";
+import { ColorPalette, ContactsEditor, PhotoUploader } from "@/components/request/DetailsExtras";
+import { MOMENT_KINDS } from "@/lib/validation/request";
 import { RsvpChoicesEditor } from "@/components/rsvp/RsvpChoicesEditor";
 import { DEFAULT_RSVP_CHOICES, DEFAULT_RSVP_FIELDS, RSVP_FIELD_KEYS, rsvpChoicesSchema } from "@/lib/rsvp";
 
@@ -35,6 +37,7 @@ const emptyCeremony = (type: CeremonyInput["type"] = "civil"): CeremonyInput => 
   date: "",
   arrivalTime: "",
   startTime: "",
+  endTime: "",
   notes: "",
 });
 
@@ -158,7 +161,7 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
     ? state.reception.moments
     : (state.reception as { momentsTouched?: boolean })?.momentsTouched
       ? []
-      : (["cocktail", "dinner", "cake", "party"] as const).map((kind) => ({ kind, title: f.momentKinds[kind], time: "", note: "" }));
+      : (["welcome", "cocktail", "dinner", "cake", "party", "end"] as const).map((kind) => ({ kind, title: f.momentKinds[kind], time: "", note: "" }));
   const setMoments = (next: MomentInput[]) => setState((s) => ({ ...s, reception: { ...s.reception, moments: next, momentsTouched: true } as FormState["reception"] }));
   const patchMoment = (i: number, patch: Partial<MomentInput>) => setMoments(moments.map((m, j) => (j === i ? { ...m, ...patch } : m)));
   const moveMoment = (i: number, d: -1 | 1) => {
@@ -332,8 +335,8 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
                     <TextField label={f.venue} value={c.venueName} onChange={(ev) => setCeremony(i, { venueName: ev.target.value })} optional />
                     <TextField label={f.address} value={c.address} onChange={(ev) => setCeremony(i, { address: ev.target.value })} optional />
                     <TextField label={f.ceremonyDate} hint={f.ceremonyDateHint} type="date" value={c.date ?? ""} onChange={(ev) => setCeremony(i, { date: ev.target.value })} error={e(`ceremonies.${i}.date`)} optional className="sm:col-span-2" />
-                    <TextField label={f.guestsArrival} type="time" value={c.arrivalTime} onChange={(ev) => setCeremony(i, { arrivalTime: ev.target.value })} error={e(`ceremonies.${i}.arrivalTime`)} optional />
                     <TextField label={f.ceremonyStart} type="time" value={c.startTime} onChange={(ev) => setCeremony(i, { startTime: ev.target.value })} error={e(`ceremonies.${i}.startTime`)} optional />
+                    <TextField label={f.ceremonyEnd} type="time" value={c.endTime ?? ""} onChange={(ev) => setCeremony(i, { endTime: ev.target.value })} error={e(`ceremonies.${i}.endTime`)} optional />
                     <TextArea label={f.notes} value={c.notes} onChange={(ev) => setCeremony(i, { notes: ev.target.value })} optional className="sm:col-span-2" />
                     <label className="flex min-h-11 items-center gap-3 text-sm sm:col-span-2">
                       <input type="checkbox" className="h-5 w-5 accent-forest" checked={c.showOnInvitation} onChange={(ev) => setCeremony(i, { showOnInvitation: ev.target.checked })} />
@@ -388,7 +391,6 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
             <TextField label={f.fullAddress} autoComplete="street-address" value={state.reception?.address} onChange={(ev) => setReception("address", ev.target.value)} optional />
             <TextField label={f.mapsUrl} type="url" inputMode="url" value={state.reception?.mapsUrl} onChange={(ev) => setReception("mapsUrl", ev.target.value)} error={e("reception.mapsUrl")} optional className="sm:col-span-2" />
             <TextField label={f.receptionDate} hint={f.receptionDateHint} type="date" value={state.reception?.date ?? ""} onChange={(ev) => setReception("date", ev.target.value)} error={e("reception.date")} optional />
-            <TextField label={f.guestsArrival} type="time" value={state.reception?.arrivalTime} onChange={(ev) => setReception("arrivalTime", ev.target.value)} error={e("reception.arrivalTime")} optional />
 
             <fieldset className="card p-5 sm:col-span-2">
               <legend className="px-1 font-serif text-xl">{f.timeline}</legend>
@@ -399,7 +401,7 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
                     <div className="grid gap-3 sm:grid-cols-[1fr_8.5rem]">
                       <TextField label={f.momentName} value={m.title} maxLength={60} placeholder={f.momentKinds[m.kind]} onChange={(ev) => patchMoment(i, { title: ev.target.value })} />
                       <TextField label={f.momentTime} type="time" value={m.time} onChange={(ev) => patchMoment(i, { time: ev.target.value })} error={e(`reception.moments.${i}.time`)} optional />
-                      <TextField label={f.momentNote} value={m.note} maxLength={160} placeholder={f.momentNotePh} onChange={(ev) => patchMoment(i, { note: ev.target.value })} optional className="sm:col-span-2" />
+                      <TextField label={f.momentNote} value={m.note} maxLength={160} placeholder={f.momentNotePhs[m.kind] ?? f.momentNotePh} onChange={(ev) => patchMoment(i, { note: ev.target.value })} optional className="sm:col-span-2" />
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1">
                       <button type="button" className="btn btn-ghost btn-sm" disabled={i === 0} onClick={() => moveMoment(i, -1)} aria-label={`${f.moveUp} : ${m.title || f.momentKinds[m.kind]}`}>↑ {f.moveUp}</button>
@@ -411,16 +413,14 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
               </ol>
               {moments.length < 10 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {(["cocktail", "dinner", "cake", "party", "other"] as const).map((k) => (
+                  {/* Un moment déjà dans la liste n'est plus proposé (sauf « Autre moment ») ; il revient si on le retire */}
+                  {MOMENT_KINDS.filter((k) => k === "other" || !moments.some((m) => m.kind === k)).map((k) => (
                     <button key={k} type="button" className="btn btn-secondary btn-sm" onClick={() => setMoments([...moments, { kind: k, title: k === "other" ? "" : f.momentKinds[k], time: "", note: "" }])}>
                       + {f.momentKinds[k]}
                     </button>
                   ))}
                 </div>
               ) : null}
-              <div className="mt-5 max-w-[14rem]">
-                <TextField label={f.endTime} type="time" value={state.reception?.endTime ?? ""} onChange={(ev) => setReception("endTime", ev.target.value)} error={e("reception.endTime")} optional />
-              </div>
             </fieldset>
             <TextArea label={f.parking} value={state.reception?.parking} onChange={(ev) => setReception("parking", ev.target.value)} optional />
             <TextArea label={f.shuttles} value={state.reception?.shuttles} onChange={(ev) => setReception("shuttles", ev.target.value)} optional />
@@ -430,7 +430,8 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
 
         {cur === 4 && (
           <div className="grid gap-5 sm:grid-cols-2">
-            <TextArea label={f.dressCode} value={state.details?.dressCode} onChange={(ev) => setDetails("dressCode", ev.target.value)} optional />
+            <TextArea label={f.dressCode} value={state.details?.dressCode} onChange={(ev) => setDetails("dressCode", ev.target.value)} optional className="sm:col-span-2" />
+            <ColorPalette f={f} value={state.details?.dressColors ?? []} onChange={(dressColors) => setState((s) => ({ ...s, details: { ...s.details, dressColors } }))} />
             <TextField label={f.rsvpDeadline} type="date" value={state.details?.rsvpDeadline} onChange={(ev) => setDetails("rsvpDeadline", ev.target.value)} error={e("details.rsvpDeadline")} optional />
             <fieldset className="card p-5 sm:col-span-2">
               <legend className="px-1 font-serif text-xl">{rsvpT.title}</legend>
@@ -442,11 +443,27 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
               />
             </fieldset>
             <TextArea label={f.program} value={state.details?.program} onChange={(ev) => setDetails("program", ev.target.value)} optional className="sm:col-span-2" />
-            <TextArea label={f.witnesses} value={state.details?.witnesses} onChange={(ev) => setDetails("witnesses", ev.target.value)} optional hint={f.witnessesHint} />
-            <TextArea label={f.phoneNumbers} value={state.details?.phoneNumbers} onChange={(ev) => setDetails("phoneNumbers", ev.target.value)} optional />
+            <ContactsEditor
+              f={f}
+              error={e}
+              value={(state.details?.contacts ?? []).map((c) => ({ name: c.name ?? "", role: c.role ?? "", phone: c.phone ?? "" }))}
+              onChange={(contacts) => setState((s) => ({ ...s, details: { ...s.details, contacts } }))}
+            />
             <TextArea label={f.customText} value={state.details?.customText} onChange={(ev) => setDetails("customText", ev.target.value)} optional className="sm:col-span-2" />
             <TextArea label={f.preferences} value={state.details?.preferences} onChange={(ev) => setDetails("preferences", ev.target.value)} optional hint={f.preferencesHint} />
-            <TextArea label={f.photos} value={state.details?.photos} onChange={(ev) => setDetails("photos", ev.target.value)} optional hint={f.photosHint} />
+            {detailsMode && invitationId ? (
+              <>
+                <PhotoUploader
+                  f={f}
+                  invitationId={invitationId}
+                  value={(state.details?.photoFiles ?? []).map((p) => ({ path: p.path, name: p.name ?? "" }))}
+                  onChange={(photoFiles) => setState((s) => ({ ...s, details: { ...s.details, photoFiles } }))}
+                />
+                <TextArea label={f.photosNotes} value={state.details?.photos} onChange={(ev) => setDetails("photos", ev.target.value)} optional className="sm:col-span-2" />
+              </>
+            ) : (
+              <TextArea label={f.photos} value={state.details?.photos} onChange={(ev) => setDetails("photos", ev.target.value)} optional hint={f.photosHint} />
+            )}
             <TextField label={f.music} value={state.details?.music} onChange={(ev) => setDetails("music", ev.target.value)} optional />
             <TextArea label={f.comments} value={state.details?.comments} onChange={(ev) => setDetails("comments", ev.target.value)} optional className="sm:col-span-2" />
           </div>
@@ -534,7 +551,7 @@ function Review({ state, templateName, onEdit, t, rsvpT, lang, hideContact }: { 
       title: r.ceremonies,
       items: (state.ceremonies ?? []).map((c) => [
         c.label || t.ceremonies[c.type],
-        [c.date && c.date !== state.eventDate ? new Date(`${c.date}T12:00:00`).toLocaleDateString(lang, { weekday: "long", day: "numeric", month: "long" }) : "", c.venueName, c.address, c.startTime && fmt(r.start, { t: c.startTime }), c.showOnInvitation ? "" : r.hidden, c.showOnInvitation && c.restricted ? fmt(r.reserved, { name: c.guestGroup || t.f.someGuests }) : ""].filter(Boolean).join(" · "),
+        [c.date && c.date !== state.eventDate ? new Date(`${c.date}T12:00:00`).toLocaleDateString(lang, { weekday: "long", day: "numeric", month: "long" }) : "", c.venueName, c.address, c.startTime && fmt(r.start, { t: c.startTime }), c.endTime && fmt(r.end, { t: c.endTime }), c.showOnInvitation ? "" : r.hidden, c.showOnInvitation && c.restricted ? fmt(r.reserved, { name: c.guestGroup || t.f.someGuests }) : ""].filter(Boolean).join(" · "),
       ]),
     },
     {
@@ -568,11 +585,13 @@ function Review({ state, templateName, onEdit, t, rsvpT, lang, hideContact }: { 
         [r.rsvp, state.details?.rsvpDeadline],
         [rsvpT.title, rsvpSummary],
         [r.program, state.details?.program],
+        [r.colors, (state.details?.dressColors ?? []).join("  ")],
+        [r.contacts, (state.details?.contacts ?? []).filter((c) => c.name?.trim()).map((c) => [c.name, c.role && `(${c.role})`, c.phone].filter(Boolean).join(" ")).join("\n")],
         [r.witnesses, state.details?.witnesses],
         [r.phones, state.details?.phoneNumbers],
         [r.customText, state.details?.customText],
         [r.preferences, state.details?.preferences],
-        [r.photos, state.details?.photos],
+        [r.photos, [state.details?.photoFiles?.length ? fmt(r.photosCount, { n: state.details.photoFiles.length }) : "", state.details?.photos].filter(Boolean).join(" · ")],
         [r.music, state.details?.music],
         [r.comments, state.details?.comments],
       ],

@@ -451,7 +451,7 @@ export async function listTemplatesForCopy(): Promise<{ id: string; name: string
 }
 
 /** Sections d'un modèle (brouillon le plus récent), dans la langue demandée si elle existe. */
-export async function templateSectionsForCopy(templateId: string, lang: string): Promise<{ ok: true; sections: InvitationSection[] } | { ok: false; message: string }> {
+export async function templateSectionsForCopy(templateId: string, lang: string): Promise<{ ok: true; sections: InvitationSection[]; dressCode: InvitationContent["dressCode"] } | { ok: false; message: string }> {
   await requireStaff();
   if (!uuid.safeParse(templateId).success) return { ok: false, message: "Modèle inconnu." };
   const supabase = (await createClient())!;
@@ -459,5 +459,6 @@ export async function templateSectionsForCopy(templateId: string, lang: string):
   if (!w?.def) return { ok: false, message: "Ce modèle n'a pas de version valide." };
   const l = (LANGUAGES as readonly string[]).includes(lang) ? (lang as Language) : mainLang(w.def);
   const content = getVariant(w.def, l) ?? w.def.sample;
-  return { ok: true, sections: content.sections };
+  // Le texte et les couleurs du dress code sont des informations du modèle (pas de la section) : on les joint
+  return { ok: true, sections: content.sections, dressCode: content.dressCode };
 }

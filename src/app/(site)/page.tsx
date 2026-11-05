@@ -75,13 +75,13 @@ export default async function HomePage() {
             <h2 className="mt-4 font-serif text-4xl md:text-5xl">{h.stepsTitle}</h2>
             <Divider className="mx-auto mt-6 h-5 w-40 text-sage" />
           </div>
-          <ol className="mt-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+          <ol className="mt-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
             {STEPS.map((s, i) => (
-              <li key={s.n} className={`relative ${i === 2 ? "lg:-mt-2" : ""}`}>
+              <li key={s.n} className={`relative ${i === 3 ? "lg:-mt-2" : ""}`}>
                 <span className="font-display text-sm tracking-[0.3em] text-forest">{s.n}</span>
                 <h3 className="mt-3 font-serif text-2xl leading-snug">{s.title}</h3>
                 <p className="mt-3 leading-relaxed text-stone">{s.text}</p>
-                {i === 2 ? (
+                {i === 3 ? (
                   <p className="mt-3 inline-block border-b border-sage pb-0.5 text-sm text-forest">{h.teamDone}</p>
                 ) : null}
               </li>

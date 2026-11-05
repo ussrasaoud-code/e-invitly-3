@@ -554,8 +554,12 @@ export function VisualEditor({
     window.setTimeout(() => scrollTo(s.id), 50);
   };
   /** Section copiée d'un autre modèle : ajoutée après la section sélectionnée, ou à la place de celle du même type */
-  const insertCopied = (src: InvitationSection, mode: "add" | "replace") => {
+  const insertCopied = (src: InvitationSection, mode: "add" | "replace", extra: { dressCode?: InvitationContent["dressCode"] } = {}) => {
     const s = cloneSection(src);
+    // Dress code : texte et couleurs repris du modèle source quand ceux d'ici sont vides
+    const dc = extra.dressCode;
+    const takeDress = src.type === "dresscode" && !!dc && (dc.text || dc.palette.length) && !c.dressCode.text && !c.dressCode.palette.length;
+    if (takeDress) update((x) => ({ ...x, dressCode: { text: dc.text, palette: [...dc.palette] } }));
     if (mode === "replace") {
       const old = c.sections.find((x) => x.type === src.type);
       if (old) {
@@ -567,7 +571,10 @@ export function VisualEditor({
     }
     setShowCopy(false);
     setSel({ sectionId: s.id, layerId: null });
-    flash(mode === "replace" ? "Section remplacée par la copie (Ctrl+Z pour annuler)." : "Section copiée.");
+    flash(
+      (mode === "replace" ? "Section remplacée par la copie (Ctrl+Z pour annuler)." : "Section copiée.") +
+        (src.type === "dresscode" ? (takeDress ? " Texte et couleurs du dress code repris." : " Le texte et les couleurs du dress code d'ici sont conservés.") : ""),
+    );
     window.setTimeout(() => scrollTo(s.id), 50);
   };
   const scrollTo = (sectionId: string) => {

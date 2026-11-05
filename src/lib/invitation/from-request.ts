@@ -19,7 +19,9 @@ export type RequestFormData = Omit<RequestData, "consent" | "website" | "templat
 const slugId = (prefix: string, i: number) => `${prefix}-${i + 1}`;
 
 /** Intitulés par défaut des moments de la réception (si les mariés n'en ont pas saisi) */
-const MOMENT_TITLES = { cocktail: "Cocktail", dinner: "Dîner", cake: "Pièce montée", party: "Soirée dansante", other: "Moment" } as const;
+const MOMENT_TITLES = { welcome: "Accueil des invités", cocktail: "Cocktail", dinner: "Dîner", openingDance: "Ouverture de bal", cake: "Pièce montée", party: "Soirée dansante", end: "Fin de soirée", other: "Moment" } as const;
+/** Type d'événement (icônes, libellés) pour chaque moment de la soirée */
+const MOMENT_EVENT_TYPE = { welcome: "reception", cocktail: "cocktail", dinner: "dinner", openingDance: "party", cake: "cake", party: "party", end: "other", other: "other" } as const;
 const END_LABEL: Record<string, string> = { fr: "Fin de la soirée", en: "End of the evening", ar: "نهاية السهرة", es: "Fin de la velada", it: "Fine della serata", de: "Ende des Abends", nl: "Einde van de avond" };
 
 export function buildInvitationFromRequest(
@@ -55,6 +57,7 @@ export function buildInvitationFromRequest(
       mapsUrl: "",
       arrivalTime: c.arrivalTime ?? "",
       startTime: c.startTime ?? "",
+      endTime: c.endTime ?? "",
       description: c.notes ?? "",
       // Autre jour que la date principale (ex. mairie la veille)
       date: c.date && c.date !== form.eventDate ? c.date : "",
@@ -67,11 +70,13 @@ export function buildInvitationFromRequest(
     // Déroulé construit par les mariés : un moment par ligne, dans leur ordre.
     // Le lieu n'est indiqué qu'une fois (sur le premier moment) : il ne se répète pas dans la frise.
     const day = reception.date && reception.date !== form.eventDate ? reception.date : "";
+    const hasEndMoment = moments.some((m) => m.kind === "end");
     moments.forEach((m, i) => {
       events.push({
-        id: `reception-${i + 1}`,
-        type: m.kind === "cake" ? "cake" : m.kind === "other" ? "other" : m.kind,
-        title: m.title?.trim() || MOMENT_TITLES[m.kind],
+        // « Fin de soirée » : pas de réponse demandée aux invités pour ce moment
+        id: m.kind === "end" ? "reception-fin" : `reception-${i + 1}`,
+        type: MOMENT_EVENT_TYPE[m.kind],
+        title: m.title?.trim() || (m.kind === "end" ? END_LABEL[form.language ?? "fr"] ?? END_LABEL.fr : MOMENT_TITLES[m.kind]),
         venueName: i === 0 ? reception.venueName ?? "" : "",
         address: i === 0 ? reception.address ?? "" : "",
         mapsUrl: i === 0 ? reception.mapsUrl ?? "" : "",
@@ -82,7 +87,7 @@ export function buildInvitationFromRequest(
         groups: [],
       });
     });
-    if (reception.endTime) {
+    if (reception.endTime && !hasEndMoment) {
       events.push({ id: "reception-fin", type: "other", title: END_LABEL[form.language ?? "fr"] ?? END_LABEL.fr, venueName: "", address: "", mapsUrl: "", arrivalTime: "", startTime: reception.endTime, description: "", date: day, groups: [] });
     }
   } else if (reception && (reception.venueName || reception.address || reception.cocktailTime || reception.dinnerTime || reception.arrivalTime)) {
@@ -127,6 +132,7 @@ export function buildInvitationFromRequest(
   if (details?.phoneNumbers) notes.push(`Numéros à afficher : ${details.phoneNumbers}`);
   if (details?.customText) notes.push(`Texte personnalisé : ${details.customText}`);
   if (details?.preferences) notes.push(`Préférences : ${details.preferences}`);
+  if (details?.photoFiles?.length) notes.push(`${details.photoFiles.length} photo(s) envoyée(s) par le client : voir la fiche de la demande.`);
   if (details?.photos) notes.push(`Photos : ${details.photos}`);
   if (details?.music) notes.push(`Musique souhaitée : ${details.music}`);
   if (details?.comments) notes.push(`Commentaire du client : ${details.comments}`);
@@ -143,14 +149,20 @@ export function buildInvitationFromRequest(
     mainVenue: { name: firstVenue?.venueName ?? "", city: "" },
     events,
     guestGroups,
-    dressCode: { text: details?.dressCode ?? "", palette: details?.dressCode ? templateSample.dressCode.palette : [] },
+    dressCode: {
+      text: details?.dressCode ?? "",
+      // Couleurs choisies par les mariés, sinon celles du modèle s'ils décrivent un dress code
+      palette: details?.dressColors?.length ? details.dressColors : details?.dressCode ? templateSample.dressCode.palette : [],
+    },
     practical: {
       parking: reception?.parking ?? "",
       shuttles: reception?.shuttles ?? "",
       transport: "",
       lodging: reception?.lodging ?? "",
     },
-    contacts: [],
+    contacts: (details?.contacts ?? [])
+      .filter((c) => c.name?.trim())
+      .map((c) => ({ name: c.name!.trim(), role: c.role?.trim() ?? "", phone: c.phone?.trim() ?? "" })),
     rsvp: { deadline: details?.rsvpDeadline ?? "", intro: "" },
     envelope: { ...templateSample.envelope, sealText: initials, videoUrl: templateSample.envelope.videoUrl },
     music: { enabled: false, url: "" },

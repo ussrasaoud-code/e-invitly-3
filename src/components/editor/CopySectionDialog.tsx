@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { listTemplatesForCopy, templateSectionsForCopy } from "@/app/admin/modeles/actions";
-import { REPEATABLE_SECTIONS, SECTION_LABELS, type InvitationSection } from "@/lib/invitation/schema";
+import { REPEATABLE_SECTIONS, SECTION_LABELS, type InvitationContent, type InvitationSection } from "@/lib/invitation/schema";
 
 /**
  * Copier une section (avec ses calques, couleurs, fond et réglages) depuis un autre modèle.
@@ -12,12 +12,13 @@ export function CopySectionDialog({ lang, present, onCopy, onClose }: {
   lang: string;
   /** Types déjà présents dans l'invitation ouverte */
   present: InvitationSection["type"][];
-  onCopy: (section: InvitationSection, mode: "add" | "replace") => void;
+  onCopy: (section: InvitationSection, mode: "add" | "replace", extra: { dressCode?: InvitationContent["dressCode"] }) => void;
   onClose: () => void;
 }) {
   const [templates, setTemplates] = useState<{ id: string; name: string }[] | null>(null);
   const [templateId, setTemplateId] = useState("");
   const [sections, setSections] = useState<InvitationSection[] | null>(null);
+  const [dressCode, setDressCode] = useState<InvitationContent["dressCode"] | undefined>();
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -28,7 +29,12 @@ export function CopySectionDialog({ lang, present, onCopy, onClose }: {
     setSections(null);
     setError("");
     templateSectionsForCopy(templateId, lang)
-      .then((r) => (r.ok ? setSections(r.sections) : setError(r.message)))
+      .then((r) => {
+        if (r.ok) {
+          setSections(r.sections);
+          setDressCode(r.dressCode);
+        } else setError(r.message);
+      })
       .catch(() => setError("Impossible de charger les sections."));
   }, [templateId, lang]);
 
@@ -68,12 +74,12 @@ export function CopySectionDialog({ lang, present, onCopy, onClose }: {
                     </span>
                     <span className="flex shrink-0 gap-2">
                       {exists ? (
-                        <button type="button" className="btn btn-primary btn-sm" onClick={() => onCopy(s, "replace")} title="Remplace la section du même type dans ce modèle">
+                        <button type="button" className="btn btn-primary btn-sm" onClick={() => onCopy(s, "replace", { dressCode })} title="Remplace la section du même type dans ce modèle">
                           Remplacer la mienne
                         </button>
                       ) : null}
                       {!exists ? (
-                        <button type="button" className="btn btn-primary btn-sm" onClick={() => onCopy(s, "add")}>
+                        <button type="button" className="btn btn-primary btn-sm" onClick={() => onCopy(s, "add", { dressCode })}>
                           Ajouter
                         </button>
                       ) : null}
@@ -84,7 +90,7 @@ export function CopySectionDialog({ lang, present, onCopy, onClose }: {
             </ul>
           ) : null}
           <p className="text-xs text-stone">
-            La section est copiée avec son design : calques, fond, couleurs, animations et textes. Les informations propres à chaque invitation (programme, lieux, couleurs du dress code…) restent celles du modèle ouvert.
+            La section est copiée avec son design : calques, fond, couleurs, animations et textes. Pour le dress code, le texte et les couleurs sont aussi copiés si ceux du modèle ouvert sont vides. Les autres informations (programme, lieux, contacts…) restent celles du modèle ouvert.
           </p>
         </div>
       </section>

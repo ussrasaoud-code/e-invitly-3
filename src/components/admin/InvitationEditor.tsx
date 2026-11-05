@@ -275,6 +275,7 @@ export function InvitationEditor({
                   <L label="Titre affiché" className="sm:col-span-2"><input className={inputCls} value={ev.title} onChange={(e) => setEvent(i, { title: e.target.value })} /></L>
                   <L label="Arrivée"><input type="time" className={inputCls} value={ev.arrivalTime} onChange={(e) => setEvent(i, { arrivalTime: e.target.value })} /></L>
                   <L label="Début"><input type="time" className={inputCls} value={ev.startTime} onChange={(e) => setEvent(i, { startTime: e.target.value })} /></L>
+                  <L label="Fin (facultatif)"><input type="time" className={inputCls} value={ev.endTime ?? ""} onChange={(e) => setEvent(i, { endTime: e.target.value })} /></L>
                   <L label="Lieu"><input className={inputCls} value={ev.venueName} onChange={(e) => setEvent(i, { venueName: e.target.value })} /></L>
                   <L label="Adresse" className="sm:col-span-2"><input className={inputCls} value={ev.address} onChange={(e) => setEvent(i, { address: e.target.value })} /></L>
                   <L label="Lien carte (facultatif)"><input className={inputCls} value={ev.mapsUrl} onChange={(e) => setEvent(i, { mapsUrl: e.target.value })} placeholder="https://maps…" /></L>

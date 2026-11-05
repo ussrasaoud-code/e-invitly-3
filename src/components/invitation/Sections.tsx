@@ -472,13 +472,15 @@ function ScratchCover(props: { cover: string; label: string; revealLabel: string
 /* ── Dress code ────────────────────────────────────────────────────── */
 export function DressCodeSection({ content, renderer, labels, title }: SectionProps) {
   const { text, palette } = content.dressCode;
-  if (!text && !palette.length) return null;
+  // Dans l'éditeur, une section vide reste visible (avec des repères) pour pouvoir la remplir
+  const editing = useContext(LayerEditorContext) !== null;
+  if (!text && !palette.length && !editing) return null;
   return (
     <Shell renderer={renderer} tone="tinted">
       <SectionTitle renderer={renderer}>{title || labels.dresscode}</SectionTitle>
       <El id="text">
         <p className="mx-auto max-w-[300px] text-center leading-relaxed" style={{ color: "var(--inv-ink)" }}>
-          {text}
+          {text || (editing ? <span style={{ opacity: 0.45, fontStyle: "italic" }}>Texte du dress code — à écrire dans « Texte du dress code » (panneau de gauche)</span> : null)}
         </p>
       </El>
       {palette.length ? (
@@ -486,6 +488,14 @@ export function DressCodeSection({ content, renderer, labels, title }: SectionPr
           <ul className="mt-7 flex justify-center gap-3" aria-label="Palette de couleurs">
             {palette.map((c) => (
               <li key={c} className="inv-border-soft h-9 w-9 rounded-full border" style={{ background: c }} title={c} />
+            ))}
+          </ul>
+        </El>
+      ) : editing ? (
+        <El id="palette">
+          <ul className="mt-7 flex justify-center gap-3" aria-label="Palette de couleurs (vide)">
+            {[0, 1, 2, 3].map((i) => (
+              <li key={i} className="h-9 w-9 rounded-full border border-dashed" style={{ borderColor: "var(--inv-muted)", opacity: 0.5 }} />
             ))}
           </ul>
         </El>
@@ -559,6 +569,7 @@ export function VenuesSection({ content, renderer, labels, title, section }: Sec
                       {e.arrivalTime && e.startTime && e.arrivalTime !== e.startTime
                         ? `${labels.arrival} ${formatTime(e.arrivalTime, content.language)} · ${formatTime(e.startTime, content.language)}`
                         : formatTime(time, content.language)}
+                      {e.endTime && e.startTime ? ` – ${formatTime(e.endTime, content.language)}` : ""}
                     </bdi>
                   </p>
                 </El>

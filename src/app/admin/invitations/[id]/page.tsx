@@ -66,7 +66,8 @@ export default async function InvitationPage({ params, searchParams }: Props) {
   const paymentList = (payments ?? []) as PaymentRow[];
   const isPaid = paymentList.some((p) => p.status === "paid");
   const tplVersion = inv.template_versions as unknown as { version: number } | null;
-  const req = inv.client_requests as unknown as { reference: string; id: string; form_data: { selfService?: boolean; detailsAt?: string } | null } | null;
+  const req = inv.client_requests as unknown as { reference: string; id: string; form_data: { selfService?: boolean; detailsAt?: string; validatedAt?: string } | null } | null;
+  const validatedAt = req?.form_data?.validatedAt ?? null;
   const order = req?.form_data?.selfService ? { detailsAt: req.form_data.detailsAt ?? null } : null;
   const pendingPayment = paymentList.find((p) => p.status === "pending");
   const host = env.siteUrl.replace(/^https?:\/\//, "");
@@ -138,8 +139,17 @@ export default async function InvitationPage({ params, searchParams }: Props) {
           ) : !order.detailsAt ? (
             "payée — en attente du formulaire détaillé du client (il a reçu son accès par e-mail)."
           ) : (
-            <>formulaire détaillé reçu le {formatDateTime(order.detailsAt)} : l&apos;invitation a été préremplie avec ses réponses (points à reprendre dans Notes internes). Aperçu promis sous 24 h.</>
+            <>
+              formulaire détaillé reçu le {formatDateTime(order.detailsAt)} : l&apos;invitation a été préremplie avec ses réponses (points à reprendre dans Notes internes). Aperçu promis sous 24 h.{" "}
+              {req ? <Link href={`/admin/demandes/${req.id}`} className="underline underline-offset-4">Voir toutes ses réponses et ses photos</Link> : null}
+            </>
           )}
+        </p>
+      ) : null}
+      {validatedAt && !isLive ? (
+        <p role="status" className="mb-6 border border-sage bg-sage-soft px-4 py-3 text-sm text-forest-deep">
+          <strong className="font-medium">Aperçu validé par le client</strong> le {formatDateTime(validatedAt)} : l&apos;invitation est prête à publier.{" "}
+          <Link href={`/admin/invitations/${inv.id}?onglet=publication#publier`} className="underline underline-offset-4">Publier…</Link>
         </p>
       ) : null}
       {nouvelle ? (

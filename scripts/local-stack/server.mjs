@@ -550,6 +550,23 @@ async function handleStorage(req, res, url, buf) {
       return send(res, 200, { Key: key, Id: randomUUID() });
     }
   }
+  // Lien de lecture signé (fichiers privés) : création par la clé secrète, puis lecture avec le jeton
+  if ((m = route.match(/^\/object\/sign\/([^/]+)\/(.+)$/)) && req.method === "POST") {
+    const claims = storageClaims(req);
+    if (claims?.role !== "service_role") throw Object.assign(new Error("service_role requis"), { status: 403 });
+    const { key } = storagePath(m[1], m[2]);
+    const token = signJwt({ url: key, exp: Math.floor(Date.now() / 1000) + 3600 });
+    return send(res, 200, { signedURL: `/object/sign/${m[1]}/${m[2]}?token=${token}` });
+  }
+  if ((m = route.match(/^\/object\/sign\/([^/]+)\/(.+)$/)) && (req.method === "GET" || req.method === "HEAD")) {
+    const { key, file } = storagePath(m[1], m[2]);
+    const tok = url.searchParams.get("token") ?? "";
+    let ok = false;
+    try { ok = JSON.parse(Buffer.from(tok.split(".")[1] ?? "", "base64url").toString()).url === key; } catch {}
+    if (!ok || !existsSync(file)) throw Object.assign(new Error("Object not found"), { status: 404 });
+    res.writeHead(200, { "content-type": storageMeta.get(key) ?? "application/octet-stream", "cache-control": "no-cache" });
+    return res.end(req.method === "HEAD" ? undefined : readFileSync(file));
+  }
   if ((m = route.match(/^\/object\/info\/([^/]+)\/(.+)$/)) && req.method === "GET") {
     const { key, file } = storagePath(m[1], m[2]);
     if (!existsSync(file)) throw Object.assign(new Error("Object not found"), { status: 404 });
