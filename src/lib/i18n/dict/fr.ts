@@ -192,8 +192,8 @@ export const fr = {
           "text": "Notre équipe met en page vos textes, vos lieux et votre programme : vous n'avez rien à composer."
         },
         {
-          "title": "Un aperçu avant de payer",
-          "text": "Vous découvrez votre invitation sur un lien privé et demandez vos retouches. Rien n'est publié sans votre accord."
+          "title": "Retouches illimitées",
+          "text": "Vous découvrez votre aperçu sous 24 h sur un lien privé et demandez autant de retouches que nécessaire. Rien n'est publié sans votre accord."
         },
         {
           "title": "Les réponses en ligne",
@@ -217,26 +217,26 @@ export const fr = {
         },
         {
           "title": "Paiement sécurisé",
-          "text": "Par carte bancaire ou PayPal, en une fois, quand votre aperçu vous plaît."
+          "text": "Par carte bancaire ou PayPal, en une fois, au moment de la commande."
         }
       ],
       "stepsTitle": "Comment ça se passe",
       "steps": [
         {
-          "title": "Votre demande",
-          "text": "Remplissez le formulaire guidé : prénoms, date, lieux, programme et vos envies."
+          "title": "Votre commande",
+          "text": "Quelques informations, puis le paiement sécurisé en ligne."
         },
         {
-          "title": "La création",
-          "text": "Notre équipe compose votre invitation dans l'univers du modèle, avec vos textes."
+          "title": "Vos informations",
+          "text": "Dans votre espace, un formulaire guidé : prénoms, date, lieux, programme et réponses des invités."
         },
         {
           "title": "Votre aperçu",
-          "text": "Un lien privé pour la découvrir ; écrivez-nous sur WhatsApp ou par e-mail pour demander des ajustements."
+          "text": "Sous 24 h, un lien privé pour découvrir votre invitation."
         },
         {
-          "title": "Le paiement",
-          "text": "Quand tout vous plaît, vous réglez en ligne, en toute sécurité."
+          "title": "Vos retouches",
+          "text": "Écrivez-nous sur WhatsApp ou par e-mail : retouches illimitées jusqu'à ce que tout vous plaise."
         },
         {
           "title": "La mise en ligne",
@@ -265,8 +265,8 @@ export const fr = {
       "faqTitle": "Vos questions",
       "faq": [
         {
-          "question": "Puis-je voir mon invitation avant de payer ?",
-          "answer": "Oui. Vous recevez d'abord un aperçu privé ; le paiement n'intervient qu'une fois votre invitation validée."
+          "question": "Que se passe-t-il après le paiement ?",
+          "answer": "Vous accédez à votre espace pour nous donner les détails de votre événement. Vous recevez l'aperçu sous 24 h, puis les retouches sont illimitées jusqu'à votre entière satisfaction."
         },
         {
           "question": "Comment fonctionnent les deux langues ?",
@@ -282,7 +282,7 @@ export const fr = {
         }
       ],
       "ctaTitle": "On commence ?",
-      "ctaText": "Envoyez-nous vos informations : nous revenons vers vous avec votre aperçu."
+      "ctaText": "Commandez en ligne : vous recevez votre aperçu sous 24 h après l'envoi de vos informations."
     },
   },
   demo: {
@@ -583,6 +583,56 @@ export const fr = {
     emailLinkText: "Bonne nouvelle : l'invitation de {couple} est prête. Pour la mettre en ligne, il ne reste plus qu'à régler {amount}.",
     emailLinkCta: "Payer en ligne (carte bancaire ou PayPal) : {url}",
     emailSignature: "L'équipe {brand}",
+  },
+  order: {
+    "metaTitle": "Commander votre invitation",
+    "eyebrow": "Commande",
+    "title": "Commander « {name} »",
+    "intro": "Quelques informations pour commencer. Juste après le paiement, vous accédez à votre espace pour nous donner tous les détails de votre événement.",
+    "howTitle": "Comment ça se passe",
+    "how": [
+        "Vos coordonnées (1 minute)",
+        "Paiement sécurisé",
+        "Vos informations dans votre espace",
+        "Aperçu sous 24 h",
+        "Retouches puis lien final"
+    ],
+    "eventType": "Type d'événement",
+    "eventDateHint": "Si vous la connaissez déjà : vous pourrez la préciser après le paiement.",
+    "price": "Prix",
+    "submit": "Continuer vers le paiement",
+    "sending": "Un instant…",
+    "unavailable": "Ce modèle ne peut pas encore être commandé en ligne. Contactez-nous pour le commander.",
+    "emailSubject": "Votre commande {ref} — finalisez votre paiement",
+    "emailHeading": "Merci pour votre commande",
+    "emailText": "Votre commande du modèle « {template} » pour {couple} est enregistrée. Il ne reste plus qu'à régler {amount} pour la confirmer.",
+    "emailAfter": "Juste après le paiement, vous recevrez l'accès à votre espace pour nous donner les détails de votre événement.",
+    "paidSubject": "Commande confirmée — complétez vos informations",
+    "paidHeading": "Merci, votre commande est confirmée",
+    "paidText": "Nous avons bien reçu votre paiement de {amount} pour l'invitation de {couple}.",
+    "paidNext": "Dernière étape de votre côté : remplissez le formulaire détaillé (cérémonies, réception, réponses des invités…) dans votre espace. Nous vous envoyons ensuite l'aperçu sous 24 h.",
+    "paidButton": "Compléter mes informations",
+    "introOrder": "Réglez votre commande en toute sécurité. Juste après, vous accédez à votre espace pour nous transmettre les détails de votre événement.",
+    "promiseTitle": "Inclus dans votre commande",
+    "promiseRevisions": "Retouches illimitées jusqu'à votre entière satisfaction",
+    "promisePreview": "Aperçu de votre invitation sous 24 h après réception de vos informations",
+    "promiseLanguages": "Jusqu'à 2 langues sur le même lien",
+    "simulate": "Simuler le paiement (test)",
+    "simulateHint": "Visible uniquement par l'équipe E-Invitly. Aucun montant n'est débité.",
+    "paidOrderText": "Votre commande est confirmée. Nous venons de vous envoyer un e-mail avec l'accès à votre espace : remplissez-y vos informations et nous vous envoyons l'aperçu sous 24 h.",
+    "bannerPay": "Votre commande attend son paiement.",
+    "bannerPayButton": "Finaliser le paiement",
+    "bannerDetails": "Paiement reçu, merci ! Il nous manque les détails de votre événement pour préparer l'aperçu.",
+    "bannerReceived": "Informations reçues : nous préparons votre aperçu (sous 24 h).",
+    "detailsMeta": "Vos informations",
+    "detailsTitle": "Les détails de votre invitation",
+    "detailsIntro": "Plus vous êtes précis, plus l'aperçu sera fidèle. Vous pourrez ensuite demander toutes les retouches souhaitées.",
+    "detailsSend": "Envoyer mes informations",
+    "detailsSentTitle": "Merci, c'est bien reçu !",
+    "detailsSent": "Nous préparons votre invitation et vous envoyons l'aperçu sous 24 h.",
+    "detailsLocked": "Vos informations nous ont été envoyées le {date}. Pour une modification, écrivez-nous sur WhatsApp ou par e-mail.",
+    "detailsNotPaid": "Ce formulaire s'ouvre après le paiement de votre commande.",
+    "detailsError": "Envoi impossible. Vérifiez votre connexion et réessayez."
   },
   access: {
     loginButton: "Me connecter à mon espace",

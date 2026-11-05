@@ -45,7 +45,7 @@ export default async function InvitationPage({ params, searchParams }: Props) {
 
   const { data: inv } = await supabase
     .from("invitations")
-    .select("*, templates(name, slug, price_label), template_versions(version), client_requests!invitations_request_id_fkey(reference, id)")
+    .select("*, templates(name, slug, price_label), template_versions(version), client_requests!invitations_request_id_fkey(reference, id, form_data)")
     .eq("id", id)
     .maybeSingle();
   if (!inv) notFound();
@@ -66,7 +66,9 @@ export default async function InvitationPage({ params, searchParams }: Props) {
   const paymentList = (payments ?? []) as PaymentRow[];
   const isPaid = paymentList.some((p) => p.status === "paid");
   const tplVersion = inv.template_versions as unknown as { version: number } | null;
-  const req = inv.client_requests as unknown as { reference: string; id: string } | null;
+  const req = inv.client_requests as unknown as { reference: string; id: string; form_data: { selfService?: boolean; detailsAt?: string } | null } | null;
+  const order = req?.form_data?.selfService ? { detailsAt: req.form_data.detailsAt ?? null } : null;
+  const pendingPayment = paymentList.find((p) => p.status === "pending");
   const host = env.siteUrl.replace(/^https?:\/\//, "");
   const tab = TABS.some((t) => t.value === onglet) ? onglet : "contenu";
   const isLive = status === "published";
@@ -121,6 +123,25 @@ export default async function InvitationPage({ params, searchParams }: Props) {
         }
       />
 
+      {order ? (
+        <p role="status" className={`mb-6 border px-4 py-3 text-sm ${order.detailsAt ? "border-sage bg-sage-soft text-forest-deep" : "border-warning/40 bg-[#fbf3e2]"}`}>
+          <strong className="font-medium">Commande en ligne{req ? ` ${req.reference}` : ""} · </strong>
+          {!isPaid ? (
+            <>
+              paiement en attente.{" "}
+              {pendingPayment ? (
+                <a href={`/paiement/${pendingPayment.token}`} target="_blank" rel="noopener" className="underline underline-offset-4">
+                  Ouvrir la page de paiement (bouton « Simuler le paiement » pour vos tests) ↗
+                </a>
+              ) : null}
+            </>
+          ) : !order.detailsAt ? (
+            "payée — en attente du formulaire détaillé du client (il a reçu son accès par e-mail)."
+          ) : (
+            <>formulaire détaillé reçu le {formatDateTime(order.detailsAt)} : l&apos;invitation a été préremplie avec ses réponses (points à reprendre dans Notes internes). Aperçu promis sous 24 h.</>
+          )}
+        </p>
+      ) : null}
       {nouvelle ? (
         <p role="status" className="mb-6 border border-sage bg-sage-soft px-4 py-3 text-sm text-forest-deep">
           Invitation créée à partir de la demande. Les points à reprendre (témoins, programme détaillé…) sont listés dans l&apos;onglet Notes internes.

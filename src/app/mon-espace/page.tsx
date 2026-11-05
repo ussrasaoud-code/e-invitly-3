@@ -9,10 +9,31 @@ import { env } from "@/lib/env";
 import { LANG_META, fmt, localePath } from "@/lib/i18n/config";
 import { dictFor, getPreferredLang } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function generateMetadata(): Promise<Metadata> {
   const lang = await getPreferredLang();
   return { title: dictFor(lang).couple.metaTitle, robots: { index: false } };
+}
+
+function OrderBanner({ order, id, o }: { order: { paid: boolean; token?: string; detailsAt: string | null }; id: string; o: ReturnType<typeof dictFor>["order"] }) {
+  if (!order.paid) {
+    return (
+      <div className="mt-4 border border-warning/40 bg-[#fbf3e2] p-4 text-sm">
+        <p>{o.bannerPay}</p>
+        {order.token ? <Link href={`/paiement/${order.token}`} className="btn btn-primary btn-sm mt-3">{o.bannerPayButton}</Link> : null}
+      </div>
+    );
+  }
+  if (!order.detailsAt) {
+    return (
+      <div className="mt-4 border border-sage bg-sage-soft p-4 text-sm text-forest-deep">
+        <p>{o.bannerDetails}</p>
+        <Link href={`/mon-espace/${id}/informations`} className="btn btn-primary btn-sm mt-3">{o.paidButton}</Link>
+      </div>
+    );
+  }
+  return <p className="mt-4 border border-sage bg-sage-soft p-4 text-sm text-forest-deep">{o.bannerReceived}</p>;
 }
 
 /** Espace des mariés : uniquement LEURS invitations (règles RLS côté base). */
@@ -33,7 +54,32 @@ export default async function ClientSpace() {
       return [x.id as string, Object.entries(links).map(([id, token]) => ({ name: names.get(id) ?? id, token }))];
     }),
   );
+  // Commandes en ligne : paiement puis formulaire détaillé (ids issus de la lecture protégée ci-dessus)
+  const ids = (invitations ?? []).map((i) => i.id);
+  const admin = ids.length ? createAdminClient() : null;
+  const [{ data: orderRows }, { data: payRows }] = admin
+    ? await Promise.all([
+        admin.from("client_requests").select("invitation_id, form_data").in("invitation_id", ids),
+        admin.from("payments").select("invitation_id, token, status").in("invitation_id", ids).order("created_at", { ascending: false }),
+      ])
+    : [{ data: null }, { data: null }];
+  const orders = new Map(
+    (orderRows ?? [])
+      .filter((r) => (r.form_data as { selfService?: boolean } | null)?.selfService)
+      .map((r) => {
+        const pays = (payRows ?? []).filter((p) => p.invitation_id === r.invitation_id);
+        return [
+          r.invitation_id as string,
+          {
+            paid: pays.some((p) => p.status === "paid"),
+            token: pays.find((p) => p.status === "pending")?.token as string | undefined,
+            detailsAt: (r.form_data as { detailsAt?: string }).detailsAt ?? null,
+          },
+        ];
+      }),
+  );
   const lang = await getPreferredLang(invitations?.[0]?.language);
+  const o = dictFor(lang).order;
   const t = dictFor(lang).couple;
   const { brand } = await getSettings();
   const byId = new Map((stats ?? []).map((s) => [s.invitation_id, s]));
@@ -55,6 +101,9 @@ export default async function ClientSpace() {
                 <li key={i.id} className="card p-5">
                   <h2 className="font-serif text-2xl">{i.title}</h2>
                   <p className="text-sm text-stone">{date(i.event_at)}</p>
+                  {orders.get(i.id) && !live ? (
+                    <OrderBanner order={orders.get(i.id)!} id={i.id} o={o} />
+                  ) : null}
                   <p className="mt-3 text-sm">
                     {live && privateLinks.get(i.id)?.length ? (
                       <span className="block space-y-1">

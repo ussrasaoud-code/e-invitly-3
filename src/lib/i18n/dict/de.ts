@@ -189,8 +189,8 @@ export const de: SiteDict = {
           "text": "Unser Team setzt eure Texte, Orte und den Ablauf: Ihr müsst nichts selbst gestalten."
         },
         {
-          "title": "Vorschau vor der Zahlung",
-          "text": "Ihr seht eure Einladung über einen privaten Link und wünscht euch Änderungen. Nichts wird ohne euer Okay veröffentlicht."
+          "title": "Unbegrenzte Änderungen",
+          "text": "Ihr seht eure Vorschau innerhalb von 24 Stunden unter einem privaten Link und bittet um so viele Änderungen wie nötig. Nichts wird ohne eure Zustimmung veröffentlicht."
         },
         {
           "title": "Antworten online",
@@ -214,26 +214,26 @@ export const de: SiteDict = {
         },
         {
           "title": "Sichere Zahlung",
-          "text": "Per Karte oder PayPal, in einem Betrag, sobald euch die Vorschau gefällt."
+          "text": "Per Karte oder PayPal, in einer Zahlung, bei der Bestellung."
         }
       ],
       "stepsTitle": "So läuft es ab",
       "steps": [
         {
-          "title": "Eure Anfrage",
-          "text": "Füllt das geführte Formular aus: Namen, Datum, Orte, Ablauf und Wünsche."
+          "title": "Eure Bestellung",
+          "text": "Ein paar Angaben, dann die sichere Online-Zahlung."
         },
         {
-          "title": "Die Gestaltung",
-          "text": "Unser Team gestaltet eure Einladung im Stil des Designs, mit euren Texten."
+          "title": "Eure Angaben",
+          "text": "In eurem Bereich ein geführtes Formular: Namen, Datum, Orte, Ablauf und Antworten der Gäste."
         },
         {
           "title": "Eure Vorschau",
-          "text": "Ein privater Link zum Entdecken; schreibt uns per WhatsApp oder E-Mail, um Anpassungen zu wünschen."
+          "text": "Innerhalb von 24 Stunden ein privater Link zu eurer Einladung."
         },
         {
-          "title": "Die Zahlung",
-          "text": "Wenn alles passt, bezahlt ihr sicher online."
+          "title": "Eure Änderungen",
+          "text": "Schreibt uns per WhatsApp oder E-Mail: unbegrenzte Änderungen, bis alles passt."
         },
         {
           "title": "Die Veröffentlichung",
@@ -262,8 +262,8 @@ export const de: SiteDict = {
       "faqTitle": "Eure Fragen",
       "faq": [
         {
-          "question": "Kann ich meine Einladung vor der Zahlung sehen?",
-          "answer": "Ja. Ihr erhaltet zuerst eine private Vorschau; bezahlt wird erst, wenn ihr die Einladung freigebt."
+          "question": "Was passiert nach der Zahlung?",
+          "answer": "Ihr erhaltet Zugang zu eurem Bereich, um uns die Details eurer Feier mitzuteilen. Die Vorschau kommt innerhalb von 24 Stunden, danach sind Änderungen unbegrenzt bis zu eurer vollen Zufriedenheit."
         },
         {
           "question": "Wie funktionieren die zwei Sprachen?",
@@ -279,7 +279,7 @@ export const de: SiteDict = {
         }
       ],
       "ctaTitle": "Sollen wir loslegen?",
-      "ctaText": "Schickt uns eure Angaben: Wir melden uns mit eurer Vorschau."
+      "ctaText": "Online bestellen: Ihr erhaltet eure Vorschau innerhalb von 24 Stunden nach dem Senden eurer Angaben."
     },
   },
   demo: {
@@ -580,6 +580,56 @@ export const de: SiteDict = {
     emailLinkText: "Gute Nachrichten: Die Einladung von {couple} ist fertig. Um sie freizuschalten, fehlt nur noch die Zahlung von {amount}.",
     emailLinkCta: "Online bezahlen (Karte oder PayPal): {url}",
     emailSignature: "Euer {brand}-Team",
+  },
+  order: {
+    "metaTitle": "Ihre Einladung bestellen",
+    "eyebrow": "Bestellung",
+    "title": "„{name}“ bestellen",
+    "intro": "Ein paar Angaben zum Start. Direkt nach der Zahlung erhalten Sie Zugang zu Ihrem persönlichen Bereich, um uns alle Details Ihrer Feier mitzuteilen.",
+    "howTitle": "So funktioniert es",
+    "how": [
+        "Ihre Kontaktdaten (1 Minute)",
+        "Sichere Zahlung",
+        "Ihre Angaben in Ihrem Bereich",
+        "Vorschau innerhalb von 24 Std.",
+        "Änderungen, dann der finale Link"
+    ],
+    "eventType": "Art der Feier",
+    "eventDateHint": "Falls Sie es schon wissen: Sie können es nach der Zahlung angeben.",
+    "price": "Preis",
+    "submit": "Weiter zur Zahlung",
+    "sending": "Einen Moment…",
+    "unavailable": "Dieses Design kann noch nicht online bestellt werden. Kontaktieren Sie uns für eine Bestellung.",
+    "emailSubject": "Ihre Bestellung {ref} — Zahlung abschließen",
+    "emailHeading": "Vielen Dank für Ihre Bestellung",
+    "emailText": "Ihre Bestellung des Designs „{template}“ für {couple} ist gespeichert. Es fehlt nur noch die Zahlung von {amount}, um sie zu bestätigen.",
+    "emailAfter": "Direkt nach der Zahlung erhalten Sie Zugang zu Ihrem persönlichen Bereich, um uns die Details Ihrer Feier mitzuteilen.",
+    "paidSubject": "Bestellung bestätigt — Angaben vervollständigen",
+    "paidHeading": "Vielen Dank, Ihre Bestellung ist bestätigt",
+    "paidText": "Wir haben Ihre Zahlung von {amount} für die Einladung von {couple} erhalten.",
+    "paidNext": "Letzter Schritt für Sie: Füllen Sie das ausführliche Formular (Zeremonien, Empfang, Antworten der Gäste…) in Ihrem persönlichen Bereich aus. Danach senden wir Ihnen die Vorschau innerhalb von 24 Stunden.",
+    "paidButton": "Meine Angaben vervollständigen",
+    "introOrder": "Bezahlen Sie Ihre Bestellung sicher. Direkt danach erhalten Sie Zugang zu Ihrem persönlichen Bereich, um uns die Details Ihrer Feier zu senden.",
+    "promiseTitle": "In Ihrer Bestellung enthalten",
+    "promiseRevisions": "Unbegrenzte Änderungen bis zu Ihrer vollen Zufriedenheit",
+    "promisePreview": "Vorschau Ihrer Einladung innerhalb von 24 Stunden nach Erhalt Ihrer Angaben",
+    "promiseLanguages": "Bis zu 2 Sprachen unter demselben Link",
+    "simulate": "Zahlung simulieren (Test)",
+    "simulateHint": "Nur für das E-Invitly-Team sichtbar. Es wird kein Betrag abgebucht.",
+    "paidOrderText": "Ihre Bestellung ist bestätigt. Wir haben Ihnen soeben eine E-Mail mit dem Zugang zu Ihrem persönlichen Bereich gesendet: Tragen Sie dort Ihre Angaben ein und wir senden Ihnen die Vorschau innerhalb von 24 Stunden.",
+    "bannerPay": "Ihre Bestellung wartet auf die Zahlung.",
+    "bannerPayButton": "Zahlung abschließen",
+    "bannerDetails": "Zahlung erhalten, danke! Uns fehlen noch die Details Ihrer Feier, um die Vorschau vorzubereiten.",
+    "bannerReceived": "Angaben erhalten: Wir bereiten Ihre Vorschau vor (innerhalb von 24 Std.).",
+    "detailsMeta": "Ihre Angaben",
+    "detailsTitle": "Die Details Ihrer Einladung",
+    "detailsIntro": "Je genauer Ihre Angaben, desto treffender die Vorschau. Danach können Sie alle gewünschten Änderungen anfragen.",
+    "detailsSend": "Meine Angaben senden",
+    "detailsSentTitle": "Vielen Dank, angekommen!",
+    "detailsSent": "Wir bereiten Ihre Einladung vor und senden Ihnen die Vorschau innerhalb von 24 Stunden.",
+    "detailsLocked": "Sie haben uns Ihre Angaben am {date} gesendet. Für Änderungen schreiben Sie uns per WhatsApp oder E-Mail.",
+    "detailsNotPaid": "Dieses Formular öffnet sich nach der Zahlung Ihrer Bestellung.",
+    "detailsError": "Senden nicht möglich. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut."
   },
   access: {
     loginButton: "In meinen Bereich einloggen",

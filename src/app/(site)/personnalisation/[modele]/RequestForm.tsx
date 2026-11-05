@@ -16,6 +16,7 @@ import {
   type MomentInput,
 } from "@/lib/validation/request";
 import { submitRequest } from "../actions";
+import { submitDetails } from "@/app/mon-espace/details-actions";
 import { RsvpChoicesEditor } from "@/components/rsvp/RsvpChoicesEditor";
 import { DEFAULT_RSVP_CHOICES, DEFAULT_RSVP_FIELDS, RSVP_FIELD_KEYS, rsvpChoicesSchema } from "@/lib/rsvp";
 
@@ -85,14 +86,36 @@ const initialState = (templateSlug: string, language: SiteLang = "fr"): FormStat
 /** Langues de l'invitation, chacune écrite dans sa propre langue */
 const LANG_OPTIONS = SITE_LANGS.map((l) => ({ value: l, label: LANG_META[l].native }));
 
-export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invitationLang, languages }: { templateSlug: string; templateName: string; t: T; rsvpT: SiteDict["rsvpSetup"]; lang: SiteLang; invitationLang: SiteLang; languages?: SiteLang[] }) {
+type DetailsT = Pick<SiteDict["order"], "detailsSend" | "detailsSentTitle" | "detailsSent" | "detailsError">;
+
+/**
+ * Formulaire détaillé. Mode « request » : ancienne demande complète (coordonnées comprises).
+ * Mode « details » : rempli dans l'espace client après le paiement (sans l'étape coordonnées).
+ */
+export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invitationLang, languages, mode = "request", invitationId, initial, detailsT }: {
+  templateSlug: string;
+  templateName: string;
+  t: T;
+  rsvpT: SiteDict["rsvpSetup"];
+  lang: SiteLang;
+  invitationLang: SiteLang;
+  languages?: SiteLang[];
+  mode?: "request" | "details";
+  invitationId?: string;
+  initial?: Partial<FormState>;
+  detailsT?: DetailsT;
+}) {
+  const detailsMode = mode === "details";
+  // Étapes affichées (indices des schémas de validation)
+  const order = detailsMode ? [1, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5];
+  const [done, setDone] = useState(false);
   // Langues proposées pour l'invitation : celles ouvertes sur le site (Paramètres → Langues)
   const langOptions = languages?.length ? LANG_OPTIONS.filter((o) => languages.includes(o.value)) : LANG_OPTIONS;
-  const storageKey = `e-invitly:demande:${templateSlug}`;
-  const STEP_TITLES = t.steps;
+  const storageKey = detailsMode ? `e-invitly:infos:${invitationId}` : `e-invitly:demande:${templateSlug}`;
+  const STEP_TITLES = order.map((i) => t.steps[i]);
   const CEREMONY_LABELS = t.ceremonies;
   const f = t.f;
-  const [state, setState] = useState<FormState>(() => initialState(templateSlug, invitationLang));
+  const [state, setState] = useState<FormState>(() => ({ ...initialState(templateSlug, invitationLang), ...initial }));
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverMessage, setServerMessage] = useState<string | null>(null);
@@ -107,10 +130,11 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
     restored.current = true;
     try {
       const saved = window.localStorage.getItem(storageKey);
-      if (saved) setState({ ...initialState(templateSlug, invitationLang), ...JSON.parse(saved), consent: false, website: "" });
+      if (saved) setState({ ...initialState(templateSlug, invitationLang), ...initial, ...JSON.parse(saved), consent: false, website: "" });
     } catch {
       /* stockage indisponible */
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, templateSlug, invitationLang]);
   useEffect(() => {
     try {
@@ -149,7 +173,9 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
   const setCeremony = (i: number, patch: Partial<CeremonyInput>) =>
     setState((s) => ({ ...s, ceremonies: (s.ceremonies ?? []).map((c, j) => (j === i ? { ...c, ...patch } : c)) }));
 
+  const cur = order[step];
   const validateStep = (index: number) => {
+    if (detailsMode && index === 5) return true; // pas de case d'accord ici : déjà donnée à la commande
     const result = STEP_SCHEMAS[index].safeParse(state);
     if (result.success) {
       setErrors({});
@@ -160,7 +186,7 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
   };
 
   const next = () => {
-    if (!validateStep(step)) return;
+    if (!validateStep(cur)) return;
     setStep((s) => Math.min(s + 1, STEP_TITLES.length - 1));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -171,13 +197,33 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
   };
 
   const submit = () => {
-    for (let i = 0; i < STEP_SCHEMAS.length; i++) {
-      if (!validateStep(i)) {
+    for (let i = 0; i < order.length; i++) {
+      if (!validateStep(order[i])) {
         setStep(i);
         return;
       }
     }
     setServerMessage(null);
+    if (detailsMode) {
+      startTransition(async () => {
+        try {
+          const res = await submitDetails(invitationId ?? "", state as RequestInput);
+          if (res.ok) {
+            try {
+              window.localStorage.removeItem(storageKey);
+            } catch {}
+            setDone(true);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          } else {
+            setServerMessage(res.message || detailsT?.detailsError || "");
+            if (res.fieldErrors) setErrors(res.fieldErrors);
+          }
+        } catch {
+          setServerMessage(detailsT?.detailsError ?? "");
+        }
+      });
+      return;
+    }
     startTransition(async () => {
       const res = await submitRequest(state as RequestInput, lang);
       if (res.ok) {
@@ -195,11 +241,20 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
   const e = (key: string) => (errors[key] ? translateError(errors[key], t.errors) : undefined);
   const ceremonies = state.ceremonies ?? [];
 
+  if (done) {
+    return (
+      <div role="status" className="card p-8 text-center">
+        <p className="font-serif text-3xl">{detailsT?.detailsSentTitle}</p>
+        <p className="mt-3 leading-relaxed text-stone">{detailsT?.detailsSent}</p>
+      </div>
+    );
+  }
+
   return (
     <OptionalLabelContext.Provider value={t.optional}>
     <div>
       {/* Progression */}
-      <ol className="mb-10 grid grid-cols-6 gap-1.5" aria-label={t.progress}>
+      <ol className="mb-10 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${STEP_TITLES.length}, minmax(0, 1fr))` }} aria-label={t.progress}>
         {STEP_TITLES.map((title, i) => (
           <li key={title} aria-current={i === step ? "step" : undefined}>
             <span className={`block h-1 ${i <= step ? "bg-forest" : "bg-sand"}`} />
@@ -233,7 +288,7 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
           </label>
         </div>
 
-        {step === 0 && (
+        {cur === 0 && (
           <div className="grid gap-5 sm:grid-cols-2">
             <TextField label={f.firstName} autoComplete="given-name" value={state.firstName} onChange={(ev) => set("firstName", ev.target.value)} error={e("firstName")} required />
             <TextField label={f.lastName} autoComplete="family-name" value={state.lastName} onChange={(ev) => set("lastName", ev.target.value)} error={e("lastName")} required />
@@ -252,7 +307,7 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
           </div>
         )}
 
-        {step === 1 && (
+        {cur === 1 && (
           <div className="grid gap-5 sm:grid-cols-2">
             <TextField label={f.partnerOne} value={state.partnerOne} onChange={(ev) => set("partnerOne", ev.target.value)} error={e("partnerOne")} required />
             <TextField label={f.partnerTwo} value={state.partnerTwo} onChange={(ev) => set("partnerTwo", ev.target.value)} error={e("partnerTwo")} required />
@@ -261,7 +316,7 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
           </div>
         )}
 
-        {step === 2 && (
+        {cur === 2 && (
           <div>
             <p className="mb-6 leading-relaxed text-stone">{f.ceremoniesIntro}</p>
             {ceremonies.length === 0 ? (
@@ -327,7 +382,7 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
           </div>
         )}
 
-        {step === 3 && (
+        {cur === 3 && (
           <div className="grid gap-5 sm:grid-cols-2">
             <TextField label={f.receptionVenue} value={state.reception?.venueName} onChange={(ev) => setReception("venueName", ev.target.value)} optional />
             <TextField label={f.fullAddress} autoComplete="street-address" value={state.reception?.address} onChange={(ev) => setReception("address", ev.target.value)} optional />
@@ -373,7 +428,7 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
           </div>
         )}
 
-        {step === 4 && (
+        {cur === 4 && (
           <div className="grid gap-5 sm:grid-cols-2">
             <TextArea label={f.dressCode} value={state.details?.dressCode} onChange={(ev) => setDetails("dressCode", ev.target.value)} optional />
             <TextField label={f.rsvpDeadline} type="date" value={state.details?.rsvpDeadline} onChange={(ev) => setDetails("rsvpDeadline", ev.target.value)} error={e("details.rsvpDeadline")} optional />
@@ -397,11 +452,11 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
           </div>
         )}
 
-        {step === 5 && (
-          <Review state={state} templateName={templateName} onEdit={(i) => setStep(i)} t={t} rsvpT={rsvpT} lang={lang} />
+        {cur === 5 && (
+          <Review state={state} templateName={templateName} onEdit={(i) => setStep(Math.max(0, order.indexOf(i)))} t={t} rsvpT={rsvpT} lang={lang} hideContact={detailsMode} />
         )}
 
-        {step === 5 && (
+        {cur === 5 && !detailsMode && (
           <div className="mt-8">
             <label className="flex items-start gap-3 text-sm leading-relaxed">
               <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-forest" checked={state.consent} onChange={(ev) => set("consent", ev.target.checked)} aria-invalid={e("consent") ? true : undefined} />
@@ -432,7 +487,7 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
             <span />
           )}
           <button type="submit" className="btn btn-primary" disabled={pending}>
-            {step < STEP_TITLES.length - 1 ? t.continue : pending ? t.sending : t.send}
+            {step < STEP_TITLES.length - 1 ? t.continue : pending ? t.sending : detailsMode ? detailsT?.detailsSend : t.send}
           </button>
         </div>
         <p className="mt-4 text-center text-xs text-stone sm:text-end">{t.keptLocally}</p>
@@ -442,7 +497,7 @@ export function RequestForm({ templateSlug, templateName, t, rsvpT, lang, invita
   );
 }
 
-function Review({ state, templateName, onEdit, t, rsvpT, lang }: { state: FormState; templateName: string; onEdit: (step: number) => void; t: T; rsvpT: SiteDict["rsvpSetup"]; lang: SiteLang }) {
+function Review({ state, templateName, onEdit, t, rsvpT, lang, hideContact }: { state: FormState; templateName: string; onEdit: (step: number) => void; t: T; rsvpT: SiteDict["rsvpSetup"]; lang: SiteLang; hideContact?: boolean }) {
   const rsvpChoices = state.details?.rsvp ? rsvpChoicesSchema.parse(state.details.rsvp) : DEFAULT_RSVP_CHOICES;
   const rsvpSummary = [
     ...RSVP_FIELD_KEYS.filter((k) => rsvpChoices.fields[k] ?? DEFAULT_RSVP_FIELDS[k]).map((k) => rsvpT.fields[k]),
@@ -525,7 +580,7 @@ function Review({ state, templateName, onEdit, t, rsvpT, lang }: { state: FormSt
   ];
   return (
     <div className="space-y-6">
-      {rows.map((row) => {
+      {rows.filter((row) => !(hideContact && row.step === 0)).map((row) => {
         const filled = row.items.filter(([, v]) => v && v.trim());
         return (
           <section key={row.title} className="card p-5">

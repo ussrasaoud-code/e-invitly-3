@@ -189,8 +189,8 @@ export const en: SiteDict = {
           "text": "Our team lays out your texts, venues and schedule: there is nothing for you to design."
         },
         {
-          "title": "A preview before you pay",
-          "text": "You discover your invitation on a private link and ask for changes. Nothing is published without your approval."
+          "title": "Unlimited revisions",
+          "text": "You see your preview within 24 hours on a private link and ask for as many changes as you need. Nothing is published without your approval."
         },
         {
           "title": "Online replies",
@@ -214,26 +214,26 @@ export const en: SiteDict = {
         },
         {
           "title": "Secure payment",
-          "text": "By card or PayPal, in one go, once you love your preview."
+          "text": "By card or PayPal, in one go, when you place your order."
         }
       ],
       "stepsTitle": "How it works",
       "steps": [
         {
-          "title": "Your request",
-          "text": "Fill in the guided form: names, date, venues, schedule and your wishes."
+          "title": "Your order",
+          "text": "A few details, then secure online payment."
         },
         {
-          "title": "Creation",
-          "text": "Our team composes your invitation in the world of this design, with your texts."
+          "title": "Your details",
+          "text": "In your personal space, a guided form: names, date, venues, programme and guest replies."
         },
         {
           "title": "Your preview",
-          "text": "A private link to discover it; write to us on WhatsApp or by email to ask for adjustments."
+          "text": "Within 24 hours, a private link to discover your invitation."
         },
         {
-          "title": "Payment",
-          "text": "When everything feels right, you pay online, securely."
+          "title": "Your revisions",
+          "text": "Write to us on WhatsApp or by e-mail: unlimited revisions until everything is just right."
         },
         {
           "title": "Going live",
@@ -262,8 +262,8 @@ export const en: SiteDict = {
       "faqTitle": "Your questions",
       "faq": [
         {
-          "question": "Can I see my invitation before paying?",
-          "answer": "Yes. You first receive a private preview; payment only comes once your invitation is approved."
+          "question": "What happens after payment?",
+          "answer": "You get access to your personal space to give us the details of your event. You receive the preview within 24 hours, then revisions are unlimited until you are completely satisfied."
         },
         {
           "question": "How do the two languages work?",
@@ -279,7 +279,7 @@ export const en: SiteDict = {
         }
       ],
       "ctaTitle": "Shall we begin?",
-      "ctaText": "Send us your details: we will come back to you with your preview."
+      "ctaText": "Order online: you receive your preview within 24 hours of sending your details."
     },
   },
   demo: {
@@ -580,6 +580,56 @@ export const en: SiteDict = {
     emailLinkText: "Good news: the invitation for {couple} is ready. To put it online, the only step left is to pay {amount}.",
     emailLinkCta: "Pay online (card or PayPal): {url}",
     emailSignature: "The {brand} team",
+  },
+  order: {
+    "metaTitle": "Order your invitation",
+    "eyebrow": "Order",
+    "title": "Order “{name}”",
+    "intro": "A few details to get started. Right after payment, you get access to your personal space to give us all the details of your event.",
+    "howTitle": "How it works",
+    "how": [
+        "Your contact details (1 minute)",
+        "Secure payment",
+        "Your details in your personal space",
+        "Preview within 24 hours",
+        "Revisions, then your final link"
+    ],
+    "eventType": "Type of event",
+    "eventDateHint": "If you already know it: you can add it after payment.",
+    "price": "Price",
+    "submit": "Continue to payment",
+    "sending": "One moment…",
+    "unavailable": "This design cannot be ordered online yet. Contact us to order it.",
+    "emailSubject": "Your order {ref} — complete your payment",
+    "emailHeading": "Thank you for your order",
+    "emailText": "Your order of the “{template}” design for {couple} has been saved. All that's left is to pay {amount} to confirm it.",
+    "emailAfter": "Right after payment, you will receive access to your personal space to give us the details of your event.",
+    "paidSubject": "Order confirmed — complete your details",
+    "paidHeading": "Thank you, your order is confirmed",
+    "paidText": "We have received your payment of {amount} for the invitation of {couple}.",
+    "paidNext": "Last step on your side: fill in the detailed form (ceremonies, reception, guest replies…) in your personal space. We then send you the preview within 24 hours.",
+    "paidButton": "Complete my details",
+    "introOrder": "Pay for your order securely. Right after, you get access to your personal space to send us the details of your event.",
+    "promiseTitle": "Included in your order",
+    "promiseRevisions": "Unlimited revisions until you are completely satisfied",
+    "promisePreview": "Preview of your invitation within 24 hours of receiving your details",
+    "promiseLanguages": "Up to 2 languages on the same link",
+    "simulate": "Simulate payment (test)",
+    "simulateHint": "Visible to the E-Invitly team only. No money is charged.",
+    "paidOrderText": "Your order is confirmed. We have just sent you an e-mail with access to your personal space: fill in your details there and we will send you the preview within 24 hours.",
+    "bannerPay": "Your order is awaiting payment.",
+    "bannerPayButton": "Complete payment",
+    "bannerDetails": "Payment received, thank you! We still need the details of your event to prepare the preview.",
+    "bannerReceived": "Details received: we are preparing your preview (within 24 hours).",
+    "detailsMeta": "Your details",
+    "detailsTitle": "The details of your invitation",
+    "detailsIntro": "The more precise you are, the closer the preview will be. You can then ask for any revisions you like.",
+    "detailsSend": "Send my details",
+    "detailsSentTitle": "Thank you, we have received it!",
+    "detailsSent": "We are preparing your invitation and will send you the preview within 24 hours.",
+    "detailsLocked": "You sent us your details on {date}. For any change, write to us on WhatsApp or by e-mail.",
+    "detailsNotPaid": "This form opens once your order has been paid.",
+    "detailsError": "Could not send. Check your connection and try again."
   },
   access: {
     loginButton: "Log in to my area",

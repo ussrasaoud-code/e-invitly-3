@@ -25,6 +25,9 @@ async function generateLink(email: string, next: string): Promise<string | null>
   return `${env.siteUrl}/auth/confirm?${q.toString()}`;
 }
 
+/** Lien de connexion directe vers une page de l'espace client (le compte doit exister). */
+export const accessLink = (email: string, next: string) => generateLink(email, next);
+
 /** Crée le compte s'il n'existe pas encore (les inscriptions libres restent fermées). */
 export async function ensureAccount(email: string): Promise<boolean> {
   const admin = createAdminClient();

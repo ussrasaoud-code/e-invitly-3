@@ -189,8 +189,8 @@ export const it: SiteDict = {
           "text": "Il nostro team impagina i vostri testi, i luoghi e il programma: non dovete comporre nulla."
         },
         {
-          "title": "Un'anteprima prima di pagare",
-          "text": "Scoprite l'invito su un link privato e chiedete le modifiche. Nulla viene pubblicato senza il vostro consenso."
+          "title": "Modifiche illimitate",
+          "text": "Scoprite l'anteprima entro 24 ore su un link privato e chiedete tutte le modifiche necessarie. Nulla viene pubblicato senza il vostro consenso."
         },
         {
           "title": "Risposte online",
@@ -214,26 +214,26 @@ export const it: SiteDict = {
         },
         {
           "title": "Pagamento sicuro",
-          "text": "Con carta o PayPal, in un'unica soluzione, quando l'anteprima vi piace."
+          "text": "Con carta o PayPal, in un'unica soluzione, al momento dell'ordine."
         }
       ],
       "stepsTitle": "Come funziona",
       "steps": [
         {
-          "title": "La vostra richiesta",
-          "text": "Compilate il modulo guidato: nomi, data, luoghi, programma e desideri."
+          "title": "Il vostro ordine",
+          "text": "Qualche informazione, poi il pagamento sicuro online."
         },
         {
-          "title": "La creazione",
-          "text": "Il nostro team compone l'invito nello stile del modello, con i vostri testi."
+          "title": "Le vostre informazioni",
+          "text": "Nel vostro spazio, un modulo guidato: nomi, data, luoghi, programma e risposte degli invitati."
         },
         {
           "title": "La vostra anteprima",
-          "text": "Un link privato per scoprirlo; scriveteci su WhatsApp o via e-mail per chiedere modifiche."
+          "text": "Entro 24 ore, un link privato per scoprire il vostro invito."
         },
         {
-          "title": "Il pagamento",
-          "text": "Quando tutto vi piace, pagate online in tutta sicurezza."
+          "title": "Le vostre modifiche",
+          "text": "Scriveteci su WhatsApp o via e-mail: modifiche illimitate finché tutto vi piace."
         },
         {
           "title": "La pubblicazione",
@@ -262,8 +262,8 @@ export const it: SiteDict = {
       "faqTitle": "Le vostre domande",
       "faq": [
         {
-          "question": "Posso vedere l'invito prima di pagare?",
-          "answer": "Sì. Ricevete prima un'anteprima privata; il pagamento arriva solo dopo la vostra approvazione."
+          "question": "Cosa succede dopo il pagamento?",
+          "answer": "Accedete al vostro spazio per darci i dettagli del vostro evento. Ricevete l'anteprima entro 24 ore, poi le modifiche sono illimitate fino alla vostra completa soddisfazione."
         },
         {
           "question": "Come funzionano le due lingue?",
@@ -279,7 +279,7 @@ export const it: SiteDict = {
         }
       ],
       "ctaTitle": "Iniziamo?",
-      "ctaText": "Inviateci le vostre informazioni: torneremo da voi con l'anteprima."
+      "ctaText": "Ordinate online: ricevete l'anteprima entro 24 ore dall'invio delle vostre informazioni."
     },
   },
   demo: {
@@ -580,6 +580,56 @@ export const it: SiteDict = {
     emailLinkText: "Buone notizie: l'invito di {couple} è pronto. Per pubblicarlo resta solo da pagare {amount}.",
     emailLinkCta: "Paga online (carta o PayPal): {url}",
     emailSignature: "Il team {brand}",
+  },
+  order: {
+    "metaTitle": "Ordina il tuo invito",
+    "eyebrow": "Ordine",
+    "title": "Ordina «{name}»",
+    "intro": "Qualche informazione per iniziare. Subito dopo il pagamento accedi al tuo spazio personale per darci tutti i dettagli del tuo evento.",
+    "howTitle": "Come funziona",
+    "how": [
+        "I tuoi recapiti (1 minuto)",
+        "Pagamento sicuro",
+        "Le tue informazioni nel tuo spazio",
+        "Anteprima entro 24 ore",
+        "Modifiche e link finale"
+    ],
+    "eventType": "Tipo di evento",
+    "eventDateHint": "Se la conosci già: potrai indicarla dopo il pagamento.",
+    "price": "Prezzo",
+    "submit": "Continua al pagamento",
+    "sending": "Un attimo…",
+    "unavailable": "Questo modello non può ancora essere ordinato online. Contattaci per ordinarlo.",
+    "emailSubject": "Il tuo ordine {ref} — completa il pagamento",
+    "emailHeading": "Grazie per il tuo ordine",
+    "emailText": "Il tuo ordine del modello «{template}» per {couple} è registrato. Manca solo il pagamento di {amount} per confermarlo.",
+    "emailAfter": "Subito dopo il pagamento riceverai l'accesso al tuo spazio personale per darci i dettagli del tuo evento.",
+    "paidSubject": "Ordine confermato — completa le tue informazioni",
+    "paidHeading": "Grazie, il tuo ordine è confermato",
+    "paidText": "Abbiamo ricevuto il tuo pagamento di {amount} per l'invito di {couple}.",
+    "paidNext": "Ultimo passo da parte tua: compila il modulo dettagliato (cerimonie, ricevimento, risposte degli invitati…) nel tuo spazio personale. Poi ti inviamo l'anteprima entro 24 ore.",
+    "paidButton": "Completa le mie informazioni",
+    "introOrder": "Paga il tuo ordine in tutta sicurezza. Subito dopo accedi al tuo spazio personale per inviarci i dettagli del tuo evento.",
+    "promiseTitle": "Incluso nel tuo ordine",
+    "promiseRevisions": "Modifiche illimitate fino alla tua completa soddisfazione",
+    "promisePreview": "Anteprima del tuo invito entro 24 ore dal ricevimento delle tue informazioni",
+    "promiseLanguages": "Fino a 2 lingue sullo stesso link",
+    "simulate": "Simula il pagamento (test)",
+    "simulateHint": "Visibile solo al team E-Invitly. Nessun importo viene addebitato.",
+    "paidOrderText": "Il tuo ordine è confermato. Ti abbiamo appena inviato un'e-mail con l'accesso al tuo spazio personale: compila lì le tue informazioni e ti invieremo l'anteprima entro 24 ore.",
+    "bannerPay": "Il tuo ordine è in attesa di pagamento.",
+    "bannerPayButton": "Completa il pagamento",
+    "bannerDetails": "Pagamento ricevuto, grazie! Ci mancano i dettagli del tuo evento per preparare l'anteprima.",
+    "bannerReceived": "Informazioni ricevute: stiamo preparando la tua anteprima (entro 24 ore).",
+    "detailsMeta": "Le tue informazioni",
+    "detailsTitle": "I dettagli del tuo invito",
+    "detailsIntro": "Più sarete precisi, più l'anteprima sarà fedele. Potrete poi chiedere tutte le modifiche che desiderate.",
+    "detailsSend": "Invia le mie informazioni",
+    "detailsSentTitle": "Grazie, ricevuto!",
+    "detailsSent": "Prepariamo il tuo invito e ti inviamo l'anteprima entro 24 ore.",
+    "detailsLocked": "Ci hai inviato le tue informazioni il {date}. Per qualsiasi modifica scrivici su WhatsApp o via e-mail.",
+    "detailsNotPaid": "Questo modulo si apre dopo il pagamento del tuo ordine.",
+    "detailsError": "Invio non riuscito. Controlla la connessione e riprova."
   },
   access: {
     loginButton: "Accedi al mio spazio",

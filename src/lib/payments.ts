@@ -8,6 +8,8 @@ import { dictFor } from "./i18n/server";
 import { formatMoney } from "./payment-amount";
 import { getSettings } from "./settings";
 import { createAdminClient } from "./supabase/admin";
+import { accessLink, ensureAccount } from "./login-link";
+import { orderStateFor } from "./orders";
 
 export type PaymentRow = {
   id: string;
@@ -97,6 +99,12 @@ export async function markPaymentPaid(
   });
 
   const settings = await getSettings();
+  // Commande en ligne : le client reçoit l'accès à son formulaire détaillé (aussi pour un paiement manuel ou simulé)
+  const order = await orderStateFor(db, ctx.payment.invitation_id);
+  if (order.selfService) {
+    await sendOrderPaidEmails(ctx, amount, methodLabel, p, settings);
+    return true;
+  }
   if (p.method !== "manual") {
     const to = ctx.clientEmail || p.payerEmail;
     const m = dictFor(ctx.lang).payment;
@@ -126,4 +134,49 @@ export async function markPaymentPaid(
     }
   }
   return true;
+}
+
+/** Commande en ligne payée : accès direct au formulaire détaillé pour le client, et avis à l'équipe. */
+async function sendOrderPaidEmails(
+  ctx: PaymentContext,
+  amount: string,
+  methodLabel: string,
+  p: { providerRef: string | null; payerEmail: string | null },
+  settings: Awaited<ReturnType<typeof getSettings>>,
+) {
+  const to = ctx.clientEmail || p.payerEmail;
+  const t = dictFor(ctx.lang);
+  const o = t.order;
+  const next = `/mon-espace/${ctx.payment.invitation_id}/informations`;
+  if (to) {
+    await ensureAccount(to);
+    const link = (await accessLink(to, next)) ?? `${env.siteUrl}/connexion?suite=${encodeURIComponent(next)}`;
+    const r = await sendEmail({
+      to,
+      subject: o.paidSubject,
+      heading: o.paidHeading,
+      paragraphs: [fmt(o.paidText, { amount, couple: ctx.couple }), o.paidNext],
+      action: { label: o.paidButton, url: link },
+      after: [
+        fmt(t.access.welcomeLater, { login: `${env.siteUrl.replace(/^https?:\/\//, "")}${localePath(ctx.lang, "/connexion")}` }),
+        fmt(t.payment.emailSignature, { brand: settings.brand.name }),
+      ],
+      lang: ctx.lang,
+    });
+    if (!r.sent) console.warn("[payment] accès formulaire non envoyé :", r.error);
+  }
+  const adminTo = process.env.ADMIN_NOTIFICATION_EMAIL || settings.brand.contactEmail;
+  if (adminTo) {
+    const test = p.providerRef === "SIMULATION";
+    const r = await sendEmail({
+      to: adminTo,
+      subject: `${test ? "[TEST] " : ""}Commande payée — ${ctx.couple}`,
+      heading: test ? "Paiement simulé (test)" : "Commande payée",
+      paragraphs: [
+        `${formatMoney(ctx.payment.amount_cents, ctx.payment.currency)} — ${test ? "simulation, aucun montant encaissé" : `payés par ${methodLabel}`}.`,
+        `Le client a reçu l'accès à son formulaire détaillé. Vous serez prévenue dès qu'il l'aura envoyé : ${env.siteUrl}/admin/invitations/${ctx.payment.invitation_id}`,
+      ],
+    });
+    if (!r.sent) console.warn("[payment] notification équipe non envoyée :", r.error);
+  }
 }

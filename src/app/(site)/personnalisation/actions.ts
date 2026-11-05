@@ -8,7 +8,15 @@ import { env } from "@/lib/env";
 import { hashedClientIp } from "@/lib/net";
 import { getSettings } from "@/lib/settings";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { flattenErrors, requestSchema, type RequestInput } from "@/lib/validation/request";
+import { flattenErrors, orderSchema, requestSchema, type OrderInput, type RequestInput } from "@/lib/validation/request";
+import { LANG_META } from "@/lib/i18n/config";
+import { templateDefinitionSchema } from "@/lib/invitation/schema";
+import { ensureAccount } from "@/lib/login-link";
+import { composeInvitation, rsvpSettings } from "@/lib/orders";
+import { amountFromPriceLabel, formatMoney } from "@/lib/payment-amount";
+import { newPaymentToken, paymentUrl } from "@/lib/payments";
+import { slugFromNames } from "@/lib/slug";
+import { suggestSlug } from "@/lib/slug-db";
 
 export type SubmitResult =
   | { ok: true; reference: string; emailSent: boolean }
@@ -129,4 +137,153 @@ export async function submitRequest(input: RequestInput, uiLang: string = "fr"):
   }
 
   return { ok: true, reference: row.reference, emailSent: confirmation.sent };
+}
+
+export type OrderResult = { ok: true; token: string } | { ok: false; message: string; fieldErrors?: Record<string, string> };
+
+/**
+ * Commande en ligne (paiement avant le formulaire détaillé) :
+ * 1. anti-abus  2. validation  3. demande + invitation (brouillon) + accès client
+ * 4. lien de paiement au prix du modèle (fixé ici, côté serveur)  5. e-mails.
+ * Rien n'est publié : l'équipe prépare l'aperçu après le formulaire détaillé.
+ */
+export async function startOrder(input: OrderInput, uiLang: string = "fr"): Promise<OrderResult> {
+  const l = isSiteLang(uiLang) ? uiLang : "fr";
+  const t = dictFor(l);
+  const err = t.request.errors;
+  const db = createAdminClient();
+  if (!db) return { ok: false, message: err.notConfigured };
+
+  const ipHash = await hashedClientIp();
+  const { data: allowed, error: rlError } = await db.rpc("check_rate_limit", { p_bucket: `order:${ipHash}`, p_limit: 5, p_window_seconds: 3600 });
+  if (rlError) console.error("[order] rate limit", rlError.message);
+  if (allowed === false) return { ok: false, message: err.rate };
+
+  const parsed = orderSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: err.invalid, fieldErrors: flattenErrors(parsed.error) };
+  const data = parsed.data;
+  if (data.website) return { ok: false, message: err.server }; // robot : rien n'est créé
+
+  const { data: template } = await db
+    .from("templates")
+    .select("id, name, status, price_label, template_versions!templates_current_version_fk(id, definition)")
+    .eq("slug", data.templateSlug)
+    .maybeSingle();
+  if (!template || template.status !== "published") return { ok: false, message: err.unavailable };
+  const version = template.template_versions as unknown as { id: string; definition: unknown } | null;
+  const def = templateDefinitionSchema.safeParse(version?.definition);
+  const amount = amountFromPriceLabel(template.price_label);
+  if (!version || !def.success || !amount) return { ok: false, message: t.order.unavailable };
+
+  const formData = { secondLanguage: data.secondLanguage, eventType: data.eventType, selfService: true, orderedAt: new Date().toISOString() };
+  const { data: req, error: reqErr } = await db
+    .from("client_requests")
+    .insert({
+      template_id: template.id,
+      contact_first_name: data.firstName,
+      contact_last_name: data.lastName,
+      email: data.email,
+      phone: data.phone || null,
+      country: data.country,
+      language: data.language,
+      partner_one: data.partnerOne,
+      partner_two: data.partnerTwo,
+      event_date: data.eventDate || null,
+      form_data: formData,
+      consent_at: new Date().toISOString(),
+      ip_hash: ipHash,
+    })
+    .select("id, reference, language, partner_one, partner_two, event_date, form_data")
+    .single();
+  if (reqErr || !req) {
+    console.error("[order] demande", reqErr?.message);
+    return { ok: false, message: err.server };
+  }
+
+  const { content, eventAt } = composeInvitation(def.data, req);
+  let invitationId: string | null = null;
+  for (let attempt = 0; attempt < 3 && !invitationId; attempt++) {
+    const slug = await suggestSlug(db, slugFromNames(data.partnerOne, data.partnerTwo));
+    const { data: inv, error: insErr } = await db
+      .from("invitations")
+      .insert({
+        request_id: req.id,
+        template_id: template.id,
+        template_version_id: version.id,
+        renderer: def.data.renderer,
+        slug,
+        title: `${data.partnerOne} & ${data.partnerTwo}`,
+        partner_one: data.partnerOne,
+        partner_two: data.partnerTwo,
+        client_email: data.email,
+        status: "draft",
+        event_at: eventAt,
+        timezone: content.timezone,
+        language: data.language,
+        draft_content: content,
+        internal_notes: `Commande en ligne ${req.reference} : en attente du paiement, puis du formulaire détaillé du client.`,
+      })
+      .select("id")
+      .single();
+    if (inv) invitationId = inv.id;
+    else if (insErr?.code !== "23505") {
+      console.error("[order] invitation", insErr?.message);
+      return { ok: false, message: err.server };
+    }
+  }
+  if (!invitationId) return { ok: false, message: err.server };
+
+  const token = newPaymentToken();
+  const [payRes, rsvpRes, accessRes, upRes] = await Promise.all([
+    db.from("payments").insert({
+      invitation_id: invitationId,
+      token,
+      amount_cents: amount,
+      currency: "EUR",
+      description: `${template.name} — ${data.partnerOne} & ${data.partnerTwo}`,
+    }),
+    db.from("rsvp_forms").insert({ invitation_id: invitationId, ...rsvpSettings(null, content) }),
+    db.from("invitation_access").insert({ invitation_id: invitationId, email: data.email, role: "owner" }),
+    db.from("client_requests").update({ status: "converted", invitation_id: invitationId }).eq("id", req.id),
+  ]);
+  if (payRes.error) {
+    console.error("[order] paiement", payRes.error.message);
+    return { ok: false, message: err.server };
+  }
+  for (const r of [rsvpRes, accessRes, upRes]) if (r.error) console.error("[order]", r.error.message);
+  // Compte de l'espace client (connexion par lien e-mail, sans mot de passe)
+  if (!(await ensureAccount(data.email))) console.warn("[order] compte client non créé");
+
+  const couple = `${data.partnerOne} & ${data.partnerTwo}`;
+  await logActivity({ action: "order.created", resourceType: "invitation", resourceId: invitationId, summary: `Commande en ligne ${req.reference} — ${couple} (${template.name}), paiement en attente` });
+
+  const settings = await getSettings();
+  const o = t.order;
+  const price = formatMoney(amount, "EUR", LANG_META[l].intl);
+  const mail = await sendEmail({
+    to: data.email,
+    subject: fmt(o.emailSubject, { ref: req.reference }),
+    heading: o.emailHeading,
+    paragraphs: [fmt(t.email.hello, { name: data.firstName }), fmt(o.emailText, { template: template.name, couple, amount: price })],
+    action: { label: t.payment.payButton, url: paymentUrl(token, l) },
+    after: [o.emailAfter, fmt(t.email.signature, { brand: settings.brand.name })],
+    lang: l,
+  });
+  if (!mail.sent) console.warn("[order] e-mail client non envoyé :", mail.error);
+
+  const adminTo = process.env.ADMIN_NOTIFICATION_EMAIL || settings.brand.contactEmail;
+  if (adminTo && settings.notifications.notifyOnNewRequest) {
+    const notice = await sendEmail({
+      to: adminTo,
+      subject: `Nouvelle commande ${req.reference} (paiement en attente)`,
+      heading: "Nouvelle commande en ligne",
+      paragraphs: [
+        `${data.firstName} ${data.lastName} (${data.email}) — modèle ${template.name}, ${price}.`,
+        `Couple : ${couple}${data.eventDate ? `, le ${data.eventDate}` : ""}. Langue : ${data.language.toUpperCase()}${data.secondLanguage && data.secondLanguage !== data.language ? ` + ${data.secondLanguage.toUpperCase()} (bilingue)` : ""}.`,
+        `Le client va payer puis remplir son formulaire détaillé. Suivi : ${env.siteUrl}/admin/invitations/${invitationId}`,
+      ],
+    });
+    if (!notice.sent) console.warn("[order] e-mail admin non envoyé :", notice.error);
+  }
+  return { ok: true, token };
 }

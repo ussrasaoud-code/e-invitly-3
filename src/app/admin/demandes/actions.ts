@@ -1,23 +1,17 @@
 "use server";
 
-import { usedGroups } from "@/lib/invitation/audience";
-import { newGroupToken } from "@/lib/publication";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { logActivity } from "@/lib/audit";
 import { requireStaff } from "@/lib/auth";
-import { buildInvitationFromRequest, type RequestFormData } from "@/lib/invitation/from-request";
-import { contentFor, getVariant } from "@/lib/invitation/variants";
-import { newAlt } from "@/lib/invitation/bilingual";
-import { DEFAULT_RSVP_FIELDS, cleanQuestions, rsvpChoicesSchema } from "@/lib/rsvp";
 import { sendWelcomeEmail } from "@/lib/login-link";
-import { LANGUAGES, templateDefinitionSchema, type Language } from "@/lib/invitation/schema";
+import { templateDefinitionSchema } from "@/lib/invitation/schema";
+import { composeInvitation, privateLinksFor, rsvpSettings } from "@/lib/orders";
 import { slugFromNames } from "@/lib/slug";
 import { suggestSlug } from "@/lib/slug-db";
 import { REQUEST_STATUS, REQUEST_STATUSES } from "@/lib/status";
 import { createClient } from "@/lib/supabase/server";
-import { zonedToUtc } from "@/lib/time";
 
 const id = z.string().uuid();
 
@@ -89,21 +83,7 @@ export async function convertRequestToInvitation(form: FormData) {
     throw new Error("Le modèle de cette demande n'a pas de version valide. Choisissez un modèle avant de convertir.");
   }
 
-  const formData = { ...(req.form_data as Partial<RequestFormData>), partnerOne: req.partner_one ?? "", partnerTwo: req.partner_two ?? "", eventDate: req.event_date ?? "", language: req.language };
-  // Version du modèle dans la langue choisie par le client (sinon la version principale, à traduire)
-  const built = buildInvitationFromRequest(contentFor(def.data, req.language), formData as RequestFormData);
-  const { notesToReview } = built;
-  // Invitation bilingue demandée : deuxième version (textes du modèle traduit s'il existe, sinon à traduire)
-  const second = (req.form_data as { secondLanguage?: string } | null)?.secondLanguage;
-  let content = built.content;
-  if (second && second !== content.language && (LANGUAGES as readonly string[]).includes(second)) {
-    const lang2 = second as Language;
-    const variant = getVariant(def.data, lang2);
-    const tplMain = contentFor(def.data, req.language);
-    content = { ...content, alt: newAlt(content, lang2, variant ? { main: tplMain, variant } : null) };
-    notesToReview.push(`Invitation bilingue : vérifier la version ${lang2.toUpperCase()} (« Textes à traduire » dans l'éditeur).`);
-  }
-  const eventAt = content.eventAt ? zonedToUtc(content.eventAt, content.timezone)?.toISOString() ?? null : null;
+  const { content, notes: notesToReview, eventAt } = composeInvitation(def.data, req);
 
   let invitationId: string | null = null;
   for (let attempt = 0; attempt < 3 && !invitationId; attempt++) {
@@ -136,32 +116,14 @@ export async function convertRequestToInvitation(form: FormData) {
   if (!invitationId) throw new Error("Impossible de réserver une adresse libre. Réessayez.");
 
   // Moments réservés à une partie des invités : un lien privé par groupe
-  const groups = usedGroups(content);
-  if (groups.length) {
-    const private_links = Object.fromEntries(groups.map((g) => [g.id, newGroupToken()]));
+  const private_links = privateLinksFor(content);
+  if (private_links) {
     const { error: gErr } = await supabase.from("invitations").update({ private_links }).eq("id", invitationId);
     if (gErr) console.error("[convert] liens privés", gErr.message);
   }
 
-  const deadline = content.rsvp.deadline ? zonedToUtc(`${content.rsvp.deadline}T23:59`, content.timezone)?.toISOString() : null;
   // Formulaire de réponse : choix des mariés dans leur demande, sinon réglages par défaut
-  const chosen = rsvpChoicesSchema.safeParse((req.form_data as { details?: { rsvp?: unknown } } | null)?.details?.rsvp);
-  const cleaned = chosen.success ? cleanQuestions(chosen.data.questions) : null;
-  const rsvpRow = chosen.success
-    ? {
-        invitation_id: invitationId,
-        deadline,
-        fields: { ...DEFAULT_RSVP_FIELDS, ...chosen.data.fields },
-        max_companions: chosen.data.maxCompanions,
-        custom_questions: cleaned?.ok ? cleaned.questions : [],
-      }
-    : {
-        invitation_id: invitationId,
-        deadline,
-        fields: { lastName: true, companions: true, companionNames: true, events: content.events.length > 1, dietary: false, childMenus: false, comment: true },
-        max_companions: 1,
-        custom_questions: [] as unknown[],
-      };
+  const rsvpRow = { invitation_id: invitationId, ...rsvpSettings(req.form_data, content) };
   const [rsvpRes, accessRes, reqRes] = await Promise.all([
     supabase.from("rsvp_forms").insert(rsvpRow),
     supabase.from("invitation_access").insert({ invitation_id: invitationId, email: req.email, role: "owner", granted_by: user.id }),

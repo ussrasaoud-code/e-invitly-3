@@ -6,14 +6,14 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { fmt, isSiteLang, localePath } from "@/lib/i18n/config";
 import { getDict, getEnabledLangs } from "@/lib/i18n/server";
 import { getPublishedTemplate, localizeTemplate } from "@/lib/templates";
-import { RequestForm } from "./RequestForm";
+import { QuickOrderForm } from "./QuickOrderForm";
 
 type Params = Promise<{ modele: string }>;
 type Search = Promise<{ langue?: string }>;
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getDict();
-  return { title: t.request.metaTitle, robots: { index: false } };
+  return { title: t.order.metaTitle, robots: { index: false } };
 }
 
 export default async function PersonalisationPage({ params, searchParams }: { params: Params; searchParams: Search }) {
@@ -31,6 +31,7 @@ export default async function PersonalisationPage({ params, searchParams }: { pa
   if (!found) notFound();
   const template = localizeTemplate(found.template, lang);
   const r = t.request;
+  const o = t.order;
   // Langue de l'invitation proposée : celle choisie dans la démo, sinon celle du site
   const enabled = await getEnabledLangs();
   const wanted = isSiteLang(langue) ? langue : lang;
@@ -39,11 +40,25 @@ export default async function PersonalisationPage({ params, searchParams }: { pa
     <main className="px-5 pb-24 pt-10 md:pt-14">
       <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1fr_300px]">
         <div>
-          <p className="eyebrow">{r.eyebrow}</p>
-          <h1 className="mt-3 font-serif text-4xl md:text-5xl">{fmt(r.title, { name: template.name })}</h1>
-          <p className="mt-4 max-w-2xl leading-relaxed text-stone">{r.intro}</p>
+          <p className="eyebrow">{o.eyebrow}</p>
+          <h1 className="mt-3 font-serif text-4xl md:text-5xl">{fmt(o.title, { name: template.name })}</h1>
+          <p className="mt-4 max-w-2xl leading-relaxed text-stone">{o.intro}</p>
+          <ol className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-stone" aria-label={o.howTitle}>
+            {o.how.map((step, i) => (
+              <li key={step} className="flex items-center gap-2">
+                <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${i === 0 ? "bg-forest text-ivory" : "border border-line"}`}>{i + 1}</span>
+                {step}
+              </li>
+            ))}
+          </ol>
+          {template.price_label ? (
+            <p className="mt-6 lg:hidden">
+              <span className="text-sm text-stone">{o.price} · </span>
+              <span className="font-serif text-2xl font-semibold text-forest">{template.price_label}</span>
+            </p>
+          ) : null}
           <div className="mt-10">
-            <RequestForm templateSlug={template.slug} templateName={template.name} t={r} rsvpT={t.rsvpSetup} lang={lang} invitationLang={invitationLang} languages={enabled} />
+            <QuickOrderForm templateSlug={template.slug} category={template.category} t={{ request: r, order: o, categories: t.categories }} lang={lang} invitationLang={invitationLang} languages={enabled} />
           </div>
         </div>
         <aside className="hidden lg:block">
@@ -54,6 +69,7 @@ export default async function PersonalisationPage({ params, searchParams }: { pa
             ) : null}
             <p className="mt-4 font-serif text-2xl">{template.name}</p>
             <p className="mt-1 text-sm text-stone">{template.short_description}</p>
+            {template.price_label ? <p className="mt-3 font-serif text-3xl font-semibold text-forest">{template.price_label}</p> : null}
             <Link href={localePath(lang, `/demo/${template.slug}?langue=${invitationLang}`)} className="mt-3 inline-block text-sm text-forest underline underline-offset-4" target="_blank">
               {r.revisit}
             </Link>

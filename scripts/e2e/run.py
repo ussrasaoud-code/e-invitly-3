@@ -110,68 +110,61 @@ with sync_playwright() as p:
     page.wait_for_timeout(2500)
     page.screenshot(path=SHOTS / "06-demo-province.png")
 
-    # ── Scénario 1 : demande ─────────────────────────────────────────
+    # ── Scénario 1 : commande en ligne (petit formulaire → paiement) ──
     page.goto(f"{BASE}/personnalisation/the-garden")
-    page.get_by_role("button", name="Continuer").click()
+    expect(page.get_by_role("heading", name=re.compile("Commander"))).to_be_visible()
+    page.get_by_role("button", name="Continuer vers le paiement").click()
     expect(page.get_by_text("Indiquez votre prénom")).to_be_visible()
-    ok("formulaire : messages d'erreur clairs")
-    page.get_by_label("Prénom", exact=True).fill("Mark")
-    page.get_by_label("Nom", exact=True).fill("Doe")
-    page.get_by_label("Adresse e-mail").fill("mark@example.test")
-    page.get_by_role("button", name="Continuer").click()
-    page.get_by_label("Prénom de la première personne").fill("Mark")
-    page.get_by_label("Prénom de la seconde personne").fill("Alice")
-    page.get_by_label("Date de l'événement").fill("2027-09-18")
-    page.get_by_role("button", name="Continuer").click()
-    page.get_by_role("button", name="+ Cérémonie civile").click()
-    page.get_by_label("Début de la cérémonie").fill("11:00")
-    page.get_by_text("Afficher cette cérémonie sur l'invitation").click()
-    page.get_by_role("button", name="+ Cérémonie laïque").click()
-    page.get_by_label("Lieu").nth(1).fill("Château de la Colle")
-    page.get_by_label("Début de la cérémonie").nth(1).fill("16:00")
-    page.screenshot(path=SHOTS / "07-formulaire-ceremonies.png", full_page=True)
-    page.get_by_role("button", name="Continuer").click()
-    page.get_by_label("Nom du lieu de réception").fill("Château de la Colle")
-    page.get_by_label(re.compile(r"^Heure\s*(\(facultatif\))?$")).nth(0).fill("17:30")
-    page.get_by_label(re.compile(r"^Petit mot")).nth(0).fill("Rafraîchissements et musique live")
-    page.get_by_label(re.compile(r"^Heure\s*(\(facultatif\))?$")).nth(1).fill("20:00")
-    page.get_by_role("button", name="Retirer : Pièce montée").click()
-    page.get_by_label("Heure de fin").fill("02:00")
-    page.get_by_label("Stationnement").fill("Parking dans la cour")
-    page.get_by_role("button", name="Continuer").click()
-    page.get_by_label("Contacts des témoins").fill("Léo (témoin de Mark) 06 11 22 33 44")
-    # Les mariés choisissent ce que le formulaire de réponse demande
-    page.get_by_label("Régime alimentaire / allergies").check()
-    page.get_by_role("button", name="+ Ajouter une question").click()
-    page.get_by_label("Question 1").fill("Avez-vous besoin d'une navette ?")
-    page.get_by_label("Type de réponse").select_option("yesno")
-    page.get_by_role("button", name="Continuer").click()
-    expect(page.get_by_text("Mark & Alice").first).to_be_visible()
-    page.get_by_role("button", name="Envoyer ma demande").click()
-    expect(page.get_by_text("Votre accord est nécessaire")).to_be_visible()
+    ok("commande : messages d'erreur clairs")
+    page.get_by_label("Prénom", exact=True).fill("Sami")
+    page.get_by_label("Nom", exact=True).fill("Haddad")
+    page.get_by_label("Adresse e-mail").fill("sami@example.test")
+    page.get_by_label("Type d'événement").select_option("mariage")
+    page.get_by_label("Prénom de la première personne").fill("Sami")
+    page.get_by_label("Prénom de la seconde personne").fill("Lina")
     page.locator("input[type=checkbox]").last.check()
-    page.screenshot(path=SHOTS / "08-formulaire-verification.png", full_page=True)
-    page.get_by_role("button", name="Envoyer ma demande").click()
-    page.wait_for_url(re.compile(r"/personnalisation/merci"), timeout=20000)
-    ref = re.search(r"EI-\d{4}-\d{4}", page.content()).group(0)
-    page.screenshot(path=SHOTS / "09-merci.png")
-    ok(f"scénario 1 : demande enregistrée ({ref})")
-    assert api("GET", "/rest/v1/invitations?select=id") == [], "aucune invitation ne doit être créée"
-    ok("scénario 1 : aucune invitation créée automatiquement")
+    page.screenshot(path=SHOTS / "07-commande.png", full_page=True)
+    page.get_by_role("button", name="Continuer vers le paiement").click()
+    page.wait_for_url(re.compile(r"/paiement/[A-Za-z0-9_-]+$"), timeout=20000)
+    order_pay_url = page.url
+    expect(page.get_by_text("Retouches illimitées jusqu'à votre entière satisfaction")).to_be_visible()
+    expect(page.get_by_text("Aperçu de votre invitation sous 24 h après réception de vos informations")).to_be_visible()
+    assert page.get_by_role("button", name="Simuler le paiement (test)").count() == 0, "bouton de test visible par un visiteur"
+    page.screenshot(path=SHOTS / "08-commande-paiement.png", full_page=True)
+    order = api("GET", "/rest/v1/client_requests?email=eq.sami@example.test&select=id,reference,form_data,invitation_id,status")[0]
+    assert order["form_data"]["selfService"] is True and order["invitation_id"] and order["status"] == "converted", order
+    oinv = api("GET", f"/rest/v1/invitations?id=eq.{order['invitation_id']}&select=slug,status")[0]
+    assert oinv["status"] == "draft" and oinv["slug"].startswith("sami-lina"), oinv
+    opay = api("GET", f"/rest/v1/payments?invitation_id=eq.{order['invitation_id']}&select=status,amount_cents")[0]
+    assert opay["status"] == "pending" and opay["amount_cents"] > 0, opay
+    ok(f"scénario 1 : commande {order['reference']} → brouillon, accès client et paiement au prix du modèle ; pas de bouton de test pour le visiteur")
 
-    # Seconde demande (Naomi & Kate) directement par le formulaire
-    page.goto(f"{BASE}/personnalisation/province")
-    page.get_by_label("Prénom", exact=True).fill("Naomi"); page.get_by_label("Nom", exact=True).fill("Lee")
-    page.get_by_label("Adresse e-mail").fill("naomi@example.test")
-    page.get_by_role("button", name="Continuer").click()
-    page.get_by_label("Prénom de la première personne").fill("Naomi"); page.get_by_label("Prénom de la seconde personne").fill("Kate")
-    page.get_by_label("Date de l'événement").fill("2027-07-03")
-    for _ in range(4): page.get_by_role("button", name="Continuer").click()
-    page.locator("input[type=checkbox]").last.check()
-    page.get_by_role("button", name="Envoyer ma demande").click()
-    page.wait_for_url(re.compile(r"/personnalisation/merci"), timeout=20000)
+    # Demandes « à l'ancienne » (formulaire complet), toujours traitées par l'équipe
+    def legacy_request(tpl_slug, first, last, email, p1, p2, date, form):
+        tpl = api("GET", f"/rest/v1/templates?slug=eq.{tpl_slug}&select=id")[0]
+        base = {"firstName": first, "lastName": last, "email": email, "phone": "", "country": "France", "language": "fr", "secondLanguage": "",
+                "partnerOne": p1, "partnerTwo": p2, "eventDate": date, "introText": "", "ceremonies": [],
+                "reception": {"venueName": "", "address": "", "date": "", "arrivalTime": "", "moments": [], "endTime": "", "cocktailTime": "", "dinnerTime": "", "otherTimes": "", "mapsUrl": "", "parking": "", "shuttles": "", "lodging": ""},
+                "details": {"dressCode": "", "rsvpDeadline": "", "program": "", "witnesses": "", "phoneNumbers": "", "customText": "", "preferences": "", "photos": "", "music": "", "comments": ""}}
+        for k, v in form.items():
+            base[k] = {**base[k], **v} if isinstance(v, dict) else v
+        return api("POST", "/rest/v1/client_requests", {
+            "template_id": tpl["id"], "contact_first_name": first, "contact_last_name": last, "email": email, "country": "France", "language": "fr",
+            "partner_one": p1, "partner_two": p2, "event_date": date, "form_data": base, "consent_at": "2026-11-01T10:00:00Z",
+        })[0]
+    cer = lambda **k: {"type": "civil", "label": "", "showOnInvitation": True, "restricted": False, "guestGroup": "", "venueName": "", "address": "", "date": "", "arrivalTime": "", "startTime": "", "notes": "", **k}
+    ref = legacy_request("the-garden", "Mark", "Doe", "mark@example.test", "Mark", "Alice", "2027-09-18", {
+        "ceremonies": [cer(startTime="11:00", showOnInvitation=False), cer(type="secular", venueName="Château de la Colle", startTime="16:00")],
+        "reception": {"venueName": "Château de la Colle", "endTime": "02:00", "parking": "Parking dans la cour", "moments": [
+            {"kind": "cocktail", "title": "Cocktail", "time": "17:30", "note": "Rafraîchissements et musique live"},
+            {"kind": "dinner", "title": "Dîner", "time": "20:00", "note": ""},
+            {"kind": "party", "title": "Soirée dansante", "time": "", "note": ""}]},
+        "details": {"witnesses": "Léo (témoin de Mark) 06 11 22 33 44", "rsvp": {"fields": {"dietary": True}, "maxCompanions": 1,
+            "questions": [{"id": "", "label": "Avez-vous besoin d'une navette ?", "type": "yesno", "options": [], "required": False}]}},
+    })["reference"]
+    legacy_request("province", "Naomi", "Lee", "naomi@example.test", "Naomi", "Kate", "2027-07-03", {})
     assert not errors, errors
-    ok("seconde demande enregistrée, aucune erreur JavaScript côté visiteur")
+    ok("demandes complètes enregistrées, aucune erreur JavaScript côté visiteur")
 
     # ── Administration (desktop) ─────────────────────────────────────
     ensure_user("admin@e-invitly.test", "admin")
@@ -187,6 +180,62 @@ with sync_playwright() as p:
     expect(a.get_by_role("heading", name="Vue d'ensemble")).to_be_visible()
     a.screenshot(path=SHOTS / "10-admin-vue-ensemble.png", full_page=True)
     ok("connexion par lien magique (PKCE) → administration")
+
+    # ── Commande en ligne : paiement simulé par l'équipe, puis formulaire détaillé du client ──
+    oid = order["invitation_id"]
+    a.goto(f"{BASE}/admin/invitations/{oid}")
+    expect(a.get_by_text("paiement en attente")).to_be_visible()
+    outbox_before = MAILBOX.read_text() if MAILBOX.exists() else ""
+    a.goto(order_pay_url)
+    a.get_by_role("button", name="Simuler le paiement (test)").click()
+    expect(a.get_by_text("Votre commande est confirmée")).to_be_visible(timeout=15000)
+    sim = api("GET", f"/rest/v1/payments?invitation_id=eq.{oid}&select=status,method,provider_ref")[0]
+    assert sim == {"status": "paid", "method": "manual", "provider_ref": "SIMULATION"}, sim
+    link = None
+    for _ in range(30):
+        m = re.findall(r"sami@example\.test (\S*/auth/confirm\S*)", (MAILBOX.read_text())[len(outbox_before):])
+        if m:
+            link = m[-1]; break
+        time.sleep(0.3)
+    assert link and "informations" in link, link
+    ok("paiement simulé (réservé à l'équipe) → e-mail au client avec l'accès direct à son formulaire")
+
+    sc = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+    sc.goto(link)
+    sc.wait_for_url(re.compile(rf"/mon-espace/{oid}/informations"), timeout=20000)
+    expect(sc.get_by_role("heading", name="Les détails de votre invitation")).to_be_visible()
+    expect(sc.get_by_label("Prénom de la première personne")).to_have_value("Sami")
+    sc.wait_for_load_state("networkidle")
+    sc.get_by_label("Date de l'événement").fill("2027-05-22")
+    sc.get_by_role("button", name="Continuer").click()
+    sc.get_by_role("button", name="+ Cérémonie religieuse").click()
+    sc.get_by_label("Lieu").fill("Mosquée de Paris")
+    sc.get_by_label("Début de la cérémonie").fill("14:00")
+    sc.get_by_role("button", name="Continuer").click()
+    sc.get_by_label("Nom du lieu de réception").fill("Domaine des Oliviers")
+    sc.get_by_label(re.compile(r"^Heure\s*(\(facultatif\))?$")).nth(1).fill("20:30")
+    sc.get_by_role("button", name="Continuer").click()
+    sc.get_by_label("Menus enfant").check()
+    sc.get_by_role("button", name="Continuer").click()
+    expect(sc.get_by_text("Sami & Lina").first).to_be_visible()
+    sc.screenshot(path=SHOTS / "09-commande-informations.png", full_page=True)
+    sc.get_by_role("button", name="Envoyer mes informations").click()
+    expect(sc.get_by_text("Merci, c'est bien reçu !")).to_be_visible(timeout=20000)
+    oinv = api("GET", f"/rest/v1/invitations?id=eq.{oid}&select=status,draft_content,event_at")[0]
+    assert oinv["status"] == "customizing", oinv["status"]
+    assert [e["title"] for e in oinv["draft_content"]["events"]] == ["Cérémonie religieuse", "Dîner"], oinv["draft_content"]["events"]
+    assert oinv["draft_content"]["eventAt"] == "2027-05-22T14:00", oinv["draft_content"]["eventAt"]
+    orf = api("GET", f"/rest/v1/rsvp_forms?invitation_id=eq.{oid}&select=fields")[0]
+    assert orf["fields"]["childMenus"] is True, orf
+    assert api("GET", f"/rest/v1/client_requests?id=eq.{order['id']}&select=form_data")[0]["form_data"].get("detailsAt")
+    sc.goto(f"{BASE}/mon-espace/{oid}/informations")
+    expect(sc.get_by_text("Vos informations nous ont été envoyées")).to_be_visible()
+    sc.goto(f"{BASE}/mon-espace")
+    expect(sc.get_by_text("Informations reçues")).to_be_visible()
+    a.goto(f"{BASE}/admin/invitations/{oid}")
+    expect(a.get_by_text("formulaire détaillé reçu")).to_be_visible()
+    sc.context.close()
+    ok("formulaire détaillé dans l'espace client : invitation préremplie, RSVP réglé, envoi unique, équipe prévenue")
 
     a.goto(f"{BASE}/admin/demandes")
     expect(a.get_by_role("link", name=ref)).to_be_visible()
@@ -1138,28 +1187,10 @@ with sync_playwright() as p:
 
     # ── Groupes d'invités : la mairie réservée à la famille proche, avec son lien privé ──
     v = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
-    v.goto(f"{BASE}/personnalisation/province")
-    v.get_by_label("Prénom", exact=True).fill("Yasmine"); v.get_by_label("Nom", exact=True).fill("Benali")
-    v.get_by_label("Adresse e-mail").fill("yasmine@example.test")
-    v.get_by_role("button", name="Continuer").click()
-    v.get_by_label("Prénom de la première personne").fill("Yasmine"); v.get_by_label("Prénom de la seconde personne").fill("Karim")
-    v.get_by_label("Date de l'événement").fill("2027-06-12")
-    v.get_by_role("button", name="Continuer").click()
-    v.get_by_role("button", name="+ Cérémonie civile").click()
-    v.get_by_label("Lieu").fill("Mairie de Lyon 3e")
-    v.get_by_label("Début de la cérémonie").fill("11:00")
-    v.get_by_label("Qui est invité à ce moment ?").select_option("some")
-    v.get_by_label("Nom de ce groupe d'invités").fill("Famille proche")
-    v.screenshot(path=SHOTS / "50-groupe-invites.png", full_page=True)
-    v.get_by_role("button", name="Continuer").click()
-    v.get_by_label("Nom du lieu de réception").fill("Salle Andalouse")
-    v.get_by_label(re.compile(r"^Heure\s*(\(facultatif\))?$")).nth(1).fill("20:00")
-    v.get_by_role("button", name="Continuer").click()
-    v.get_by_role("button", name="Continuer").click()
-    expect(v.get_by_text("réservé : Famille proche")).to_be_visible()
-    v.locator("input[type=checkbox]").last.check()
-    v.get_by_role("button", name="Envoyer ma demande").click()
-    v.wait_for_url(re.compile(r"/personnalisation/merci"), timeout=20000)
+    legacy_request("province", "Yasmine", "Benali", "yasmine@example.test", "Yasmine", "Karim", "2027-06-12", {
+        "ceremonies": [cer(venueName="Mairie de Lyon 3e", startTime="11:00", restricted=True, guestGroup="Famille proche")],
+        "reception": {"venueName": "Salle Andalouse", "moments": [{"kind": "dinner", "title": "Dîner", "time": "20:00", "note": ""}]},
+    })
     req = api("GET", "/rest/v1/client_requests?email=eq.yasmine@example.test&select=id")[0]
     a.goto(f"{BASE}/admin/demandes/{req['id']}")
     expect(a.get_by_text("réservé à une partie des invités : Famille proche")).to_be_visible()
@@ -1307,13 +1338,13 @@ with sync_playwright() as p:
     en.goto(f"{BASE}/es/invitations")
     en.wait_for_url(re.compile(r"/invitations$"))  # espagnol pas encore ouvert → français
     en.goto(f"{BASE}/en/personnalisation/the-garden")
-    expect(en.get_by_role("heading", name="Your details")).to_be_visible()
-    en.get_by_role("button", name="Continue").click()
+    expect(en.get_by_role("heading", name=re.compile("^Order"))).to_be_visible()
+    en.get_by_role("button", name="Continue to payment").click()
     expect(en.get_by_text("Please enter your first name")).to_be_visible()
     en.get_by_role("button", name=re.compile("Site language")).click()
     en.get_by_role("link", name="Français").click()
     en.wait_for_url(re.compile(r"/personnalisation/the-garden$"))
-    expect(en.get_by_role("heading", name="Vos coordonnées")).to_be_visible()
+    expect(en.get_by_role("heading", name=re.compile("^Commander"))).to_be_visible()
     en.context.close()
     ok("langues : bandeau dans la langue du téléphone, site en arabe (droite à gauche), choix mémorisé, langue fermée, formulaire traduit")
 

@@ -169,6 +169,38 @@ export const requestSchema = z.object({
 });
 
 export type RequestInput = z.input<typeof requestSchema>;
+
+/** Types d'événement proposés à la commande (mêmes valeurs que les catégories du catalogue) */
+export const ORDER_EVENT_TYPES = ["mariage", "fiancailles", "anniversaire", "bapteme", "graduation", "autre"] as const;
+
+/**
+ * Commande en ligne : petit formulaire avant le paiement. Le formulaire
+ * détaillé (cérémonies, réception, RSVP…) est rempli après, dans l'espace client.
+ */
+export const orderSchema = z.object({
+  ...contactStep.shape,
+  eventType: z.enum(ORDER_EVENT_TYPES).default("mariage"),
+  partnerOne: coupleStep.shape.partnerOne,
+  partnerTwo: coupleStep.shape.partnerTwo,
+  /** Facultative ici (demandée dans le formulaire détaillé) */
+  eventDate: z
+    .string()
+    .regex(/^(\d{4}-\d{2}-\d{2})?$/, "Date invalide")
+    .refine((v) => !v || new Date(`${v}T23:59:59`) >= new Date(Date.now() - 86_400_000), "La date doit être à venir")
+    .optional()
+    .default(""),
+  ...reviewStep.shape,
+  templateSlug: z.string().trim().max(80),
+});
+export type OrderInput = z.input<typeof orderSchema>;
+
+/** Formulaire détaillé rempli dans l'espace client après le paiement */
+export const detailsSchema = z.object({
+  ...coupleStep.shape,
+  ...ceremoniesStep.shape,
+  ...receptionStep.shape,
+  ...detailsStep.shape,
+});
 export type RequestData = z.output<typeof requestSchema>;
 
 export const STEP_SCHEMAS = [contactStep, coupleStep, ceremoniesStep, receptionStep, detailsStep, reviewStep] as const;

@@ -10,6 +10,11 @@ import { getSettings } from "@/lib/settings";
 import { isStripeConfigured } from "@/lib/stripe";
 import { confirmStripePayment } from "@/lib/stripe-confirm";
 import { PayButtons } from "./PayButtons";
+import { simulatePayment } from "./simulate-action";
+import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
+import { orderStateFor } from "@/lib/orders";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type Props = { params: Promise<{ token: string }>; searchParams: Promise<{ stripe?: string; session_id?: string }> };
 
@@ -39,6 +44,12 @@ export default async function PaymentPage({ params, searchParams }: Props) {
   // Les lectures d'une même page sont mises en commun par Next.js : on reprend le résultat de la vérification
   const payment = confirmed && ctx.payment.status === "pending" ? { ...ctx.payment, status: "paid" as const, paid_at: new Date().toISOString() } : ctx.payment;
   const { brand } = await getSettings();
+  const o = t.order;
+  const db = createAdminClient();
+  const order = db ? await orderStateFor(db, payment.invitation_id) : null;
+  const selfService = !!order?.selfService;
+  const user = await getCurrentUser();
+  const staff = user?.role === "admin" || user?.role === "collaborator";
   const intl = LANG_META[lang].intl;
   const amount = formatMoney(payment.amount_cents, payment.currency, intl);
   const paypalId = isPayPalConfigured() ? process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? null : null;
@@ -68,24 +79,44 @@ export default async function PaymentPage({ params, searchParams }: Props) {
             </div>
           </dl>
 
+          {selfService ? (
+            <div className="mt-6 rounded-sm bg-paper/70 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-stone">{o.promiseTitle}</p>
+              <ul className="mt-3 space-y-2 text-sm">
+                {[o.promiseRevisions, o.promisePreview, o.promiseLanguages].map((x) => (
+                  <li key={x} className="flex items-start gap-2">
+                    <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-forest" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="m5 12 4.5 4.5L19 7" />
+                    </svg>
+                    {x}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           <div className="mt-8">
             {payment.status === "paid" ? (
               <div role="status" className="text-center">
                 <Sprig className="mx-auto h-20 w-12 text-forest" fill="#A6B5A2" />
-                <p className="mt-4 leading-relaxed">{m.paidText}</p>
+                <p className="mt-4 leading-relaxed">{selfService ? o.paidOrderText : m.paidText}</p>
                 {payment.paid_at ? (
                   <p className="mt-2 text-sm text-stone">
                     {fmt(m.paidOn, { date: new Intl.DateTimeFormat(intl, { dateStyle: "long" }).format(new Date(payment.paid_at)) })}
                   </p>
+                ) : null}
+                {selfService && !order?.detailsAt ? (
+                  <Link href={`/mon-espace/${payment.invitation_id}/informations`} className="btn btn-primary mt-5">{o.paidButton}</Link>
                 ) : null}
               </div>
             ) : payment.status === "cancelled" ? (
               <p role="alert" className="text-center text-stone">{m.cancelled}</p>
             ) : !paypalId && !stripeOn ? (
               <p role="alert" className="text-center text-stone">{m.unavailable}</p>
-            ) : (
+            ) : null}
+            {payment.status === "pending" && (paypalId || stripeOn) ? (
               <>
-                <p className="mb-5 text-center text-sm text-stone">{m.intro}</p>
+                <p className="mb-5 text-center text-sm text-stone">{selfService ? o.introOrder : m.intro}</p>
                 {stripe === "annule" ? <p className="mb-4 text-center text-sm text-stone">{m.cancelledByUser}</p> : null}
                 <PayButtons
                   token={token}
@@ -98,7 +129,14 @@ export default async function PaymentPage({ params, searchParams }: Props) {
                 />
                 {testMode ? <p className="mt-4 text-center text-xs text-warning">{m.testMode}</p> : null}
               </>
-            )}
+            ) : null}
+            {payment.status === "pending" && staff ? (
+              <form action={simulatePayment} className="mt-6 border-t border-dashed border-line pt-5 text-center">
+                <input type="hidden" name="token" value={token} />
+                <button type="submit" className="btn btn-secondary btn-sm">{o.simulate}</button>
+                <p className="mt-2 text-xs text-stone">{o.simulateHint}</p>
+              </form>
+            ) : null}
           </div>
         </section>
 

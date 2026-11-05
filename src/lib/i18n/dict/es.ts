@@ -189,8 +189,8 @@ export const es: SiteDict = {
           "text": "Nuestro equipo maqueta vuestros textos, lugares y programa: no tenéis que diseñar nada."
         },
         {
-          "title": "Vista previa antes de pagar",
-          "text": "Descubrís la invitación en un enlace privado y pedís los cambios. Nada se publica sin vuestro acuerdo."
+          "title": "Retoques ilimitados",
+          "text": "Descubrís vuestra vista previa en 24 h en un enlace privado y pedís todos los retoques necesarios. Nada se publica sin vuestro acuerdo."
         },
         {
           "title": "Respuestas en línea",
@@ -214,26 +214,26 @@ export const es: SiteDict = {
         },
         {
           "title": "Pago seguro",
-          "text": "Con tarjeta o PayPal, en un solo pago, cuando la vista previa os encante."
+          "text": "Con tarjeta o PayPal, en un solo pago, al hacer el pedido."
         }
       ],
       "stepsTitle": "Cómo funciona",
       "steps": [
         {
-          "title": "Vuestra solicitud",
-          "text": "Rellenad el formulario guiado: nombres, fecha, lugares, programa y vuestros deseos."
+          "title": "Vuestro pedido",
+          "text": "Unos datos y después el pago seguro en línea."
         },
         {
-          "title": "La creación",
-          "text": "Nuestro equipo compone la invitación en el universo del diseño, con vuestros textos."
+          "title": "Vuestros datos",
+          "text": "En vuestro espacio, un formulario guiado: nombres, fecha, lugares, programa y respuestas de los invitados."
         },
         {
           "title": "Vuestra vista previa",
-          "text": "Un enlace privado para descubrirla; escribidnos por WhatsApp o por correo para pedir ajustes."
+          "text": "En 24 h, un enlace privado para descubrir vuestra invitación."
         },
         {
-          "title": "El pago",
-          "text": "Cuando todo os guste, pagáis en línea de forma segura."
+          "title": "Vuestros retoques",
+          "text": "Escribidnos por WhatsApp o por e-mail: retoques ilimitados hasta que todo os guste."
         },
         {
           "title": "La publicación",
@@ -262,8 +262,8 @@ export const es: SiteDict = {
       "faqTitle": "Vuestras preguntas",
       "faq": [
         {
-          "question": "¿Puedo ver mi invitación antes de pagar?",
-          "answer": "Sí. Primero recibís una vista previa privada; el pago llega solo cuando la invitación está validada."
+          "question": "¿Qué pasa después del pago?",
+          "answer": "Accedéis a vuestro espacio para darnos los detalles de vuestro evento. Recibís la vista previa en 24 h y después los retoques son ilimitados hasta vuestra total satisfacción."
         },
         {
           "question": "¿Cómo funcionan los dos idiomas?",
@@ -279,7 +279,7 @@ export const es: SiteDict = {
         }
       ],
       "ctaTitle": "¿Empezamos?",
-      "ctaText": "Enviadnos vuestros datos: volveremos con vuestra vista previa."
+      "ctaText": "Pedid en línea: recibís vuestra vista previa en 24 h tras enviar vuestros datos."
     },
   },
   demo: {
@@ -580,6 +580,56 @@ export const es: SiteDict = {
     emailLinkText: "Buenas noticias: la invitación de {couple} está lista. Para publicarla, solo queda pagar {amount}.",
     emailLinkCta: "Pagar en línea (tarjeta o PayPal): {url}",
     emailSignature: "El equipo de {brand}",
+  },
+  order: {
+    "metaTitle": "Pide tu invitación",
+    "eyebrow": "Pedido",
+    "title": "Pedir «{name}»",
+    "intro": "Unos datos para empezar. Justo después del pago, accedes a tu espacio personal para darnos todos los detalles de tu evento.",
+    "howTitle": "Cómo funciona",
+    "how": [
+        "Tus datos de contacto (1 minuto)",
+        "Pago seguro",
+        "Tus datos en tu espacio personal",
+        "Vista previa en 24 h",
+        "Retoques y enlace final"
+    ],
+    "eventType": "Tipo de evento",
+    "eventDateHint": "Si ya la conoces: podrás indicarla después del pago.",
+    "price": "Precio",
+    "submit": "Continuar al pago",
+    "sending": "Un momento…",
+    "unavailable": "Este modelo aún no se puede pedir en línea. Contáctanos para pedirlo.",
+    "emailSubject": "Tu pedido {ref} — completa el pago",
+    "emailHeading": "Gracias por tu pedido",
+    "emailText": "Tu pedido del modelo «{template}» para {couple} está registrado. Solo falta pagar {amount} para confirmarlo.",
+    "emailAfter": "Justo después del pago, recibirás el acceso a tu espacio personal para darnos los detalles de tu evento.",
+    "paidSubject": "Pedido confirmado — completa tus datos",
+    "paidHeading": "Gracias, tu pedido está confirmado",
+    "paidText": "Hemos recibido tu pago de {amount} para la invitación de {couple}.",
+    "paidNext": "Último paso por tu parte: rellena el formulario detallado (ceremonias, recepción, respuestas de los invitados…) en tu espacio personal. Después te enviamos la vista previa en 24 h.",
+    "paidButton": "Completar mis datos",
+    "introOrder": "Paga tu pedido con total seguridad. Justo después, accedes a tu espacio personal para enviarnos los detalles de tu evento.",
+    "promiseTitle": "Incluido en tu pedido",
+    "promiseRevisions": "Retoques ilimitados hasta tu total satisfacción",
+    "promisePreview": "Vista previa de tu invitación en 24 h tras recibir tus datos",
+    "promiseLanguages": "Hasta 2 idiomas en el mismo enlace",
+    "simulate": "Simular el pago (prueba)",
+    "simulateHint": "Visible solo para el equipo de E-Invitly. No se cobra ningún importe.",
+    "paidOrderText": "Tu pedido está confirmado. Acabamos de enviarte un e-mail con el acceso a tu espacio personal: rellena allí tus datos y te enviaremos la vista previa en 24 h.",
+    "bannerPay": "Tu pedido está pendiente de pago.",
+    "bannerPayButton": "Finalizar el pago",
+    "bannerDetails": "¡Pago recibido, gracias! Nos faltan los detalles de tu evento para preparar la vista previa.",
+    "bannerReceived": "Datos recibidos: estamos preparando tu vista previa (en 24 h).",
+    "detailsMeta": "Tus datos",
+    "detailsTitle": "Los detalles de tu invitación",
+    "detailsIntro": "Cuanto más precisos seáis, más fiel será la vista previa. Después podréis pedir todos los retoques que queráis.",
+    "detailsSend": "Enviar mis datos",
+    "detailsSentTitle": "¡Gracias, lo hemos recibido!",
+    "detailsSent": "Preparamos tu invitación y te enviamos la vista previa en 24 h.",
+    "detailsLocked": "Nos enviaste tus datos el {date}. Para cualquier cambio, escríbenos por WhatsApp o por e-mail.",
+    "detailsNotPaid": "Este formulario se abre tras el pago de tu pedido.",
+    "detailsError": "No se pudo enviar. Comprueba tu conexión e inténtalo de nuevo."
   },
   access: {
     loginButton: "Acceder a mi espacio",

@@ -189,8 +189,8 @@ export const nl: SiteDict = {
           "text": "Ons team zet jullie teksten, locaties en programma op: jullie hoeven niets te ontwerpen."
         },
         {
-          "title": "Een voorbeeld vóór betaling",
-          "text": "Jullie bekijken de uitnodiging via een privélink en vragen aanpassingen. Niets wordt gepubliceerd zonder jullie akkoord."
+          "title": "Onbeperkt aanpassingen",
+          "text": "Jullie zien het voorbeeld binnen 24 uur via een privélink en vragen zoveel aanpassingen als nodig. Niets wordt gepubliceerd zonder jullie akkoord."
         },
         {
           "title": "Online antwoorden",
@@ -214,26 +214,26 @@ export const nl: SiteDict = {
         },
         {
           "title": "Veilig betalen",
-          "text": "Met kaart of PayPal, in één keer, zodra het voorbeeld jullie bevalt."
+          "text": "Met kaart of PayPal, in één keer, bij de bestelling."
         }
       ],
       "stepsTitle": "Zo werkt het",
       "steps": [
         {
-          "title": "Jullie aanvraag",
-          "text": "Vul het begeleide formulier in: namen, datum, locaties, programma en wensen."
+          "title": "Jullie bestelling",
+          "text": "Een paar gegevens, daarna veilig online betalen."
         },
         {
-          "title": "Het ontwerp",
-          "text": "Ons team maakt jullie uitnodiging in de stijl van het ontwerp, met jullie teksten."
+          "title": "Jullie gegevens",
+          "text": "In jullie ruimte een begeleid formulier: namen, datum, locaties, programma en antwoorden van gasten."
         },
         {
           "title": "Jullie voorbeeld",
-          "text": "Een privélink om haar te ontdekken; schrijf ons via WhatsApp of e-mail voor aanpassingen."
+          "text": "Binnen 24 uur een privélink om jullie uitnodiging te ontdekken."
         },
         {
-          "title": "De betaling",
-          "text": "Als alles klopt, betalen jullie veilig online."
+          "title": "Jullie aanpassingen",
+          "text": "Schrijf ons via WhatsApp of e-mail: onbeperkt aanpassingen tot alles klopt."
         },
         {
           "title": "Online",
@@ -262,8 +262,8 @@ export const nl: SiteDict = {
       "faqTitle": "Jullie vragen",
       "faq": [
         {
-          "question": "Kan ik mijn uitnodiging zien vóór de betaling?",
-          "answer": "Ja. Jullie krijgen eerst een privévoorbeeld; betalen gebeurt pas als de uitnodiging is goedgekeurd."
+          "question": "Wat gebeurt er na de betaling?",
+          "answer": "Jullie krijgen toegang tot jullie ruimte om ons de details van het feest te geven. Het voorbeeld volgt binnen 24 uur, daarna zijn aanpassingen onbeperkt tot jullie helemaal tevreden zijn."
         },
         {
           "question": "Hoe werken de twee talen?",
@@ -279,7 +279,7 @@ export const nl: SiteDict = {
         }
       ],
       "ctaTitle": "Zullen we beginnen?",
-      "ctaText": "Stuur ons jullie gegevens: we komen terug met jullie voorbeeld."
+      "ctaText": "Bestel online: jullie ontvangen het voorbeeld binnen 24 uur na het versturen van jullie gegevens."
     },
   },
   demo: {
@@ -580,6 +580,56 @@ export const nl: SiteDict = {
     emailLinkText: "Goed nieuws: de uitnodiging van {couple} is klaar. Om haar online te zetten, hoeft alleen {amount} nog betaald te worden.",
     emailLinkCta: "Online betalen (kaart of PayPal): {url}",
     emailSignature: "Het {brand}-team",
+  },
+  order: {
+    "metaTitle": "Bestel je uitnodiging",
+    "eyebrow": "Bestelling",
+    "title": "„{name}” bestellen",
+    "intro": "Een paar gegevens om te beginnen. Direct na de betaling krijg je toegang tot je persoonlijke ruimte om ons alle details van je feest door te geven.",
+    "howTitle": "Zo werkt het",
+    "how": [
+        "Je contactgegevens (1 minuut)",
+        "Veilige betaling",
+        "Je gegevens in je persoonlijke ruimte",
+        "Voorbeeld binnen 24 uur",
+        "Aanpassingen, dan de definitieve link"
+    ],
+    "eventType": "Soort evenement",
+    "eventDateHint": "Als je die al weet: je kunt die na de betaling invullen.",
+    "price": "Prijs",
+    "submit": "Verder naar betalen",
+    "sending": "Een ogenblik…",
+    "unavailable": "Dit ontwerp kan nog niet online besteld worden. Neem contact met ons op om het te bestellen.",
+    "emailSubject": "Je bestelling {ref} — rond je betaling af",
+    "emailHeading": "Bedankt voor je bestelling",
+    "emailText": "Je bestelling van het ontwerp „{template}” voor {couple} is opgeslagen. Je hoeft alleen nog {amount} te betalen om ze te bevestigen.",
+    "emailAfter": "Direct na de betaling krijg je toegang tot je persoonlijke ruimte om ons de details van je feest door te geven.",
+    "paidSubject": "Bestelling bevestigd — vul je gegevens aan",
+    "paidHeading": "Bedankt, je bestelling is bevestigd",
+    "paidText": "We hebben je betaling van {amount} voor de uitnodiging van {couple} ontvangen.",
+    "paidNext": "Laatste stap voor jou: vul het uitgebreide formulier (ceremonies, receptie, antwoorden van gasten…) in je persoonlijke ruimte in. Daarna sturen we je het voorbeeld binnen 24 uur.",
+    "paidButton": "Mijn gegevens aanvullen",
+    "introOrder": "Betaal je bestelling veilig. Direct daarna krijg je toegang tot je persoonlijke ruimte om ons de details van je feest te sturen.",
+    "promiseTitle": "Inbegrepen in je bestelling",
+    "promiseRevisions": "Onbeperkt aanpassingen tot je helemaal tevreden bent",
+    "promisePreview": "Voorbeeld van je uitnodiging binnen 24 uur na ontvangst van je gegevens",
+    "promiseLanguages": "Tot 2 talen op dezelfde link",
+    "simulate": "Betaling simuleren (test)",
+    "simulateHint": "Alleen zichtbaar voor het E-Invitly-team. Er wordt geen bedrag afgeschreven.",
+    "paidOrderText": "Je bestelling is bevestigd. We hebben je zojuist een e-mail gestuurd met toegang tot je persoonlijke ruimte: vul daar je gegevens in en we sturen je het voorbeeld binnen 24 uur.",
+    "bannerPay": "Je bestelling wacht op betaling.",
+    "bannerPayButton": "Betaling afronden",
+    "bannerDetails": "Betaling ontvangen, bedankt! We missen nog de details van je feest om het voorbeeld te maken.",
+    "bannerReceived": "Gegevens ontvangen: we maken je voorbeeld (binnen 24 uur).",
+    "detailsMeta": "Je gegevens",
+    "detailsTitle": "De details van je uitnodiging",
+    "detailsIntro": "Hoe preciezer je bent, hoe beter het voorbeeld klopt. Daarna kun je alle gewenste aanpassingen vragen.",
+    "detailsSend": "Mijn gegevens versturen",
+    "detailsSentTitle": "Bedankt, goed ontvangen!",
+    "detailsSent": "We maken je uitnodiging en sturen je het voorbeeld binnen 24 uur.",
+    "detailsLocked": "Je hebt ons je gegevens gestuurd op {date}. Voor een wijziging schrijf je ons via WhatsApp of e-mail.",
+    "detailsNotPaid": "Dit formulier gaat open na de betaling van je bestelling.",
+    "detailsError": "Versturen mislukt. Controleer je verbinding en probeer opnieuw."
   },
   access: {
     loginButton: "Inloggen op mijn ruimte",

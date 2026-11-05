@@ -48,7 +48,7 @@ export function PaymentCard({
 
       {paid ? (
         <p className="mt-4 text-sm">
-          <strong className="font-medium">{formatMoney(paid.amount_cents, paid.currency)}</strong> payés le {formatDateTime(paid.paid_at)} par {METHOD[paid.method ?? ""] ?? "—"}
+          <strong className="font-medium">{formatMoney(paid.amount_cents, paid.currency)}</strong> payés le {formatDateTime(paid.paid_at)} par {paid.provider_ref === "SIMULATION" ? "simulation (test, aucun montant encaissé)" : METHOD[paid.method ?? ""] ?? "—"}
           {paid.payer_email ? ` (${paid.payer_email})` : ""}
           {paid.provider_ref ? <span className="text-stone"> · réf. {paid.provider_ref}</span> : null}
         </p>
