@@ -218,6 +218,10 @@ export const orderSchema = z.object({
     .optional()
     .default(""),
   ...reviewStep.shape,
+  /** Acceptation des conditions générales de vente (avant le paiement) */
+  acceptTerms: z.literal(true, { message: "Acceptez les conditions générales de vente pour continuer" }),
+  /** Demande expresse de démarrage immédiat de la prestation */
+  immediateStart: z.literal(true, { message: "Cochez cette case pour que nous puissions commencer votre invitation" }),
   templateSlug: z.string().trim().max(80),
 });
 export type OrderInput = z.input<typeof orderSchema>;
@@ -259,6 +263,8 @@ const ERROR_KEYS: Record<string, string> = {
   "6 cérémonies maximum": "maxCeremonies",
   "Date invalide": "date",
   "Votre accord est nécessaire pour envoyer la demande": "consent",
+  "Acceptez les conditions générales de vente pour continuer": "terms",
+  "Cochez cette case pour que nous puissions commencer votre invitation": "immediate",
 };
 
 /** Traduit un message d'erreur du formulaire dans la langue du visiteur. */

@@ -10,6 +10,7 @@ import { getSettings } from "@/lib/settings";
 import { isStripeConfigured } from "@/lib/stripe";
 import { confirmStripePayment } from "@/lib/stripe-confirm";
 import { PayButtons } from "./PayButtons";
+import { PurchaseTracker } from "@/components/site/PurchaseTracker";
 import { simulatePayment } from "./simulate-action";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
@@ -100,6 +101,9 @@ export default async function PaymentPage({ params, searchParams }: Props) {
           <div className="mt-8">
             {payment.status === "paid" ? (
               <div role="status" className="text-center">
+                {payment.provider_ref !== "SIMULATION" ? (
+                  <PurchaseTracker id={payment.id} value={payment.amount_cents / 100} currency={payment.currency} item={ctx.templateName} />
+                ) : null}
                 <Sprig className="mx-auto h-20 w-12 text-forest" fill="#A6B5A2" />
                 <p className="mt-4 leading-relaxed">{selfService ? o.paidOrderText : m.paidText}</p>
                 {payment.paid_at ? (

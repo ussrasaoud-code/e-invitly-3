@@ -682,6 +682,48 @@ const server = http.createServer(async (req, res) => {
   const raw = buf.toString("utf8");
   if (url.pathname.startsWith("/paypal-mock/") || url.pathname.startsWith("/stripe-mock/")) return handlePaymentMocks(req, res, url, raw);
   // DeepL factice : préfixe la langue cible, pour vérifier le circuit de traduction
+  // Faux Graph API Facebook (jeton EAA… d'utilisateur système) : compte Instagram et posts
+  if (url.pathname.startsWith("/fb-mock/")) {
+    const fp = url.pathname.slice("/fb-mock".length);
+    const tok = url.searchParams.get("access_token") ?? "";
+    if (!tok.startsWith("EAAtest")) return send(res, 400, { error: { message: "Invalid OAuth access token", code: 190 } });
+    if (fp === "/me/accounts") return send(res, 400, { error: { message: "(#100) Missing permission pages_show_list" } });
+    if (fp === "/17841400000000001") return send(res, 200, { id: "17841400000000001", username: "e.invitly" });
+    if (fp === "/17841400000000001/media") {
+      const base = `${url.protocol}//${url.host}/instagram-mock/img`;
+      return send(res, 200, { data: Array.from({ length: 6 }, (_, i) => ({ id: `1790000000000000${i}`, caption: `Post FB ${i + 1}`, media_type: "IMAGE", media_url: `${base}/${i}.png`, permalink: `https://www.instagram.com/p/FB${i}/` })) });
+    }
+    return send(res, 404, { error: { message: "route inconnue" } });
+  }
+  // Faux Instagram (API « connexion Instagram ») : jeton, posts, images
+  if (url.pathname.startsWith("/instagram-mock/")) {
+    const ip = url.pathname.slice("/instagram-mock".length);
+    const tok = url.searchParams.get("access_token") ?? "";
+    const valid = tok.startsWith("IGAAtest");
+    if (ip.startsWith("/img/")) {
+      // Petite image PNG unie (couleur selon le numéro)
+      const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEklEQVR4nGP4z8AARAwMDAwMAPwYB/kQ1Wq2AAAAAElFTkSuQmCC", "base64");
+      res.writeHead(200, { "content-type": "image/png" });
+      return res.end(png);
+    }
+    if (!valid) return send(res, 400, { error: { message: "Invalid OAuth access token", code: 190 } });
+    if (ip === "/me") return send(res, 200, { user_id: "17841400000000000", username: "e.invitly" });
+    if (ip === "/refresh_access_token") return send(res, 200, { access_token: `${tok.split("-r")[0]}-r${Date.now()}`, token_type: "bearer", expires_in: 5184000 });
+    if (ip === "/me/media") {
+      const base = `${url.protocol}//${url.host}/instagram-mock/img`;
+      const data = Array.from({ length: 9 }, (_, i) => ({
+        id: `1800000000000000${i}`,
+        caption: `Post de test ${i + 1}`,
+        media_type: i === 1 ? "VIDEO" : "IMAGE",
+        media_url: i === 1 ? `${base}/video-${i}.mp4` : `${base}/${i}.png`,
+        thumbnail_url: i === 1 ? `${base}/thumb-${i}.png` : undefined,
+        permalink: `https://www.instagram.com/p/TEST${i}/`,
+        timestamp: new Date(Date.now() - i * 86400000).toISOString(),
+      }));
+      return send(res, 200, { data });
+    }
+    return send(res, 404, { error: { message: "route inconnue" } });
+  }
   if (url.pathname === "/deepl-mock/v2/translate") {
     if (!String(req.headers.authorization ?? "").startsWith("DeepL-Auth-Key ")) return send(res, 403, { message: "Forbidden" });
     const b = JSON.parse(raw || "{}");

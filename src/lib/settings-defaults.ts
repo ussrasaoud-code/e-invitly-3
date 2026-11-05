@@ -62,6 +62,14 @@ export type ProtectionSettings = {
   deterrents: boolean;
 };
 
+/** Outils de mesure (chargés seulement après le consentement du visiteur). Vides = aucun outil, aucun bandeau. */
+export type AnalyticsSettings = {
+  /** Identifiant de mesure Google Analytics 4, ex. G-ABC123XYZ */
+  gaId: string;
+  /** Identifiant du pixel Meta (Facebook / Instagram), ex. 123456789012345 */
+  metaPixelId: string;
+};
+
 export type SettingsMap = {
   languages: LanguageSettings;
   brand: BrandSettings;
@@ -69,6 +77,7 @@ export type SettingsMap = {
   home: HomeSettings;
   notifications: NotificationSettings;
   protection: ProtectionSettings;
+  analytics: AnalyticsSettings;
 };
 
 export const DEFAULT_SETTINGS: { [K in keyof SettingsMap]: { value: SettingsMap[K]; isPublic: boolean } } = {
@@ -150,5 +159,9 @@ export const DEFAULT_SETTINGS: { [K in keyof SettingsMap]: { value: SettingsMap[
   protection: {
     isPublic: true,
     value: { previewHours: 48, previewWatermark: true, demoWatermark: false, watermarkText: "", deterrents: true },
+  },
+  analytics: {
+    isPublic: true,
+    value: { gaId: "", metaPixelId: "" },
   },
 };

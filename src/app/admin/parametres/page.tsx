@@ -4,10 +4,12 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { requireStaff } from "@/lib/auth";
 import { isEmailConfigured } from "@/lib/email";
 import { getSettings } from "@/lib/settings";
+import { loadConnection } from "@/lib/instagram-feed";
+import { formatDateTime } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { LANG_META, SITE_LANGS, localePath } from "@/lib/i18n/config";
 import { LANGUAGE_LABELS } from "@/lib/invitation/schema";
-import { saveBrand, saveHome, saveLanguages, saveNotifications, savePolicies, saveProtection, setMemberRole } from "./actions";
+import { connectInstagram, disconnectInstagram, saveAnalytics, saveBrand, saveHome, saveLanguages, saveNotifications, savePolicies, saveProtection, setMemberRole } from "./actions";
 
 export const metadata = { title: "Paramètres" };
 
@@ -36,10 +38,11 @@ export default async function SettingsPage() {
   const settings = await getSettings();
   const supabase = (await createClient())!;
   const { data: team } = await supabase.from("profiles").select("email, full_name, role").in("role", ["admin", "collaborator"]).order("email");
-  const { brand, home, policies, notifications, languages, protection } = settings;
+  const { brand, home, policies, notifications, languages, protection, analytics } = settings;
   const enabledLangs = new Set(["fr", ...(languages.enabled ?? [])]);
   const faq = [...home.faq, { question: "", answer: "" }, { question: "", answer: "" }];
   const disabled = !isAdmin;
+  const ig = await loadConnection();
 
   return (
     <>
@@ -185,6 +188,61 @@ export default async function SettingsPage() {
                 </span>
               </label>
               <SubmitButton className="btn btn-secondary btn-sm">Enregistrer</SubmitButton>
+            </fieldset>
+          </form>
+        </Card>
+
+        <Card
+          title="Instagram — derniers posts sur le site"
+          description="Affiche une bande « Suivez-nous sur Instagram » en bas du site vitrine avec vos derniers posts (mise à jour toutes les heures). Nécessite un compte Instagram professionnel (Créateur ou Entreprise). Les images passent par votre site : aucun cookie Instagram n'est déposé chez vos visiteurs."
+        >
+          {ig ? (
+            <div className="space-y-3 text-sm">
+              <p>
+                <span className="text-forest">●</span> Connecté au compte <strong className="font-medium">@{ig.username}</strong> depuis le {formatDateTime(ig.savedAt)}. {ig.kind === "facebook" ? "Jeton d'utilisateur système (sans expiration)." : <>Le jeton est renouvelé automatiquement (dernier renouvellement : {formatDateTime(ig.refreshedAt)}).</>}
+              </p>
+              {ig.lastError ? (
+                <p role="alert" className="border border-warning/40 bg-[#fbf3e2] px-3 py-2">
+                  Problème avec Instagram : {ig.lastError}. Si les posts n&apos;apparaissent plus, générez un nouveau jeton et collez-le ci-dessous.
+                </p>
+              ) : null}
+              <form action={disconnectInstagram}>
+                <fieldset disabled={disabled}>
+                  <SubmitButton className="btn btn-ghost btn-sm text-danger" confirm="Retirer la bande Instagram du site ?">Déconnecter Instagram</SubmitButton>
+                </fieldset>
+              </form>
+            </div>
+          ) : null}
+          <form action={connectInstagram} className="mt-4 space-y-3">
+            <fieldset disabled={disabled} className="space-y-3">
+              <F label={ig ? "Remplacer le jeton d'accès" : "Jeton d'accès Instagram"}>
+                <input name="igToken" type="password" autoComplete="off" placeholder="IGAA… ou EAA…" className="field" />
+              </F>
+              <F label="Identifiant du compte Instagram (seulement pour un jeton EAA…, si demandé)">
+                <input name="igUserId" inputMode="numeric" autoComplete="off" placeholder="17841400000000000" maxLength={30} className="field" />
+              </F>
+              <p className="text-xs text-stone">
+                À générer dans developers.facebook.com → votre application → Instagram → « Générer des jetons d&apos;accès ». C&apos;est une donnée secrète : ne la partagez avec personne.
+              </p>
+              <SubmitButton className="btn btn-secondary btn-sm" pendingLabel="Vérification…">{ig ? "Remplacer" : "Connecter Instagram"}</SubmitButton>
+            </fieldset>
+          </form>
+        </Card>
+
+        <Card
+          title="Mesure d'audience et cookies"
+          description="Laissez vide pour n'utiliser aucun outil : le site n'a alors besoin d'aucun bandeau cookies. Dès qu'un identifiant est renseigné, un bandeau demande l'accord des visiteurs (Tout accepter / Tout refuser / Personnaliser) et l'outil n'est chargé qu'après leur accord. Uniquement sur le site vitrine : jamais sur les invitations des couples, l'espace mariés ou l'administration."
+        >
+          <form action={saveAnalytics} className="grid gap-4 md:grid-cols-2">
+            <fieldset disabled={disabled} className="contents">
+              <F label="Google Analytics 4 — identifiant de mesure (G-…)">
+                <input name="gaId" defaultValue={analytics.gaId} placeholder="G-ABC123XYZ" maxLength={24} className="field" />
+              </F>
+              <F label="Pixel Meta (Facebook / Instagram) — identifiant">
+                <input name="metaPixelId" defaultValue={analytics.metaPixelId} placeholder="123456789012345" maxLength={20} inputMode="numeric" className="field" />
+              </F>
+              <p className="text-xs text-stone md:col-span-2">Pensez à mettre à jour votre politique de confidentialité (outils utilisés, finalités, durée de conservation du choix : 6 mois).</p>
+              <div className="md:col-span-2"><SubmitButton className="btn btn-secondary btn-sm">Enregistrer</SubmitButton></div>
             </fieldset>
           </form>
         </Card>

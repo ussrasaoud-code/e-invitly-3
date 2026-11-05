@@ -148,6 +148,9 @@ async function sendOrderPaidEmails(
   const t = dictFor(ctx.lang);
   const o = t.order;
   const next = `/mon-espace/${ctx.payment.invitation_id}/informations`;
+  const db = createAdminClient();
+  const { data: req } = db ? await db.from("client_requests").select("reference, form_data").eq("invitation_id", ctx.payment.invitation_id).maybeSingle() : { data: null };
+  const legal = { reference: (req?.reference as string | undefined) ?? null, orderedAt: ((req?.form_data ?? {}) as { orderedAt?: string }).orderedAt ?? null };
   if (to) {
     await ensureAccount(to);
     const link = (await accessLink(to, next)) ?? `${env.siteUrl}/connexion?suite=${encodeURIComponent(next)}`;
@@ -158,6 +161,15 @@ async function sendOrderPaidEmails(
       paragraphs: [fmt(o.paidText, { amount, couple: ctx.couple }), o.paidNext],
       action: { label: o.paidButton, url: link },
       after: [
+        // Récapitulatif légal : demande de démarrage immédiat, CGV, droit de rétractation
+        fmt(o.paidLegal, {
+          ref: legal.reference ?? ctx.payment.id.slice(0, 8).toUpperCase(),
+          date: new Intl.DateTimeFormat(LANG_META[ctx.lang].intl, { dateStyle: "long" }).format(new Date(legal.orderedAt ?? ctx.payment.created_at)),
+          template: ctx.templateName,
+          amount,
+          terms: `${env.siteUrl}${localePath(ctx.lang, "/cgv")}`,
+        }),
+        ...(settings.brand.contactEmail ? [fmt(o.paidWithdrawal, { email: settings.brand.contactEmail })] : []),
         fmt(t.access.welcomeLater, { login: `${env.siteUrl.replace(/^https?:\/\//, "")}${localePath(ctx.lang, "/connexion")}` }),
         fmt(t.payment.emailSignature, { brand: settings.brand.name }),
       ],

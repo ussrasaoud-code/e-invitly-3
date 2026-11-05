@@ -17,6 +17,7 @@ import { amountFromPriceLabel, formatMoney } from "@/lib/payment-amount";
 import { newPaymentToken } from "@/lib/payments";
 import { slugFromNames } from "@/lib/slug";
 import { suggestSlug } from "@/lib/slug-db";
+import { recordTermsVersion } from "@/lib/terms";
 
 export type SubmitResult =
   | { ok: true; reference: string; emailSent: boolean }
@@ -175,7 +176,18 @@ export async function startOrder(input: OrderInput, uiLang: string = "fr"): Prom
   const amount = amountFromPriceLabel(template.price_label);
   if (!version || !def.success || !amount) return { ok: false, message: t.order.unavailable };
 
-  const formData = { secondLanguage: data.secondLanguage, eventType: data.eventType, selfService: true, orderedAt: new Date().toISOString() };
+  const now = new Date().toISOString();
+  // Preuves conservées : date et heure des deux cases cochées, et version exacte des CGV acceptée
+  const termsHash = await recordTermsVersion(db, (await getSettings()).policies.termsOfSale);
+  const formData = {
+    secondLanguage: data.secondLanguage,
+    eventType: data.eventType,
+    selfService: true,
+    orderedAt: now,
+    termsAcceptedAt: now,
+    immediateStartAt: now,
+    termsVersion: termsHash,
+  };
   const { data: req, error: reqErr } = await db
     .from("client_requests")
     .insert({

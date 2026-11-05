@@ -7,8 +7,9 @@ import { LANG_META, SITE_LANGS, localePath, type SiteLang } from "@/lib/i18n/con
 import type { SiteDict } from "@/lib/i18n/dict";
 import { COUNTRIES, ORDER_EVENT_TYPES, flattenErrors, orderSchema, translateError, type OrderInput } from "@/lib/validation/request";
 import { startOrder } from "../actions";
+import { trackConversion } from "@/components/site/CookieConsent";
 
-type State = Omit<OrderInput, "consent"> & { consent: boolean };
+type State = Omit<OrderInput, "consent" | "acceptTerms" | "immediateStart"> & { consent: boolean; acceptTerms: boolean; immediateStart: boolean };
 
 const LANG_OPTIONS = SITE_LANGS.map((l) => ({ value: l, label: LANG_META[l].native }));
 
@@ -17,8 +18,9 @@ const LANG_OPTIONS = SITE_LANGS.map((l) => ({ value: l, label: LANG_META[l].nati
  * Le formulaire détaillé (cérémonies, réception, RSVP…) est rempli après le
  * paiement, dans l'espace client.
  */
-export function QuickOrderForm({ templateSlug, category, t, lang, invitationLang, languages }: {
+export function QuickOrderForm({ templateSlug, templateName = "", category, t, lang, invitationLang, languages }: {
   templateSlug: string;
+  templateName?: string;
   category: string;
   t: Pick<SiteDict, "request" | "order" | "categories">;
   lang: SiteLang;
@@ -43,6 +45,8 @@ export function QuickOrderForm({ templateSlug, category, t, lang, invitationLang
     partnerTwo: "",
     eventDate: "",
     consent: false,
+    acceptTerms: false,
+    immediateStart: false,
     website: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -71,7 +75,10 @@ export function QuickOrderForm({ templateSlug, category, t, lang, invitationLang
     setServerMessage(null);
     startTransition(async () => {
       const res = await startOrder(state as OrderInput, lang);
-      if (res.ok) router.push(localePath(lang, `/paiement/${res.token}`));
+      if (res.ok) {
+        trackConversion({ name: "lead", params: { item: templateName } });
+        router.push(localePath(lang, `/paiement/${res.token}`));
+      }
       else {
         setServerMessage(res.message);
         if (res.fieldErrors) setErrors(res.fieldErrors);
@@ -142,6 +149,19 @@ export function QuickOrderForm({ templateSlug, category, t, lang, invitationLang
             </span>
           </label>
           {e("consent") ? <p className="field-error" role="alert">{e("consent")}</p> : null}
+          <label className="mt-4 flex items-start gap-3 text-sm leading-relaxed">
+            <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-forest" checked={state.acceptTerms} onChange={(ev) => set("acceptTerms", ev.target.checked)} aria-invalid={e("acceptTerms") ? true : undefined} />
+            <span>
+              {o.termsLabel}{" "}
+              <a href={localePath(lang, "/cgv")} target="_blank" className="text-forest underline underline-offset-4">{o.termsLink}</a>.
+            </span>
+          </label>
+          {e("acceptTerms") ? <p className="field-error" role="alert">{e("acceptTerms")}</p> : null}
+          <label className="mt-4 flex items-start gap-3 text-sm leading-relaxed">
+            <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-forest" checked={state.immediateStart} onChange={(ev) => set("immediateStart", ev.target.checked)} aria-invalid={e("immediateStart") ? true : undefined} />
+            <span>{o.immediateLabel}</span>
+          </label>
+          {e("immediateStart") ? <p className="field-error" role="alert">{e("immediateStart")}</p> : null}
         </div>
 
         {serverMessage ? (

@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
 import { SITE_LANGS } from "@/lib/i18n/config";
 import { createClient } from "@/lib/supabase/server";
+import { checkToken, saveConnection, tokenKind } from "@/lib/instagram-feed";
 
 const str = (max: number) => z.string().trim().max(max);
 const url = z.string().trim().max(300).refine((v) => v === "" || /^https:\/\//.test(v), "Lien https:// attendu");
@@ -95,6 +96,34 @@ export async function saveProtection(form: FormData) {
     true,
     user.id,
   );
+}
+
+/** Outils de mesure : identifiants publics (aucune clé secrète), chargés seulement après consentement. */
+export async function saveAnalytics(form: FormData) {
+  const user = await requireAdmin();
+  const ga = z.string().trim().toUpperCase().refine((v) => v === "" || /^G-[A-Z0-9]{4,20}$/.test(v), "Identifiant Google Analytics attendu au format G-XXXXXXX").parse(form.get("gaId") ?? "");
+  const pixel = z.string().trim().refine((v) => v === "" || /^\d{6,20}$/.test(v), "Identifiant du pixel Meta attendu (chiffres uniquement)").parse(form.get("metaPixelId") ?? "");
+  await saveSetting("analytics", { gaId: ga, metaPixelId: pixel }, true, user.id);
+}
+
+/** Instagram : vérifie le jeton d'accès puis l'enregistre (paramètre privé, jamais envoyé au navigateur). */
+export async function connectInstagram(form: FormData) {
+  const user = await requireAdmin();
+  const token = z.string().trim().min(20, "Collez le jeton d'accès Instagram").max(600).parse(form.get("igToken") ?? "");
+  const igId = z.string().trim().regex(/^\d{0,30}$/, "L'identifiant du compte Instagram ne contient que des chiffres").parse(form.get("igUserId") ?? "");
+  const check = await checkToken(token, igId);
+  if (!check.ok) throw new Error(`Jeton refusé par Instagram : ${check.message}`);
+  const now = new Date().toISOString();
+  await saveConnection({ token, username: check.username, kind: tokenKind(token), igUserId: check.igUserId, savedAt: now, refreshedAt: now }, user.id);
+  await logActivity({ actorId: user.id, action: "settings.updated", resourceType: "settings", resourceId: "instagram", summary: `Instagram connecté (@${check.username})` });
+  revalidatePath("/", "layout");
+}
+
+export async function disconnectInstagram() {
+  const user = await requireAdmin();
+  await saveConnection(null, user.id);
+  await logActivity({ actorId: user.id, action: "settings.updated", resourceType: "settings", resourceId: "instagram", summary: "Instagram déconnecté" });
+  revalidatePath("/", "layout");
 }
 
 /** Change le rôle d'un compte existant (créé au préalable dans Supabase → Authentication). */

@@ -44,6 +44,8 @@ export async function sendEmail(input: EmailMsg): Promise<EmailResult> {
     const { appendFileSync } = await import("node:fs");
     const urls = [msg.action?.url, ...(msg.paragraphs.join(" ").match(/https?:\/\/\S+/g) ?? [])].filter(Boolean);
     appendFileSync(process.env.EMAIL_OUTBOX_FILE, `${new Date().toISOString()} ${msg.to} ${urls[0] ?? "-"} ${JSON.stringify(msg.subject)}\n`);
+    // Contenu complet (tests de bout en bout : vérifier les textes des e-mails)
+    appendFileSync(`${process.env.EMAIL_OUTBOX_FILE}.full`, `${JSON.stringify({ to: msg.to, subject: msg.subject, paragraphs: msg.paragraphs, after: msg.after ?? [] })}\n`);
     return { sent: true };
   }
   // Pied commun : « ne pas répondre » + WhatsApp et adresse de contact (Admin → Paramètres)

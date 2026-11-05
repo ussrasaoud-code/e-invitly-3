@@ -111,6 +111,7 @@ with sync_playwright() as p:
     page.screenshot(path=SHOTS / "06-demo-province.png")
 
     # ── Scénario 1 : commande en ligne (petit formulaire → paiement) ──
+    api("POST", "/rest/v1/settings?on_conflict=key", {"key": "policies", "value": {"termsOfSale": "Article 8 — Rétractation (version de test)."}, "is_public": True}, prefer="resolution=merge-duplicates,return=minimal")
     page.goto(f"{BASE}/personnalisation/the-garden")
     expect(page.get_by_role("heading", name=re.compile("Commander"))).to_be_visible()
     page.get_by_role("button", name="Continuer vers le paiement").click()
@@ -122,7 +123,12 @@ with sync_playwright() as p:
     page.get_by_label("Type d'événement").select_option("mariage")
     page.get_by_label("Prénom de la première personne").fill("Sami")
     page.get_by_label("Prénom de la seconde personne").fill("Lina")
-    page.locator("input[type=checkbox]").last.check()
+    page.locator("input[type=checkbox]").nth(0).check()  # données personnelles
+    page.get_by_role("button", name="Continuer vers le paiement").click()
+    expect(page.get_by_text("Acceptez les conditions générales de vente pour continuer")).to_be_visible()
+    expect(page.get_by_text("Cochez cette case pour que nous puissions commencer votre invitation")).to_be_visible()
+    page.get_by_label(re.compile("J'ai lu et j'accepte les")).check()
+    page.get_by_label(re.compile("Je demande à E-Invitly de commencer la création de mon invitation")).check()
     page.screenshot(path=SHOTS / "07-commande.png", full_page=True)
     page.get_by_role("button", name="Continuer vers le paiement").click()
     page.wait_for_url(re.compile(r"/paiement/[A-Za-z0-9_-]+$"), timeout=20000)
@@ -133,6 +139,9 @@ with sync_playwright() as p:
     page.screenshot(path=SHOTS / "08-commande-paiement.png", full_page=True)
     order = api("GET", "/rest/v1/client_requests?email=eq.sami@example.test&select=id,reference,form_data,invitation_id,status")[0]
     assert order["form_data"]["selfService"] is True and order["invitation_id"] and order["status"] == "converted", order
+    assert order["form_data"]["termsAcceptedAt"] and order["form_data"]["immediateStartAt"], order["form_data"]
+    tv = order["form_data"].get("termsVersion")
+    assert tv and api("GET", f"/rest/v1/terms_versions?hash=eq.{tv}&select=body")[0]["body"].startswith("Article 8"), order["form_data"]
     oinv = api("GET", f"/rest/v1/invitations?id=eq.{order['invitation_id']}&select=slug,status")[0]
     assert oinv["status"] == "draft" and oinv["slug"].startswith("sami-lina"), oinv
     opay = api("GET", f"/rest/v1/payments?invitation_id=eq.{order['invitation_id']}&select=status,amount_cents")[0]
@@ -198,6 +207,9 @@ with sync_playwright() as p:
             link = m[-1]; break
         time.sleep(0.3)
     assert link and "informations" in link, link
+    full = Path(str(MAILBOX) + ".full")
+    paid_mail = "\n".join(l for l in (full.read_text() if full.exists() else "").splitlines() if "sami@example.test" in l)
+    assert "TVA non applicable, art. 293 B du CGI" in paid_mail and "/cgv" in paid_mail, "récapitulatif légal dans l'e-mail de confirmation"
     ok("paiement simulé (réservé à l'équipe) → e-mail au client avec l'accès direct à son formulaire")
 
     sc = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
@@ -1539,6 +1551,93 @@ with sync_playwright() as p:
     nx = c.context.request.get(f"{BASE}/api/exports/{naomi_id}?format=csv")
     assert nx.status == 404, nx.status
     ok("scénarios 4/5/7 : le couple voit et exporte ses réponses, jamais celles d'un autre couple")
+
+    # Instagram : connexion par jeton dans l'admin, bande des derniers posts (images servies par le site)
+    a.goto(f"{BASE}/admin/parametres")
+    igc = a.locator("section.card").filter(has_text="Instagram — derniers posts")
+    igc.get_by_label("Jeton d'accès Instagram").fill("IGAAtest-0123456789abcdefghij")
+    igc.get_by_role("button", name="Connecter Instagram").click()
+    expect(igc.get_by_text("@e.invitly")).to_be_visible(timeout=15000)
+    stored = api("GET", "/rest/v1/settings?key=eq.instagram&select=value,is_public")[0]
+    assert stored["is_public"] is False and stored["value"]["username"] == "e.invitly", stored
+    g = browser.new_context(viewport={"width": 1280, "height": 900}).new_page()
+    strip = g.get_by_role("region", name="Suivez-nous sur Instagram")
+    for _ in range(6):
+        g.goto(f"{BASE}/invitations")
+        if strip.count():
+            break
+        g.wait_for_timeout(1500)
+    expect(strip).to_be_visible()
+    expect(strip.locator("li")).to_have_count(8)
+    strip.scroll_into_view_if_needed(); g.wait_for_timeout(1500)
+    srcs = strip.locator("img").evaluate_all("els => els.map(e => [e.getAttribute('src'), e.complete && e.naturalWidth > 0])")
+    assert all(src.startswith("/api/instagram/image/") and okimg for src, okimg in srcs[:4]), srcs
+    assert strip.locator("a[href^='https://www.instagram.com/p/']").count() == 8
+    g.screenshot(path=SHOTS / "61-instagram.png", full_page=False, clip={"x": 0, "y": 0, "width": 1280, "height": 900}) if False else strip.screenshot(path=SHOTS / "61-instagram.png")
+    assert g.request.get(f"{BASE}/api/instagram/image/999").status == 404, "seuls les posts affichés sont servis"
+    g.goto(f"{BASE}/personnalisation/the-garden")
+    assert g.get_by_role("region", name="Suivez-nous sur Instagram").count() == 0, "pas de bande pendant la commande"
+    g.context.close()
+    a.goto(f"{BASE}/admin/parametres")
+    igc = a.locator("section.card").filter(has_text="Instagram — derniers posts")
+    igc.get_by_role("button", name="Déconnecter Instagram").click()
+    expect(igc.get_by_role("button", name="Connecter Instagram")).to_be_visible(timeout=15000)
+    ok("Instagram : jeton vérifié et gardé en privé, bande des 8 derniers posts, images servies par le site, absente pendant la commande")
+    # Jeton Meta Business (EAA…, utilisateur système) : identifiant du compte Instagram demandé, posts via l'API Facebook
+    igc = a.locator("section.card").filter(has_text="Instagram — derniers posts")
+    igc.get_by_label("Jeton d'accès Instagram").fill("EAAtest-0123456789abcdefghij")
+    igc.get_by_label(re.compile("Identifiant du compte Instagram")).fill("17841400000000001")
+    igc.get_by_role("button", name="Connecter Instagram").click()
+    expect(igc.get_by_text("Jeton d'utilisateur système (sans expiration)")).to_be_visible(timeout=15000)
+    v = api("GET", "/rest/v1/settings?key=eq.instagram&select=value")[0]["value"]
+    assert v["kind"] == "facebook" and v["igUserId"] == "17841400000000001" and v["username"] == "e.invitly", v
+    g = browser.new_context(viewport={"width": 1280, "height": 900}).new_page()
+    strip = g.get_by_role("region", name="Suivez-nous sur Instagram")
+    for _ in range(8):
+        g.goto(f"{BASE}/invitations")
+        if strip.count() and strip.locator("li").count() == 6:
+            break
+        g.wait_for_timeout(1500)
+    expect(strip.locator("a[href^='https://www.instagram.com/p/FB']")).to_have_count(6)
+    g.context.close()
+    a.goto(f"{BASE}/admin/parametres")
+    igc = a.locator("section.card").filter(has_text="Instagram — derniers posts")
+    igc.get_by_role("button", name="Déconnecter Instagram").click()
+    expect(igc.get_by_role("button", name="Connecter Instagram")).to_be_visible(timeout=15000)
+    ok("Instagram : jeton Meta Business (EAA, sans expiration) accepté avec l'identifiant du compte")
+
+    # Cookies : aucun bandeau sans outil configuré ; avec Google Analytics, rien n'est chargé avant l'accord
+    k = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+    k.goto(f"{BASE}/")
+    k.wait_for_timeout(800)
+    assert k.get_by_role("dialog", name="Vos choix de cookies").count() == 0, "pas de bandeau sans outil de mesure"
+    api("POST", "/rest/v1/settings?on_conflict=key", {"key": "analytics", "value": {"gaId": "G-TEST12345", "metaPixelId": "123456789012"}, "is_public": True}, prefer="resolution=merge-duplicates,return=minimal")
+    k.goto(f"{BASE}/invitations")
+    ban = k.get_by_role("dialog", name="Vos choix de cookies")
+    expect(ban).to_be_visible()
+    gtm = "script[src*='googletagmanager.com']"
+    assert k.locator(gtm).count() == 0, "Google Analytics chargé avant l'accord"
+    k.screenshot(path=SHOTS / "60-cookies.png")
+    ban.get_by_role("button", name="Tout refuser").click()
+    expect(ban).to_have_count(0)
+    k.reload(); k.wait_for_timeout(800)
+    assert k.get_by_role("dialog", name="Vos choix de cookies").count() == 0, "choix mémorisé"
+    assert k.locator(gtm).count() == 0 and k.locator("script[src*='connect.facebook.net']").count() == 0
+    k.get_by_role("button", name="Gérer les cookies").click()
+    ban = k.get_by_role("dialog", name="Vos choix de cookies")
+    ban.get_by_label(re.compile("Mesure d'audience")).check()
+    ban.get_by_role("button", name="Enregistrer mes choix").click()
+    expect(k.locator(gtm)).to_have_count(1)
+    assert k.locator("script[src*='connect.facebook.net']").count() == 0, "pixel Meta non accepté"
+    k.get_by_role("button", name="Gérer les cookies").click()
+    ban = k.get_by_role("dialog", name="Vos choix de cookies")
+    ban.get_by_label(re.compile("Publicité")).check()
+    ban.get_by_role("button", name="Enregistrer mes choix").click()
+    expect(k.locator("script[src*='connect.facebook.net']")).to_have_count(1)
+    assert k.evaluate("typeof window.fbq === 'function' && window.fbq.queue.some(a => a[0] === 'init')"), "pixel initialisé"
+    api("POST", "/rest/v1/settings?on_conflict=key", {"key": "analytics", "value": {"gaId": "", "metaPixelId": ""}, "is_public": True}, prefer="resolution=merge-duplicates,return=minimal")
+    k.context.close()
+    ok("cookies : bandeau seulement si un outil est configuré, rien chargé avant l'accord, refus mémorisé, choix séparés")
 
     browser.close()
 

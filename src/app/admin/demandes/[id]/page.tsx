@@ -56,7 +56,7 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
   const { data: r } = await supabase.from("client_requests").select("*, templates(name, slug)").eq("id", id).maybeSingle();
   if (!r) notFound();
 
-  const f = (r.form_data ?? {}) as Partial<RequestData> & { eventType?: string; selfService?: boolean; orderedAt?: string; detailsAt?: string; validatedAt?: string };
+  const f = (r.form_data ?? {}) as Partial<RequestData> & { eventType?: string; selfService?: boolean; orderedAt?: string; detailsAt?: string; validatedAt?: string; termsAcceptedAt?: string; immediateStartAt?: string; termsVersion?: string | null };
   // Photos du client (stockage privé) : liens de lecture valables une heure
   const admin = createAdminClient();
   const photos = await Promise.all(
@@ -69,6 +69,8 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
     ? await admin.from("payments").select("status, paid_at, provider_ref").eq("invitation_id", r.invitation_id).order("created_at", { ascending: false }).limit(1).maybeSingle()
     : { data: null };
   const rsvp = f.details?.rsvp;
+  // Texte exact des CGV acceptées par le client (conservé à la commande)
+  const { data: terms } = f.termsVersion && admin ? await admin.from("terms_versions").select("body, created_at").eq("hash", f.termsVersion).maybeSingle() : { data: null };
   const tpl = r.templates as unknown as { name: string; slug: string } | null;
   const status = r.status as RequestStatus;
   const subject = encodeURIComponent(`Votre invitation E-Invitly — ${r.reference}`);
@@ -100,6 +102,9 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
               ["Modèle", tpl?.name],
               ["Parcours", f.selfService ? "Commande en ligne (paiement puis formulaire détaillé)" : "Demande complète (ancien parcours)"],
               ["Commandée le", f.orderedAt ? formatDateTime(f.orderedAt) : ""],
+              ["CGV acceptées", f.termsAcceptedAt ? `Oui, le ${formatDateTime(f.termsAcceptedAt)}` : f.selfService ? "Non enregistré (commande antérieure)" : ""],
+              ["Version des CGV acceptée", f.selfService ? (f.termsVersion ? `${f.termsVersion} (texte conservé ci-dessous)` : "Aucune CGV publiée au moment de la commande") : ""],
+              ["Démarrage immédiat demandé", f.immediateStartAt ? `Oui, le ${formatDateTime(f.immediateStartAt)} (renonciation au droit de rétractation une fois l'invitation réalisée)` : ""],
               ["Paiement", pay ? (pay.status === "paid" ? `Payé le ${formatDateTime(pay.paid_at)}${pay.provider_ref === "SIMULATION" ? " (simulation)" : ""}` : pay.status === "pending" ? "En attente" : "Annulé") : ""],
               ["Formulaire détaillé", f.selfService ? (f.detailsAt ? `Reçu le ${formatDateTime(f.detailsAt)}` : "Pas encore envoyé") : ""],
               ["Validation du client", f.validatedAt ? `Validée le ${formatDateTime(f.validatedAt)}` : ""],
@@ -182,6 +187,13 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
               ["Commentaires", f.details?.comments],
             ]}
           />
+          {terms?.body ? (
+            <details className="card p-5">
+              <summary className="cursor-pointer font-serif text-xl">CGV acceptées par le client (version {f.termsVersion})</summary>
+              <p className="mt-2 text-xs text-stone">Texte exact en vigueur au moment de la commande, conservé comme preuve.</p>
+              <div className="mt-3 max-h-96 overflow-y-auto whitespace-pre-line text-sm">{terms.body}</div>
+            </details>
+          ) : null}
           {f.details?.dressColors?.length ? (
             <section className="card p-5">
               <h2 className="font-serif text-xl">Palette du dress code</h2>

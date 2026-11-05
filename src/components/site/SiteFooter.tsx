@@ -6,8 +6,9 @@ import type { SettingsMap } from "@/lib/settings-defaults";
 import { whatsappLink } from "@/lib/whatsapp";
 import { instagramHandle } from "@/lib/instagram";
 import { InstagramIcon } from "@/components/contact/InstagramIcon";
+import { CookieSettingsLink } from "./CookieConsent";
 
-export function SiteFooter({ settings, t, lang, tagline, whatsappLabel = "WhatsApp" }: { settings: SettingsMap; t: SiteDict["footer"]; lang: SiteLang; tagline: string; whatsappLabel?: string }) {
+export function SiteFooter({ settings, t, lang, whatsappLabel = "WhatsApp", cookiesLabel }: { settings: SettingsMap; t: SiteDict["footer"]; lang: SiteLang; tagline?: string; whatsappLabel?: string; cookiesLabel?: string }) {
   const href = (p: string) => localePath(lang, p);
   const { brand, policies } = settings;
   const wa = whatsappLink(brand.whatsapp);
@@ -21,17 +22,20 @@ export function SiteFooter({ settings, t, lang, tagline, whatsappLabel = "WhatsA
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-4">
         <div className="md:col-span-2">
           <Logo variant="full" className="h-14 md:h-16" href={href("/")} />
-          <p className="mt-4 max-w-sm text-sm leading-relaxed text-stone">{tagline}</p>
           {brand.instagram ? (
+            <div>
             <a
               href={brand.instagram}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-5 inline-flex items-center gap-2 rounded-full border border-forest/30 px-4 py-2 text-sm text-forest transition hover:bg-forest hover:text-white"
+              className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#C2185B]/30 bg-white px-4 py-2 text-sm text-charcoal transition hover:border-[#C2185B] hover:bg-[#fdf1f5]"
             >
-              <InstagramIcon />
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#C2185B] text-white">
+                <InstagramIcon className="h-4 w-4" />
+              </span>
               <span>Instagram{igHandle ? <> · <bdi dir="ltr">{igHandle}</bdi></> : null}</span>
             </a>
+            </div>
           ) : null}
           {socials.length ? (
             <ul className="mt-5 flex gap-4">
@@ -70,6 +74,9 @@ export function SiteFooter({ settings, t, lang, tagline, whatsappLabel = "WhatsA
             <li><Link href={href("/confidentialite")} className="hover:text-forest">{t.privacy}</Link></li>
             {policies.termsOfSale ? (
               <li><Link href={href("/cgv")} className="hover:text-forest">{t.terms}</Link></li>
+            ) : null}
+            {cookiesLabel ? (
+              <li><CookieSettingsLink label={cookiesLabel} className="text-start hover:text-forest" /></li>
             ) : null}
           </ul>
         </div>

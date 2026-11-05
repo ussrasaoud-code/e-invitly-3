@@ -58,7 +58,7 @@ export default async function PersonalisationPage({ params, searchParams }: { pa
             </p>
           ) : null}
           <div className="mt-10">
-            <QuickOrderForm templateSlug={template.slug} category={template.category} t={{ request: r, order: o, categories: t.categories }} lang={lang} invitationLang={invitationLang} languages={enabled} />
+            <QuickOrderForm templateSlug={template.slug} templateName={template.name} category={template.category} t={{ request: r, order: o, categories: t.categories }} lang={lang} invitationLang={invitationLang} languages={enabled} />
           </div>
         </div>
         <aside className="hidden lg:block">
