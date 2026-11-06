@@ -134,6 +134,7 @@ export const SECTION_TYPES = [
   "decor",
   "program2",
   "scratch",
+  "gallery",
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
@@ -148,12 +149,13 @@ export const SECTION_LABELS: Record<SectionType, string> = {
   closing: "Message final",
   text: "Texte libre",
   decor: "Bande décorative",
-  program2: "Programme v2 (frise fleurie)",
+  program2: "Programme v2 (frise / timeline)",
   scratch: "Date à gratter",
+  gallery: "Album photo",
 };
 
 /** Sections qu'on peut ajouter plusieurs fois (les autres sont uniques). */
-export const REPEATABLE_SECTIONS: SectionType[] = ["text", "decor"];
+export const REPEATABLE_SECTIONS: SectionType[] = ["text", "decor", "program2", "gallery"];
 
 /** Sections fonctionnelles : logique verrouillée, seuls les libellés changent. */
 export const FUNCTIONAL_SECTIONS: SectionType[] = ["countdown", "rsvp"];
@@ -184,9 +186,16 @@ export const SCROLL_MOTION_LABELS: Record<ScrollMotion, string> = {
 };
 
 /** Tiges de la frise du programme v2 (public/decor/tiges/<clé>.svg) */
-export const STEM_STYLES = ["feuilles", "coeurs", "saule", "eucalyptus", "vrille", "brindille", "pointilles"] as const;
+export const STEM_STYLES = ["trait", "perles", "tirets", "aucune", "feuilles", "coeurs", "saule", "eucalyptus", "vrille", "brindille", "pointilles"] as const;
+/** Tiges dessinées en CSS (pas de fichier SVG) */
+export const SIMPLE_STEMS = ["trait", "perles", "tirets", "aucune"] as const;
+export const isSimpleStem = (k: string) => (SIMPLE_STEMS as readonly string[]).includes(k);
 export type StemStyle = (typeof STEM_STYLES)[number];
 export const STEM_LABELS: Record<StemStyle, string> = {
+  trait: "Trait simple",
+  perles: "Trait et perles",
+  tirets: "Tirets",
+  aucune: "Sans tige",
   feuilles: "Feuillage",
   coeurs: "Cœurs",
   saule: "Saule",
@@ -194,6 +203,25 @@ export const STEM_LABELS: Record<StemStyle, string> = {
   vrille: "Vrilles",
   brindille: "Brindille",
   pointilles: "Ligne et points",
+};
+
+/** Styles des sections compte à rebours, lieux et réponse */
+export const SECTION_LOOKS = ["default", "savedate", "map", "ticket"] as const;
+export type SectionLook = (typeof SECTION_LOOKS)[number];
+export const LOOKS_BY_TYPE: Partial<Record<SectionType, Array<{ look: SectionLook; label: string }>>> = {
+  countdown: [{ look: "default", label: "Classique" }, { look: "savedate", label: "Save the date (grande date + cases)" }],
+  venues: [{ look: "default", label: "Classique" }, { look: "map", label: "Avec carte intégrée" }],
+  rsvp: [{ look: "default", label: "Classique" }, { look: "ticket", label: "Carte festonnée sur fond coloré" }],
+};
+
+/** Mises en page de la frise du programme v2 */
+export const TIMELINE_LAYOUTS = ["classic", "icons", "centered", "alternate"] as const;
+export type TimelineLayout = (typeof TIMELINE_LAYOUTS)[number];
+export const TIMELINE_LABELS: Record<TimelineLayout, string> = {
+  classic: "Heure · tige · texte",
+  icons: "Heure · perles · texte · icône",
+  centered: "Médaillons centrés",
+  alternate: "Zigzag de part et d'autre",
 };
 
 export const SHAPE_TYPES = ["rect", "rounded", "circle", "arch", "double", "line", "diamond", "heart", "leafdivider", "diamonddivider"] as const;
@@ -245,6 +273,8 @@ export const layerSchema = z.object({
   opacity: num(0, 1, 1),
   flip: z.boolean().default(false),
   placement: z.enum(["behind", "front"]).default("behind"),
+  /** Peut déborder par-dessus les sections voisines (sinon la section suivante la recouvre) */
+  overlap: z.boolean().default(false),
   locked: z.boolean().default(false),
   hidden: z.boolean().default(false),
   enter: z
@@ -349,6 +379,19 @@ export const sectionSchema = z.object({
   itemsFrom: z.enum(["events", "custom"]).default("events"),
   marker: cssUrl,
   stem: z.enum(STEM_STYLES).default("feuilles"),
+  /** Style de la section (compte à rebours « savedate », lieux « map », réponse « ticket ») */
+  look: z.enum(SECTION_LOOKS).default("default"),
+  /** Programme v2 : mise en page, couleurs de la tige et des icônes (vide = couleur d'accent du thème) */
+  timeline: z.enum(TIMELINE_LAYOUTS).default("classic"),
+  stemColor: hexColor.or(z.literal("")).default(""),
+  iconColor: hexColor.or(z.literal("")).default(""),
+  /** Icône de chaque moment (clé = identifiant du moment ; absent = icône devinée, "" = aucune) */
+  itemIcons: z.record(z.string().max(40), cssUrl).default({}),
+  /** Album photo : photos du carrousel */
+  photos: z
+    .array(z.object({ id: z.string().min(1).max(40), src: cssUrl, caption: optionalText(120) }))
+    .max(30)
+    .default([]),
   /** Date à gratter : couleur de la pellicule (vide = couleur du thème) */
   coverColor: hexColor.or(z.literal("")).default(""),
   /** Lieux et accès : bouton « Calendrier » et couleurs (vide = couleurs du thème) */
@@ -372,9 +415,14 @@ export type InvitationSection = z.infer<typeof sectionSchema>;
 
 const shortId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
+function newSectionBase(type: SectionType): InvitationSection {
+  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], itemsFrom: "events", marker: "", stem: "feuilles", look: "default", timeline: "classic", stemColor: "", iconColor: "", itemIcons: {}, photos: [], venueOptions: { ...DEFAULT_VENUE_OPTIONS }, coverColor: "" };
+}
+
 export function newSection(type: SectionType): InvitationSection {
   if (type === "program2") return programV2Section();
-  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], itemsFrom: "events", marker: "", stem: "feuilles", venueOptions: { ...DEFAULT_VENUE_OPTIONS }, coverColor: "" };
+  if (type === "gallery") return gallerySection();
+  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], itemsFrom: "events", marker: "", stem: "feuilles", look: "default", timeline: "classic", stemColor: "", iconColor: "", itemIcons: {}, photos: [], venueOptions: { ...DEFAULT_VENUE_OPTIONS }, coverColor: "" };
 }
 
 export function newLayer(kind: InvitationLayer["kind"], patch: Partial<InvitationLayer> = {}): InvitationLayer {
@@ -394,6 +442,7 @@ export function newLayer(kind: InvitationLayer["kind"], patch: Partial<Invitatio
     opacity: 1,
     flip: false,
     placement: kind === "text" ? "front" : "behind",
+    overlap: false,
     locked: false,
     hidden: false,
     enter: { type: "fade", delay: 0, duration: 1400 },
@@ -570,15 +619,74 @@ export function programV2Section(): InvitationSection {
     coverColor: "",
     marker: "/decor/rose.svg",
     stem: "feuilles",
+    look: "default",
+    timeline: "classic",
+    stemColor: "",
+    iconColor: "",
+    itemIcons: {},
+    photos: [],
     layers: [
       newLayer("image", { src: "/decor/papillon.svg", name: "Papillon", x: 88, y: 9, width: 11, rotation: 12, placement: "front", enter: { type: "fade", delay: 300, duration: 1600 }, loop: "float" }),
     ],
   };
 }
 
+/** Variantes prêtes à l'emploi de la frise (programme v2) */
+export const TIMELINE_PRESETS: Array<{ id: string; label: string; patch: Partial<InvitationSection> }> = [
+  { id: "fleurie", label: "Frise fleurie", patch: { timeline: "classic", stem: "feuilles", stemColor: "", marker: "/decor/rose.svg" } },
+  { id: "trait-dore", label: "Trait doré et perles", patch: { timeline: "classic", stem: "perles", stemColor: "#b89b5e", marker: "" } },
+  { id: "icones-perles", label: "Icônes et perles", patch: { timeline: "icons", stem: "perles", stemColor: "#b89b5e", iconColor: "#b89b5e", marker: "" } },
+  { id: "medaillons", label: "Médaillons centrés", patch: { timeline: "centered", stem: "trait", stemColor: "#b89b5e", iconColor: "#b89b5e", marker: "" } },
+  { id: "zigzag", label: "Zigzag", patch: { timeline: "alternate", stem: "perles", stemColor: "#b89b5e", iconColor: "#b89b5e", marker: "" } },
+  { id: "epure", label: "Épuré, sans tige", patch: { timeline: "icons", stem: "aucune", stemColor: "", iconColor: "", marker: "" } },
+];
+
+/** Section prête à l'emploi « Album photo » : carrousel de photos du couple. */
+export function gallerySection(): InvitationSection {
+  return {
+    ...newSectionBase("gallery"),
+    kicker: "A little album of",
+    title: "Our Memories",
+    photos: [1, 2, 3, 4].map((n) => ({ id: `p${n}`, src: `/decor/album/exemple-${n}.jpg`, caption: "" })),
+  };
+}
+
+const norm = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const ICON_RULES: Array<[RegExp, string]> = [
+  [/mairie|civil|town hall/, "mairie"],
+  [/eglise|church|messe/, "eglise"],
+  [/mosquee|mosque/, "mosquee"],
+  [/gateau|piece montee|cake|dessert|wedding cake/, "piece-montee"],
+  [/anniversaire|birthday/, "gateau-anniversaire"],
+  [/cocktail|vin d.honneur|aperitif|apero|champagne|drinks/, "coupes-champagne"],
+  [/diner|dinner|repas|banquet|dejeuner|lunch|table/, "diner"],
+  [/brunch|gouter|the |tea|petit.dejeuner/, "cloche-service"],
+  [/danse|bal|dance/, "couple-danse"],
+  [/soiree|party|fete|dj|dancefloor/, "boule-disco"],
+  [/photo/, "appareil-photo"],
+  [/navette|bus|shuttle|transport/, "navette"],
+  [/feu d.artifice|fireworks/, "feu-artifice"],
+  [/fin |^fin|depart|end of|goodbye|au revoir/, "voiture-maries"],
+  [/entree de la mariee|bride|mariee/, "robe-mariee"],
+  [/henne|henna|fatiha|engagement|fiancailles/, "bague-solitaire"],
+  [/ceremonie|ceremony|laique|voeux|vows|union/, "alliances"],
+  [/accueil|arrivee|welcome|reception/, "bouquet"],
+];
+const ICON_BY_TYPE: Partial<Record<EventType, string>> = {
+  civil: "mairie", secular: "alliances", religious: "alliances", cocktail: "coupes-champagne", dinner: "diner", party: "boule-disco",
+  brunch: "cloche-service", tea: "cloche-service", cake: "piece-montee", henna: "bague-solitaire", fatiha: "bague-solitaire", bride: "robe-mariee", reception: "bouquet",
+};
+/** Icône devinée d'après l'intitulé du moment (ou son type) */
+export function guessMomentIcon(title: string, type?: EventType): string {
+  const t = ` ${norm(title)} `;
+  const hit = ICON_RULES.find(([re]) => re.test(t))?.[1] ?? (type ? ICON_BY_TYPE[type] : undefined) ?? "coeur";
+  return `/decor/icones/${hit}.svg`;
+}
+
 /** Moments affichés par la section « Programme v2 » : le programme de l'invitation, ou des moments propres à la section. */
 export function programV2Items(section: InvitationSection, content: InvitationContent, formatTime: (t: string) => string = (t) => t, formatDay?: (d: string) => string) {
-  if (section.itemsFrom === "custom" || !content.events.length) return section.items;
+  const iconFor = (id: string, title: string, type?: EventType) => (id in (section.itemIcons ?? {}) ? section.itemIcons[id] : guessMomentIcon(title, type));
+  if (section.itemsFrom === "custom" || !content.events.length) return section.items.map((it) => ({ ...it, icon: iconFor(it.id, it.title) }));
   const dayOf = (e: InvitationEvent) => e.date || content.eventAt.slice(0, 10);
   const multi = !!formatDay && new Set(content.events.map(dayOf).filter(Boolean)).size > 1;
   const events = multi
@@ -598,6 +706,7 @@ export function programV2Items(section: InvitationSection, content: InvitationCo
         title: e.title,
         detail: [multi && formatDay ? formatDay(dayOf(e)) : "", repeat ? "" : e.venueName, e.description || (repeat ? "" : e.address)].filter(Boolean).join("\n"),
         fromEvent: true as const,
+        icon: iconFor(e.id, e.title, e.type),
       };
     });
 }

@@ -8,6 +8,7 @@ import { InvitationView } from "@/components/invitation/InvitationView";
 import { LayerEditorContext, type LayerEditor } from "@/components/invitation/Layers";
 import { MediaPicker } from "@/components/media/MediaPicker";
 import { MediaUrlField } from "@/components/media/MediaUrlField";
+import { BUILTIN_MEDIA } from "@/lib/builtin-media";
 import {
   ENTER_ANIMATIONS,
   ENTER_ANIMATION_LABELS,
@@ -22,6 +23,12 @@ import {
   SHAPE_TYPES,
   STEM_LABELS,
   STEM_STYLES,
+  LOOKS_BY_TYPE,
+  TIMELINE_LABELS,
+  TIMELINE_LAYOUTS,
+  TIMELINE_PRESETS,
+  isSimpleStem,
+  programV2Items,
   cloneSection,
   layerSchema,
   newLayer,
@@ -1048,6 +1055,7 @@ export function VisualEditor({
           ) : section ? (
             <SectionPanel
               section={section}
+              content={c}
               themeColors={c.theme.colors}
               themeSwatches={c.theme.swatches}
               onApplyBackgroundToAll={() => {
@@ -1166,6 +1174,8 @@ export function VisualEditor({
         onClose={() => setPicker(null)}
         onSelect={(m) => {
           if (picker === "replace" && section && layer) patchLayer(section.id, layer.id, { src: m.url, name: m.name.slice(0, 60) });
+          // Icône de la bibliothèque : petite, et teintée à la couleur d'accent (modifiable dans « Teinte »)
+          else if (m.url.startsWith("/decor/icones/")) addLayer(newLayer("image", { src: m.url, name: m.name.slice(0, 60), width: 16, color: c.theme.colors.accent }));
           else addLayer(newLayer("image", { src: m.url, name: m.name.slice(0, 60) }));
         }}
       />
@@ -1269,6 +1279,13 @@ function LayerPanel({ layer: l, names, onChange, onReplace, onDelete, onDuplicat
             <option value="front">Devant le texte</option>
           </select>
         </Field>
+        <label className="flex items-start gap-2 text-xs">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-forest" checked={l.overlap} onChange={(e) => onChange({ overlap: e.target.checked })} />
+          <span>
+            Déborder sur les sections voisines
+            <span className="block text-stone">L&apos;image passe au-dessus de la section suivante (ou précédente) au lieu d&apos;être coupée par elle.</span>
+          </span>
+        </label>
         <div className="flex gap-2">
           <button type="button" className="btn btn-ghost btn-sm !px-2" onClick={() => onMove(1)}>Vers l&apos;avant</button>
           <button type="button" className="btn btn-ghost btn-sm !px-2" onClick={() => onMove(-1)}>Vers l&apos;arrière</button>
@@ -1348,8 +1365,9 @@ function LayerPanel({ layer: l, names, onChange, onReplace, onDelete, onDuplicat
 /* ── Panneau d'une section ────────────────────────────────────────── */
 const NOT_DUPLICABLE: InvitationSection["type"][] = ["hero", "rsvp", "countdown"];
 
-function SectionPanel({ section: s, themeColors, themeSwatches = [], onApplyBackgroundToAll, formHref, canDelete, onChange, onDuplicate, onDelete, onAddImage, onAddText, onAddShape, palette, onPalette }: {
+function SectionPanel({ section: s, content, themeColors, themeSwatches = [], onApplyBackgroundToAll, formHref, canDelete, onChange, onDuplicate, onDelete, onAddImage, onAddText, onAddShape, palette, onPalette }: {
   onAddShape: () => void;
+  content: InvitationContent;
   palette: string[];
   onPalette: (palette: string[]) => void;
   themeSwatches?: string[];
@@ -1371,6 +1389,30 @@ function SectionPanel({ section: s, themeColors, themeSwatches = [], onApplyBack
         <p className="text-[0.7rem] uppercase tracking-wider text-stone">Section</p>
         <h2 className="font-serif text-2xl">{SECTION_LABELS[s.type]}</h2>
       </div>
+      {LOOKS_BY_TYPE[s.type] ? (
+        <fieldset className="min-w-0">
+          <legend className="mb-1 block text-[0.7rem] uppercase tracking-wider text-stone">Style de la section</legend>
+          <div className="grid gap-1.5" role="radiogroup" aria-label="Style de la section">
+            {LOOKS_BY_TYPE[s.type]!.map((o) => (
+              <button
+                key={o.look}
+                type="button"
+                role="radio"
+                aria-checked={s.look === o.look}
+                onClick={() => onChange({ look: o.look })}
+                className={`rounded-sm border px-3 py-2 text-left text-sm ${s.look === o.look ? "border-forest bg-sage-soft font-medium" : "border-line bg-white hover:border-forest"}`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+      {s.look !== "default" && LOOKS_BY_TYPE[s.type] ? (
+        <Field label={s.type === "countdown" ? "Phrase au-dessus du compteur" : "Surtitre"} hint="Laissez vide pour le texte par défaut (traduit selon la langue).">
+          <input aria-label="Surtitre de la section" className={inputCls} maxLength={120} value={s.kicker} onChange={(e) => onChange({ kicker: e.target.value })} />
+        </Field>
+      ) : null}
       {titled ? (
         <Field label="Titre affiché" hint={s.type === "text" ? undefined : "Laissez vide pour le titre par défaut (traduit selon la langue)."}>
           <input aria-label="Titre affiché" className={inputCls} maxLength={80} value={s.title} onChange={(e) => onChange({ title: e.target.value })} />
@@ -1384,13 +1426,14 @@ function SectionPanel({ section: s, themeColors, themeSwatches = [], onApplyBack
       {s.type === "decor" ? (
         <NumberSlider label="Hauteur" value={s.height} min={10} max={250} unit="%" onChange={(v) => onChange({ height: v })} />
       ) : null}
-      {!["text", "decor", "program2", "scratch"].includes(s.type) ? (
+      {!["text", "decor", "program2", "scratch", "gallery"].includes(s.type) ? (
         <p className="text-xs text-stone">
           Le contenu de cette section (dates, lieux, textes) se modifie dans le <Link href={formHref} className="text-forest underline">formulaire</Link>.
           {s.type === "rsvp" || s.type === "countdown" ? " Sa logique est verrouillée." : ""}
         </p>
       ) : null}
-      {s.type === "program2" ? <ProgramV2Editor section={s} onChange={onChange} /> : null}
+      {s.type === "program2" ? <ProgramV2Editor section={s} content={content} onChange={onChange} /> : null}
+      {s.type === "gallery" ? <GalleryEditor section={s} onChange={onChange} /> : null}
       {s.type === "dresscode" ? <PaletteEditor palette={palette} onChange={onPalette} /> : null}
       {s.type === "scratch" ? <ScratchOptionsEditor section={s} themeColors={themeColors} onChange={onChange} /> : null}
       {s.type === "venues" ? <VenuesOptionsEditor section={s} themeColors={themeColors} onChange={onChange} /> : null}
@@ -2037,9 +2080,13 @@ function ShapeControls({ layer: l, onChange }: { layer: InvitationLayer; onChang
       {l.shape === "rounded" ? <NumberSlider label="Arrondi des angles" value={l.radius} min={0} max={50} unit="%" onChange={(v) => onChange({ radius: v })} /> : null}
       <fieldset className="min-w-0 space-y-2 border-t border-line pt-3">
         <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Contour</legend>
-        <NumberSlider label="Épaisseur du trait" value={l.strokeWidth} min={0} max={12} step={0.5} unit="px" onChange={(v) => onChange({ strokeWidth: v })} />
+        <label className="flex items-center gap-2 text-xs">
+          <input type="checkbox" checked={l.strokeWidth > 0} onChange={(e) => onChange({ strokeWidth: e.target.checked ? 1 : 0 })} className="h-4 w-4 accent-forest" aria-label="Afficher un contour" />
+          {l.strokeWidth > 0 ? "Contour visible" : "Aucun contour (aucune couleur de trait)"}
+        </label>
         {l.strokeWidth > 0 ? (
           <>
+            <NumberSlider label="Épaisseur du trait" value={l.strokeWidth} min={0.5} max={12} step={0.5} unit="px" onChange={(v) => onChange({ strokeWidth: v })} />
             <span className="flex items-center gap-2 text-xs">
               <ColorInput value={l.stroke || "#586c60"} onChange={(e) => onChange({ stroke: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label="Couleur du contour" />
               {l.stroke ? <button type="button" className="underline" onClick={() => onChange({ stroke: "" })}>couleur du thème</button> : "couleur du thème"}
@@ -2066,8 +2113,113 @@ function ShapeControls({ layer: l, onChange }: { layer: InvitationLayer; onChang
   );
 }
 
-/* ── Programme v2 : surtitre, moments, fleur ─────────────────────── */
-function ProgramV2Editor({ section: s, onChange }: { section: InvitationSection; onChange: (patch: Partial<InvitationSection>) => void }) {
+/* ── Programme v2 : variantes, tige, couleurs, icônes, moments ──── */
+const ICON_CHOICES = BUILTIN_MEDIA.filter((m) => m.url.startsWith("/decor/icones/"));
+
+function StemPreview({ k, color = "#586c60" }: { k: string; color?: string }) {
+  if (k === "aucune") return <span aria-hidden="true" className="block h-16 w-6 text-center text-[0.6rem] leading-[4rem] text-stone">∅</span>;
+  if (isSimpleStem(k))
+    return (
+      <span aria-hidden="true" className="relative flex h-16 w-6 flex-col items-center justify-around">
+        <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2" style={{ background: k === "tirets" ? `repeating-linear-gradient(to bottom, ${color} 0 4px, transparent 4px 8px)` : color }} />
+        {k === "perles" ? [0, 1, 2].map((i) => <span key={i} className="relative block h-2 w-2 rounded-full" style={{ background: color, boxShadow: "0 0 0 2px #fff" }} />) : null}
+      </span>
+    );
+  return (
+    <span
+      aria-hidden="true"
+      className="block h-16 w-6"
+      style={{ backgroundColor: color, WebkitMaskImage: `url(/decor/tiges/${k}.svg)`, maskImage: `url(/decor/tiges/${k}.svg)`, WebkitMaskRepeat: "repeat-y", maskRepeat: "repeat-y", WebkitMaskSize: "100% auto", maskSize: "100% auto" }}
+    />
+  );
+}
+
+/** Mini-aperçu d'une variante de frise */
+function TimelineThumb({ layout, stem, color }: { layout: string; stem: string; color: string }) {
+  const dot = <span className="block h-1.5 w-1.5 rounded-full" style={{ background: color }} />;
+  const bar = (w: string) => <span className="block h-[3px] rounded-full bg-stone/40" style={{ width: w }} />;
+  if (layout === "centered")
+    return (
+      <span className="flex flex-col items-center gap-1">
+        {[0, 1].map((i) => (
+          <span key={i} className="flex flex-col items-center gap-0.5">
+            {i ? <span className="block h-2 w-px" style={{ background: color }} /> : null}
+            <span className="block h-3.5 w-3.5 rounded-full border" style={{ borderColor: color }} />
+            {bar("26px")}
+          </span>
+        ))}
+      </span>
+    );
+  if (layout === "alternate")
+    return (
+      <span className="relative flex w-14 flex-col gap-2 py-1">
+        <span className="absolute inset-y-0 left-1/2 w-px" style={{ background: color }} />
+        <span className="flex items-center gap-1"><span className="flex flex-1 justify-end">{bar("16px")}</span>{dot}<span className="flex-1" /></span>
+        <span className="flex items-center gap-1"><span className="flex-1" />{dot}<span className="flex-1">{bar("16px")}</span></span>
+        <span className="flex items-center gap-1"><span className="flex flex-1 justify-end">{bar("16px")}</span>{dot}<span className="flex-1" /></span>
+      </span>
+    );
+  return (
+    <span className="flex items-stretch gap-1.5">
+      <span className="flex flex-col justify-around gap-2">{bar("9px")}{bar("9px")}{bar("9px")}</span>
+      {stem === "aucune" ? <span className="w-1.5" /> : isSimpleStem(stem) ? (
+        <span className="relative flex w-1.5 flex-col items-center justify-around">
+          <span className="absolute inset-y-0 w-px" style={{ background: color }} />
+          {stem === "perles" ? <>{dot}{dot}{dot}</> : null}
+        </span>
+      ) : <StemPreview k={stem} color={color} />}
+      <span className="flex flex-col justify-around gap-2">{bar("20px")}{bar("16px")}{bar("20px")}</span>
+      {layout === "icons" ? <span className="flex flex-col justify-around gap-2">{[0, 1, 2].map((i) => <span key={i} className="block h-2 w-2 rounded-sm border" style={{ borderColor: color }} />)}</span> : null}
+    </span>
+  );
+}
+
+function IconChoice({ value, auto, onChange, label }: { value: string | undefined; auto: string; onChange: (v: string | undefined) => void; label: string }) {
+  const [open, setOpen] = useState(false);
+  const shown = value === undefined ? auto : value;
+  return (
+    <div className="relative">
+      <button type="button" className="flex h-9 w-9 items-center justify-center rounded-sm border border-line bg-white hover:border-forest" aria-label={`${label} : changer l'icône`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {shown ? (
+          <span aria-hidden="true" className="block h-6 w-6" style={{ backgroundColor: "#586c60", WebkitMaskImage: `url("${shown}")`, maskImage: `url("${shown}")`, WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }} />
+        ) : <span className="text-xs text-stone">∅</span>}
+      </button>
+      {open ? (
+        <div className="absolute right-0 top-10 z-30 w-[244px] rounded-sm border border-line bg-white p-2 shadow-xl" role="dialog" aria-label={`Icône — ${label}`}>
+          <div className="mb-1.5 flex gap-1.5">
+            <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => { onChange(undefined); setOpen(false); }}>Automatique</button>
+            <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => { onChange(""); setOpen(false); }}>Aucune</button>
+          </div>
+          <div className="grid max-h-56 grid-cols-6 gap-1 overflow-y-auto">
+            {ICON_CHOICES.map((m) => (
+              <button key={m.id} type="button" title={m.name} aria-label={m.name} onClick={() => { onChange(m.url); setOpen(false); }} className={`flex h-9 items-center justify-center rounded-sm border hover:border-forest ${shown === m.url ? "border-forest bg-sage-soft" : "border-transparent"}`}>
+                <span aria-hidden="true" className="block h-6 w-6" style={{ backgroundColor: "#3f4a3c", WebkitMaskImage: `url("${m.url}")`, maskImage: `url("${m.url}")`, WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ColorRow({ label, value, fallback, onChange }: { label: string; value: string; fallback: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex items-center gap-3">
+      <ColorInput value={value || fallback} onChange={(e) => onChange(e.target.value)} className="h-9 w-11 cursor-pointer rounded-sm border border-line" aria-label={label} />
+      <div className="text-xs">
+        <span className="block text-sm">{label}</span>
+        {value ? (
+          <span className="text-stone">{value.toUpperCase()} · <button type="button" className="underline" onClick={() => onChange("")}>couleur du thème</button></span>
+        ) : (
+          <span className="text-stone">Couleur du thème</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProgramV2Editor({ section: s, content, onChange }: { section: InvitationSection; content: InvitationContent; onChange: (patch: Partial<InvitationSection>) => void }) {
   const setItem = (i: number, patch: Partial<InvitationSection["items"][number]>) => onChange({ items: s.items.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
   const move = (i: number, d: -1 | 1) => {
     const j = i + d;
@@ -2076,8 +2228,43 @@ function ProgramV2Editor({ section: s, onChange }: { section: InvitationSection;
     [items[i], items[j]] = [items[j], items[i]];
     onChange({ items });
   };
+  const setIcon = (id: string, v: string | undefined) => {
+    const next = { ...s.itemIcons };
+    if (v === undefined) delete next[id];
+    else next[id] = v;
+    onChange({ itemIcons: next });
+  };
+  const accent = content.theme.colors.accent;
+  const withIcons = s.timeline !== "classic";
+  const shownItems = programV2Items(s, content);
   return (
     <div className="space-y-3">
+      <fieldset className="min-w-0">
+        <legend className="mb-1 block text-[0.7rem] uppercase tracking-wider text-stone">Frises prêtes à l&apos;emploi</legend>
+        <div className="grid grid-cols-3 gap-1.5">
+          {TIMELINE_PRESETS.map((p) => {
+            const active = s.timeline === p.patch.timeline && s.stem === p.patch.stem;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onChange(p.patch)}
+                className={`flex flex-col items-center gap-1.5 rounded-sm border bg-white px-1 pb-1.5 pt-2.5 ${active ? "border-forest ring-2 ring-forest/30" : "border-line hover:border-forest"}`}
+              >
+                <span className="flex h-14 items-center"><TimelineThumb layout={p.patch.timeline ?? "classic"} stem={p.patch.stem ?? "feuilles"} color={p.patch.stemColor || accent} /></span>
+                <span className="text-center text-[0.6rem] leading-tight">{p.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1 text-[0.7rem] text-stone">Un clic applique la variante ; tout reste modifiable ci-dessous.</p>
+      </fieldset>
+      <Field label="Mise en page">
+        <select aria-label="Mise en page de la frise" className={inputCls} value={s.timeline} onChange={(e) => onChange({ timeline: e.target.value as InvitationSection["timeline"] })}>
+          {TIMELINE_LAYOUTS.map((k) => <option key={k} value={k}>{TIMELINE_LABELS[k]}</option>)}
+        </select>
+      </Field>
       <Field label="Surtitre">
         <input aria-label="Surtitre" className={inputCls} maxLength={120} value={s.kicker} onChange={(e) => onChange({ kicker: e.target.value })} />
       </Field>
@@ -2095,28 +2282,31 @@ function ProgramV2Editor({ section: s, onChange }: { section: InvitationSection;
               onClick={() => onChange({ stem: k })}
               className={`flex flex-col items-center gap-1 rounded-sm border bg-white px-1 pb-1 pt-2 ${s.stem === k ? "border-forest ring-2 ring-forest/30" : "border-line hover:border-forest"}`}
             >
-              <span
-                aria-hidden="true"
-                className="block h-16 w-6"
-                style={{
-                  backgroundColor: "#586c60",
-                  WebkitMaskImage: `url(/decor/tiges/${k}.svg)`,
-                  maskImage: `url(/decor/tiges/${k}.svg)`,
-                  WebkitMaskRepeat: "repeat-y",
-                  maskRepeat: "repeat-y",
-                  WebkitMaskSize: "100% auto",
-                  maskSize: "100% auto",
-                }}
-              />
+              <StemPreview k={k} color={s.stemColor || "#586c60"} />
               <span className="text-[0.6rem] leading-tight">{STEM_LABELS[k]}</span>
             </button>
           ))}
         </div>
-        <p className="mt-1 text-[0.7rem] text-stone">Sa couleur suit celle du thème ; changez-la en cliquant sur la tige dans le téléphone (« Couleur »).</p>
       </fieldset>
-      <Field label="Fleur qui descend le long de la tige" hint="Elle suit le défilement de l'écran. Choisissez une autre illustration dans la bibliothèque si vous le souhaitez.">
-        <MediaUrlField kinds={["image", "svg"]} className={inputCls} label="Fleur qui suit le défilement" value={s.marker} onChange={(v) => onChange({ marker: v })} />
-      </Field>
+      <ColorRow label="Couleur de la tige" value={s.stemColor} fallback={accent} onChange={(v) => onChange({ stemColor: v })} />
+      {withIcons ? <ColorRow label="Couleur des icônes" value={s.iconColor} fallback={s.stemColor || accent} onChange={(v) => onChange({ iconColor: v })} /> : null}
+      {withIcons && shownItems.length ? (
+        <fieldset className="min-w-0 space-y-1.5 border-t border-line pt-3">
+          <legend className="mb-1 block text-[0.7rem] uppercase tracking-wider text-stone">Icône de chaque moment</legend>
+          <p className="text-[0.7rem] text-stone">Devinée d&apos;après l&apos;intitulé ; cliquez pour en choisir une autre (ou aucune).</p>
+          {shownItems.map((it) => (
+            <div key={it.id} className="flex items-center gap-2">
+              <IconChoice label={it.title || "Moment"} value={s.itemIcons[it.id]} auto={it.id in s.itemIcons ? "" : (it.icon ?? "")} onChange={(v) => setIcon(it.id, v)} />
+              <span className="min-w-0 flex-1 truncate text-sm">{it.time ? `${it.time} · ` : ""}{it.title || "Moment"}</span>
+            </div>
+          ))}
+        </fieldset>
+      ) : null}
+      {s.timeline === "classic" ? (
+        <Field label="Fleur qui descend le long de la tige (facultatif)" hint="Elle suit le défilement de l'écran. Videz le champ pour ne pas en mettre.">
+          <MediaUrlField kinds={["image", "svg"]} className={inputCls} label="Fleur qui suit le défilement" value={s.marker} onChange={(v) => onChange({ marker: v })} />
+        </Field>
+      ) : null}
       <fieldset className="min-w-0 space-y-2 border-t border-line pt-3">
         <legend className="mb-1 font-serif text-lg">Moments</legend>
         <label className="flex items-start gap-2 text-sm">
@@ -2160,6 +2350,62 @@ function ProgramV2Editor({ section: s, onChange }: { section: InvitationSection;
           </button>
         ) : null}
       </fieldset>
+    </div>
+  );
+}
+
+/* ── Album photo ─────────────────────────────────────────────────── */
+function GalleryEditor({ section: s, onChange }: { section: InvitationSection; onChange: (patch: Partial<InvitationSection>) => void }) {
+  const [picker, setPicker] = useState<number | "add" | null>(null);
+  const photos = s.photos;
+  const set = (list: InvitationSection["photos"]) => onChange({ photos: list });
+  const move = (i: number, d: -1 | 1) => {
+    const j = i + d;
+    if (j < 0 || j >= photos.length) return;
+    const list = [...photos];
+    [list[i], list[j]] = [list[j], list[i]];
+    set(list);
+  };
+  const examples = photos.some((p) => p.src.startsWith("/decor/album/"));
+  return (
+    <div className="space-y-3">
+      <Field label="Surtitre">
+        <input aria-label="Surtitre" className={inputCls} maxLength={120} value={s.kicker} onChange={(e) => onChange({ kicker: e.target.value })} placeholder="A little album of" />
+      </Field>
+      <fieldset className="min-w-0 space-y-2 border-t border-line pt-3">
+        <legend className="mb-1 font-serif text-lg">Photos ({photos.length})</legend>
+        {examples ? <p className="rounded-sm bg-sage-soft px-2 py-1.5 text-xs">Photos d&apos;exemple : remplacez-les par celles du couple (importez-les d&apos;abord dans Médias).</p> : null}
+        <ul className="space-y-2">
+          {photos.map((p, i) => (
+            <li key={p.id} className="flex gap-2 rounded-sm border border-line bg-white p-1.5">
+              <button type="button" onClick={() => setPicker(i)} className="checker h-16 w-14 shrink-0 overflow-hidden rounded-sm border border-line" aria-label={`Remplacer la photo ${i + 1}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {p.src ? <img src={p.src} alt="" className="h-full w-full object-cover" /> : <span className="text-xs text-stone">+</span>}
+              </button>
+              <div className="min-w-0 flex-1 space-y-1">
+                <input aria-label={`Légende de la photo ${i + 1}`} className="field min-h-8 py-1 text-xs" maxLength={120} value={p.caption} onChange={(e) => set(photos.map((x, j) => (j === i ? { ...x, caption: e.target.value } : x)))} placeholder="Légende (facultatif)" />
+                <div className="flex justify-end gap-1">
+                  <Btn label="Photo précédente dans l'ordre" onClick={() => move(i, -1)} disabled={i === 0}>↑</Btn>
+                  <Btn label="Photo suivante dans l'ordre" onClick={() => move(i, 1)} disabled={i === photos.length - 1}>↓</Btn>
+                  <Btn label={`Retirer la photo ${i + 1}`} onClick={() => set(photos.filter((_, j) => j !== i))}>✕</Btn>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {photos.length < 30 ? <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPicker("add")}>+ Ajouter une photo</button> : null}
+        <p className="text-[0.7rem] text-stone">Format portrait conseillé (les photos sont recadrées en 4:5). Sur téléphone, l&apos;invité fait glisser ou utilise les flèches.</p>
+      </fieldset>
+      <MediaPicker
+        kinds={["image"]}
+        open={picker !== null}
+        title={picker === "add" ? "Ajouter une photo à l'album" : "Remplacer la photo"}
+        onClose={() => setPicker(null)}
+        onSelect={(m) => {
+          if (picker === "add") set([...photos, { id: `p-${Math.random().toString(36).slice(2, 8)}`, src: m.url, caption: "" }]);
+          else if (typeof picker === "number") set(photos.map((x, j) => (j === picker ? { ...x, src: m.url } : x)));
+        }}
+      />
     </div>
   );
 }

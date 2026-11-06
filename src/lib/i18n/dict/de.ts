@@ -120,6 +120,11 @@ export const de: SiteDict = {
     ctaScript: "Wollen wir loslegen?",
     ctaText: "Wählen Sie ein Design und bestellen Sie online: Ihre Vorschau kommt innerhalb von 24 Stunden nach Ihren Angaben.",
     ctaButton: "Einladungen entdecken",
+    helpTitle: "Brauchen Sie Hilfe? Schreiben Sie uns",
+    helpMessage: "Hallo, ich habe eine Frage zu den E-Invitly-Einladungen.",
+    customTitle: "Eine Website oder ein individuelles Design",
+    customText: "Alles, was Sie sich vorstellen, nur für Sie gestaltet — sprechen wir direkt",
+    customMessage: "Hallo, ich hätte gern eine Website oder ein individuelles Design.",
   },
   cards: {
     featured: "Lieblingsstück",

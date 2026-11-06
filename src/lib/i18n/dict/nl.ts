@@ -120,6 +120,11 @@ export const nl: SiteDict = {
     ctaScript: "Zullen we beginnen?",
     ctaText: "Kies een ontwerp en bestel online: je voorbeeld komt binnen 24 uur na het versturen van je gegevens.",
     ctaButton: "Ontdek de uitnodigingen",
+    helpTitle: "Hulp nodig? Stuur ons een bericht",
+    helpMessage: "Hallo, ik heb een vraag over de uitnodigingen van E-Invitly.",
+    customTitle: "Een website of een ontwerp op maat",
+    customText: "Alles wat je voor ogen hebt, speciaal voor jou gemaakt — laten we het direct bespreken",
+    customMessage: "Hallo, ik wil graag een website of een ontwerp op maat.",
   },
   cards: {
     featured: "Favoriet",

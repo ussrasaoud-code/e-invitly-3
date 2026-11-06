@@ -20,6 +20,7 @@ import {
   HeroSection,
   ProgramSection,
   ProgramV2Section,
+  GallerySection,
   RsvpSection,
   TextSection,
   VenuesSection,
@@ -32,7 +33,7 @@ const DESIGN_WIDTH = 390;
 
 const FONT_STACKS = Object.fromEntries(Object.entries(FONTS).map(([k, f]) => [k, f.stack])) as Record<FontKey, string>;
 
-const SECTION_COMPONENTS: Record<Exclude<SectionType, "rsvp" | "text" | "decor" | "program2" | "scratch">, (p: SectionProps) => React.ReactNode> = {
+const SECTION_COMPONENTS: Record<Exclude<SectionType, "rsvp" | "text" | "decor" | "program2" | "scratch" | "gallery">, (p: SectionProps) => React.ReactNode> = {
   hero: HeroSection,
   program: ProgramSection,
   countdown: CountdownSection,
@@ -166,12 +167,14 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
           .map((s, index) => {
             const props: SectionProps = { content, renderer, labels, title: s.title, slug, rsvp };
             let inner: React.ReactNode;
-            if (s.type === "rsvp") inner = <RsvpSection {...props} mode={mode} />;
+            if (s.type === "rsvp") inner = <RsvpSection {...props} mode={mode} section={s} />;
             else if (s.type === "text") inner = <TextSection {...props} body={s.body} />;
             else if (s.type === "decor") inner = <DecorSection height={s.height} />;
             else if (s.type === "program2") inner = <ProgramV2Section {...props} section={s} />;
             else if (s.type === "venues") inner = <VenuesSection {...props} section={s} />;
             else if (s.type === "scratch") inner = <ScratchSection {...props} section={s} />;
+            else if (s.type === "countdown") inner = <CountdownSection {...props} section={s} />;
+            else if (s.type === "gallery") inner = <GallerySection {...props} section={s} />;
             else {
               const Component = SECTION_COMPONENTS[s.type];
               inner = <Component {...props} />;

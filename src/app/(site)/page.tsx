@@ -8,6 +8,7 @@ import { SetupNotice } from "@/components/site/SetupNotice";
 import { PhoneStrip } from "@/components/site/PhoneStrip";
 import { PriceGrid } from "@/components/site/PriceGrid";
 import { getSettings } from "@/lib/settings";
+import { whatsappLink } from "@/lib/whatsapp";
 import type { Metadata } from "next";
 import { localePath } from "@/lib/i18n/config";
 import { getDict } from "@/lib/i18n/server";
@@ -29,6 +30,10 @@ export default async function HomePage() {
   const home = lang === "fr" ? settings.home : { heroTitle: h.heroTitle, heroSubtitle: h.heroSubtitle, faq: h.faq };
   const STEPS = h.steps.map((st, i) => ({ ...st, n: `0${i + 1}` }));
   const BENEFITS = h.benefits;
+  const brand = settings.brand;
+  const helpHref = whatsappLink(brand.whatsapp, h.helpMessage) ?? (brand.contactEmail ? `mailto:${brand.contactEmail}` : null);
+  const customHref = whatsappLink(brand.whatsapp, h.customMessage) ?? (brand.contactEmail ? `mailto:${brand.contactEmail}?subject=${encodeURIComponent(h.customTitle)}` : null);
+  const helpDetail = brand.whatsapp ? brand.whatsapp : brand.contactEmail;
   const demoLabels = { badge: t.demo.badge, demoLabel: t.template.demoLabel, tabs: t.nav.choose };
 
   return (
@@ -191,6 +196,36 @@ export default async function HomePage() {
           {h.ctaButton}
         </Link>
       </section>
+
+      {/* ── Contact direct : aide et projets sur mesure ── */}
+      {helpHref || customHref ? (
+        <section className="px-5 pb-20 md:pb-24" aria-label={h.helpTitle}>
+          <div className="mx-auto grid max-w-5xl gap-4 md:grid-cols-2">
+            {helpHref ? (
+              <a href={helpHref} target={helpHref.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" className="group flex items-center gap-4 md:gap-5 rounded-2xl border border-line bg-white/70 p-5 transition hover:border-forest hover:shadow-md md:p-6">
+                <span aria-hidden="true" className="flex h-14 w-14 md:h-16 md:w-16 shrink-0 items-center justify-center rounded-full bg-[#e6f4e4] text-[#3f9a4a]">
+                  <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-base md:text-lg font-semibold text-charcoal">{h.helpTitle}</span>
+                  {helpDetail ? <span className="mt-1 block truncate text-stone" dir="ltr">{helpDetail}</span> : null}
+                </span>
+              </a>
+            ) : null}
+            {customHref ? (
+              <a href={customHref} target={customHref.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" className="group flex items-center gap-4 md:gap-5 rounded-2xl border border-[#e3d3ad] bg-[#f6efe2] p-5 transition hover:border-[#c9ad6e] hover:shadow-md md:p-6">
+                <span aria-hidden="true" className="flex h-14 w-14 md:h-16 md:w-16 shrink-0 items-center justify-center rounded-full bg-[#ecdfc3] text-[#8a6a2c]">
+                  <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22a10 10 0 1 1 10-10c0 2.8-2.2 4-4 4h-2.5a2 2 0 0 0-1.5 3.3c.6.8.2 2.7-2 2.7z" /><circle cx="7.5" cy="10.5" r="1" fill="currentColor" /><circle cx="10.5" cy="6.8" r="1" fill="currentColor" /><circle cx="15" cy="7.2" r="1" fill="currentColor" /></svg>
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-base md:text-lg font-semibold text-charcoal">{h.customTitle}</span>
+                  <span className="mt-1 block text-stone">{h.customText}</span>
+                </span>
+              </a>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }

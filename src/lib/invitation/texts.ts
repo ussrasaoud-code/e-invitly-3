@@ -59,6 +59,9 @@ export function textFields(c: InvitationContent): TextField[] {
       add(`s.${s.id}.it.${it.id}.title`, g, `Moment ${ii + 1} — titre`, ["sections", si, "items", ii, "title"], 80);
       add(`s.${s.id}.it.${it.id}.detail`, g, `Moment ${ii + 1} — détail`, ["sections", si, "items", ii, "detail"], 200);
     });
+    (s.photos ?? []).forEach((ph, pi) => {
+      add(`s.${s.id}.ph.${ph.id}`, g, `Photo ${pi + 1} — légende`, ["sections", si, "photos", pi, "caption"], 120);
+    });
     s.layers.forEach((l, li) => {
       if (l.kind === "text") add(`s.${s.id}.l.${l.id}`, g, `Calque texte ${l.name ? `« ${l.name} »` : li + 1}`, ["sections", si, "layers", li, "text"], 240, true);
     });

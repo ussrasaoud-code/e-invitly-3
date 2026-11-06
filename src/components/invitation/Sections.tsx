@@ -4,7 +4,7 @@ import { cdnFallback, cdnImage } from "@/lib/image-cdn";
 
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Arch, CornerSpray, Divider, Sprig } from "@/components/ornaments";
-import { EVENT_TYPE_LABELS, programV2Items, type InvitationContent, type InvitationEvent, type InvitationSection, type RendererKey } from "@/lib/invitation/schema";
+import { EVENT_TYPE_LABELS, isSimpleStem, programV2Items, type InvitationContent, type InvitationEvent, type InvitationSection, type RendererKey } from "@/lib/invitation/schema";
 import { calendarHref } from "@/lib/ics";
 import { ScratchCard } from "./ScratchCard";
 import { LayerEditorContext } from "./editor-context";
@@ -339,7 +339,109 @@ export function ProgramSection({ content, renderer, labels, title }: SectionProp
 }
 
 /* ── Compte à rebours (logique verrouillée) ────────────────────────── */
-export function CountdownSection({ content, renderer, labels, title }: SectionProps) {
+export function CountdownSection({ content, renderer, labels, title, section }: SectionProps & { section?: InvitationSection }) {
+  if (section?.look === "savedate") return <SaveTheDate content={content} labels={labels} title={title} section={section} />;
+  return <ClassicCountdown content={content} renderer={renderer} labels={labels} title={title} />;
+}
+
+/** Temps restant avant l'événement, mis à jour chaque seconde (null avant l'affichage dans le navigateur). */
+function useCountdown(content: InvitationContent) {
+  const target = useMemo(() => zonedToUtc(content.eventAt, content.timezone), [content.eventAt, content.timezone]);
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  return { target, diff: target && now !== null ? target.getTime() - now : null };
+}
+
+/** Petit nœud entre deux traits */
+function BowDivider({ wide = false }: { wide?: boolean }) {
+  return (
+    <div aria-hidden="true" className={`mx-auto flex items-center justify-center gap-2 ${wide ? "w-[270px]" : "w-[170px]"}`} style={{ color: "var(--inv-accent)" }}>
+      <span className="h-px flex-1" style={{ background: "currentColor", opacity: 0.55 }} />
+      <svg viewBox="0 0 40 14" width={wide ? 40 : 26} height={wide ? 14 : 9} fill="currentColor" style={{ opacity: 0.8 }}>
+        <path d="M20 7C15 2 7 1 3 3.2c3 1 4.6 2.4 5 3.8-.4 1.4-2 2.8-5 3.8C7 13 15 12 20 7zM20 7c5-5 13-6 17-3.8-3 1-4.6 2.4-5 3.8.4 1.4 2 2.8 5 3.8C33 13 25 12 20 7z" opacity=".75" />
+        <circle cx="20" cy="7" r="2.3" />
+        <path d="M19 8l-4 5M21 8l4 5" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      </svg>
+      <span className="h-px flex-1" style={{ background: "currentColor", opacity: 0.55 }} />
+    </div>
+  );
+}
+
+/** « Save the date » : grande date, heure, compteur en cases et bouton calendrier */
+function SaveTheDate({ content, labels, title, section }: { content: InvitationContent; labels: SectionProps["labels"]; title: string; section: InvitationSection }) {
+  const { diff } = useCountdown(content);
+  if (!content.eventAt) return null;
+  const d = new Date(`${content.eventAt.slice(0, 10)}T12:00:00Z`);
+  const locale = LOCALES[content.language];
+  const fmtPart = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(locale, { ...o, timeZone: "UTC" }).format(d);
+  const time = content.eventAt.slice(11, 16);
+  const couple = [content.couple.partnerOne, content.couple.partnerTwo].filter(Boolean).join(" & ");
+  const cal = calendarHref({ date: content.eventAt.slice(0, 10), time: time || "12:00", timeZone: content.timezone, title: couple || title || labels.saveTheDate, location: [content.mainVenue.name, content.mainVenue.city].filter(Boolean).join(", ") });
+  const parts =
+    diff !== null && diff > 0
+      ? [
+          { v: Math.floor(diff / 86_400_000), l: labels.days },
+          { v: Math.floor((diff / 3_600_000) % 24), l: labels.hours },
+          { v: Math.floor((diff / 60_000) % 60), l: labels.minutes },
+          { v: Math.floor((diff / 1000) % 60), l: labels.seconds },
+        ]
+      : null;
+  const ink = { ...css.display, color: "var(--inv-ink)" };
+  return (
+    <section className="relative px-7 pb-16 pt-12 text-center">
+      <Reveal>
+        <El id="title">
+          <h2 className="text-[2.7rem] leading-tight" style={ink}>{title || labels.saveTheDate}</h2>
+        </El>
+        <div className="mt-2"><BowDivider /></div>
+        <El id="date" className="mt-10">
+          <p className="text-[6.2rem] leading-[0.8] lining-nums" style={ink}>{fmtPart({ day: "numeric" })}</p>
+          <p className="mt-1 text-[2.6rem] capitalize leading-tight" style={ink}>{fmtPart({ month: "long" })}</p>
+          <p className="mt-3 text-[2.2rem] leading-none tracking-wide" style={ink}>{fmtPart({ year: "numeric" })}</p>
+        </El>
+        <div className="mt-6"><BowDivider /></div>
+        {time ? (
+          <El id="time">
+            <p className="mt-6 text-[1.9rem]" style={ink}>{labels.atTime.replace("{time}", formatTime(time, content.language))}</p>
+          </El>
+        ) : null}
+        <div className="mt-6"><BowDivider wide /></div>
+      </Reveal>
+      <El id="kicker">
+        <p className="mt-7 text-[1.35rem]" style={ink}>{section.kicker || labels.countingDown}</p>
+      </El>
+      <El id="timer">
+        {parts ? (
+          <div className="mx-auto mt-5 grid max-w-[335px] grid-cols-4 gap-2.5" role="timer" aria-live="off">
+            {parts.map((p) => (
+              <div key={p.l} className="rounded-xl border px-1 py-3.5" style={{ borderColor: "color-mix(in srgb, var(--inv-ink) 30%, transparent)", background: "color-mix(in srgb, var(--inv-bg) 70%, white)", boxShadow: "inset 0 1px 4px rgb(0 0 0 / 0.06)" }}>
+                <span className="block text-[1.9rem] leading-none lining-nums tabular-nums" style={ink}>{String(p.v).padStart(2, "0")}</span>
+                <span className="mt-1.5 block truncate text-[0.82rem] capitalize" style={{ ...css.display, color: "var(--inv-muted)" }}>{p.l}</span>
+              </div>
+            ))}
+          </div>
+        ) : diff === null ? (
+          <div className="h-[92px]" aria-hidden="true" />
+        ) : (
+          <p className="mt-5 text-lg" style={{ ...css.script, color: "var(--inv-accent)" }}>{diff > -86_400_000 ? labels.countdownToday : labels.countdownPast}</p>
+        )}
+      </El>
+      {cal && parts ? (
+        <El id="calendar" className="mt-8">
+          <a href={cal} className="inline-flex min-h-12 items-center gap-3 whitespace-nowrap rounded-full border px-7 text-[1.1rem] transition hover:brightness-95" style={{ ...ink, borderColor: "color-mix(in srgb, var(--inv-ink) 45%, transparent)", background: "color-mix(in srgb, var(--inv-bg) 75%, white)" }}>
+            <CalendarIcon /> {labels.addCalendar}
+          </a>
+        </El>
+      ) : null}
+    </section>
+  );
+}
+
+function ClassicCountdown({ content, renderer, labels, title }: SectionProps) {
   const target = useMemo(() => zonedToUtc(content.eventAt, content.timezone), [content.eventAt, content.timezone]);
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
@@ -539,6 +641,7 @@ export function VenuesSection({ content, renderer, labels, title, section }: Sec
   const btnCls = "inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-[0.95rem] transition hover:brightness-110 active:scale-[0.98]";
   const multi = isMultiDay(content);
   const couple = [content.couple.partnerOne, content.couple.partnerTwo].filter(Boolean).join(" & ");
+  if (section?.look === "map") return <VenuesWithMap content={content} labels={labels} title={title} section={section} venues={venues} practical={practical} />;
   return (
     <Shell renderer={renderer}>
       <SectionTitle renderer={renderer}>{title || labels.venues}</SectionTitle>
@@ -612,6 +715,87 @@ export function VenuesSection({ content, renderer, labels, title, section }: Sec
   );
 }
 
+/** Lieux avec carte Google Maps intégrée et bouton « Itinéraire » */
+function VenuesWithMap({ content, labels, title, section, venues, practical }: { content: InvitationContent; labels: SectionProps["labels"]; title: string; section: InvitationSection; venues: InvitationEvent[]; practical: Array<{ id: string; k: string; v: string }> }) {
+  const editor = useContext(LayerEditorContext);
+  const opts = section.venueOptions;
+  const multi = isMultiDay(content);
+  return (
+    <section className="relative px-6 pb-16 pt-14 text-center">
+      <Reveal>
+        <El id="kicker">
+          <p className="text-[0.8rem] uppercase tracking-[0.4em]" style={{ color: opts.detail || "var(--inv-accent)" }}>{section.kicker || labels.where}</p>
+        </El>
+        <El id="title">
+          <h2 className="mt-1 text-[3.1rem] leading-tight" style={{ ...css.script, color: "var(--inv-ink)" }}>{title || labels.theVenue}</h2>
+        </El>
+      </Reveal>
+      <El id="list">
+        <div className="mt-8 space-y-14">
+          {venues.map((e) => {
+            const k = `list.${elKey(e.id)}`;
+            const q = [e.venueName, e.address].filter(Boolean).join(", ");
+            const showTitle = venues.length > 1;
+            return (
+              <El id={k} key={e.id}>
+                {showTitle ? (
+                  <El id={`${k}.title`}>
+                    <p className="text-[0.72rem] uppercase tracking-[0.26em]" style={{ color: opts.detail || "var(--inv-accent)" }}>{e.title || EVENT_TYPE_LABELS[e.type]}</p>
+                    {multi ? <p className="mt-1 text-[0.8rem]" style={{ color: "var(--inv-muted)" }}>{formatDayLabel(eventDay(e, content), content.language)}</p> : null}
+                  </El>
+                ) : null}
+                <El id={`${k}.place`}>
+                  <p className="mt-2 text-[2.3rem] leading-tight" style={{ ...css.display, color: "var(--inv-ink)" }}>{e.venueName}</p>
+                </El>
+                <El id={`${k}.address`}>
+                  <p className="mt-1 text-[0.95rem] tracking-wide" style={{ color: "var(--inv-muted)" }}>{e.address}</p>
+                </El>
+                <div className="mt-7 overflow-hidden rounded-[22px] bg-white p-1.5 shadow-[0_18px_40px_-14px_rgb(0_0_0/0.28)]">
+                  <iframe
+                    title={`${labels.openMap} — ${e.venueName || e.address}`}
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=15&output=embed`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="block h-[245px] w-full rounded-[17px] border-0"
+                    style={editor ? { pointerEvents: "none" } : undefined}
+                  />
+                </div>
+                <El id={`${k}.maps`} className="mt-8">
+                  <a
+                    href={mapLinks(e).google}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-12 items-center gap-3 rounded-full px-10 text-[0.85rem] uppercase tracking-[0.22em] shadow-[0_14px_26px_-12px_rgb(0_0_0/0.35)] transition hover:brightness-110 active:scale-[0.98]"
+                    style={{ backgroundColor: opts.buttonBg || "var(--inv-accent)", color: opts.buttonInk || "var(--inv-bg)" }}
+                  >
+                    <PinIcon /> {labels.directions}
+                  </a>
+                </El>
+              </El>
+            );
+          })}
+          {practical.length ? (
+            <El id="list.practical">
+              <dl className="space-y-6">
+                {practical.map((x) => (
+                  <El id={`list.practical.${x.id}`} key={x.id}>
+                    <El id={`list.practical.${x.id}.label`}>
+                      <dt className="text-[0.68rem] uppercase tracking-[0.26em]" style={{ color: opts.detail || "var(--inv-accent)" }}>{x.k}</dt>
+                    </El>
+                    <El id={`list.practical.${x.id}.text`}>
+                      <dd className="mt-1.5 text-[1.18rem] leading-snug" style={{ ...css.display, color: "var(--inv-ink)" }}>{x.v}</dd>
+                    </El>
+                  </El>
+                ))}
+              </dl>
+            </El>
+          ) : null}
+        </div>
+      </El>
+    </section>
+  );
+}
+
 function ClockIcon({ color }: { color: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round">
@@ -635,7 +819,7 @@ function CalendarIcon() {
 }
 
 /* ── RSVP (démo) ───────────────────────────────────────────────────── */
-export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp }: SectionProps & { mode: "demo" | "preview" | "live" }) {
+export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp, section }: SectionProps & { mode: "demo" | "preview" | "live"; section?: InvitationSection }) {
   const [attending, setAttending] = useState<"yes" | "no" | "">("");
   const [sent, setSent] = useState(false);
   // La date limite réglée dans l'onglet RSVP fait foi ; sinon celle du contenu.
@@ -647,16 +831,10 @@ export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp
       : "";
   const inputStyle = { color: "var(--inv-ink)", backgroundColor: "var(--inv-bg)" };
   const fieldCls = "inv-border-soft mt-1 block w-full min-h-11 border px-3 py-2 text-base outline-none focus:ring-2";
-  return (
-    <Shell renderer={renderer} tone="tinted">
-      <SectionTitle renderer={renderer}>{title || labels.rsvp}</SectionTitle>
-      {content.rsvp.intro || deadline ? (
-        <El id="intro">
-          <p className="mx-auto mb-7 max-w-[300px] text-center text-sm leading-relaxed" style={{ color: "var(--inv-muted)" }}>
-            {content.rsvp.intro || `${labels.rsvpBefore} ${deadline}.`}
-          </p>
-        </El>
-      ) : null}
+  const ticket = section?.look === "ticket";
+  const intro = content.rsvp.intro || (deadline ? `${labels.rsvpBefore} ${deadline}.` : "");
+  const formBlock = (
+    <>
       <El id="form">
       {mode === "live" ? (
         rsvp && slug ? (
@@ -745,6 +923,43 @@ export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp
         </form>
       )}
       </El>
+    </>
+  );
+  if (ticket)
+    return (
+      <section className="relative px-[27px] pb-12 pt-10" style={{ background: "linear-gradient(170deg, color-mix(in srgb, var(--inv-accent) 72%, white), var(--inv-accent))" }}>
+        <Reveal>
+          <El id="kicker">
+            <p className="text-center text-[0.78rem] uppercase tracking-[0.4em]" style={{ color: "color-mix(in srgb, var(--inv-bg) 85%, transparent)" }}>{section?.kicker || labels.kindlyReply}</p>
+          </El>
+          <El id="title">
+            <h2 className="mt-1 text-center text-[3rem] leading-tight" style={{ ...css.script, color: "var(--inv-bg)" }}>{title || labels.willYouJoin}</h2>
+          </El>
+        </Reveal>
+        <div className="inv-ticket mt-5 px-6 pb-12 pt-12" style={{ backgroundColor: "var(--inv-bg)" }}>
+          <El id="mark">
+            <p className="text-center text-[3.2rem] leading-none" style={{ ...css.script, color: "var(--inv-ink)" }}>{labels.rsvpMark}</p>
+          </El>
+          {intro ? (
+            <El id="intro">
+              <p className="mx-auto mt-5 max-w-[290px] text-center text-[0.72rem] uppercase leading-relaxed tracking-[0.22em]" style={{ color: "var(--inv-muted)" }}>{intro}</p>
+            </El>
+          ) : null}
+          <div className="mt-6">{formBlock}</div>
+        </div>
+      </section>
+    );
+  return (
+    <Shell renderer={renderer} tone="tinted">
+      <SectionTitle renderer={renderer}>{title || labels.rsvp}</SectionTitle>
+      {intro ? (
+        <El id="intro">
+          <p className="mx-auto mb-7 max-w-[300px] text-center text-sm leading-relaxed" style={{ color: "var(--inv-muted)" }}>
+            {intro}
+          </p>
+        </El>
+      ) : null}
+      {formBlock}
     </Shell>
   );
 }
@@ -826,14 +1041,198 @@ export function DecorSection({ height }: { height: number }) {
   return <div aria-hidden="true" style={{ paddingTop: `${height}%` }} />;
 }
 
-/* ── Programme v2 : frise végétale et fleur qui suit le défilement ── */
+/* ── Programme v2 : frise (tige fleurie, trait, perles…) et mises en page ── */
+type TItem = { id: string; time: string; title: string; detail: string; icon?: string };
+
+/** Tige verticale qui remplit son conteneur : SVG fleuri, ou trait simple dessiné en CSS */
+function StemLine({ stem, color }: { stem: string; color: string }) {
+  if (stem === "aucune") return null;
+  if (isSimpleStem(stem)) {
+    const dashed = stem === "tirets";
+    return (
+      <div
+        aria-hidden="true"
+        className="mx-auto h-full"
+        style={{
+          width: "1.2px",
+          background: dashed ? `repeating-linear-gradient(to bottom, ${color} 0 6px, transparent 6px 12px)` : color,
+          opacity: 0.85,
+        }}
+      />
+    );
+  }
+  const url = `url(/decor/tiges/${stem}.svg)`;
+  return (
+    <div
+      aria-hidden="true"
+      className="h-full w-full"
+      style={{ backgroundColor: color, WebkitMaskImage: url, maskImage: url, WebkitMaskRepeat: "repeat-y", maskRepeat: "repeat-y", WebkitMaskSize: "100% auto", maskSize: "100% auto", WebkitMaskPosition: "center top", maskPosition: "center top" }}
+    />
+  );
+}
+
+/** Perle posée sur la ligne, au niveau de chaque moment */
+function Pearl({ color, size = 11 }: { color: string; size?: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="relative z-[1] mx-auto block rounded-full"
+      style={{ width: size, height: size, background: `radial-gradient(circle at 35% 30%, #fff 0 18%, ${color} 60%)`, boxShadow: `0 0 0 3px var(--inv-bg), 0 0 0 4px color-mix(in srgb, ${color} 35%, transparent)` }}
+    />
+  );
+}
+
+/** Icône de la bibliothèque, recolorée */
+function MomentIcon({ src, color, size }: { src: string; color: string; size: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="block shrink-0"
+      style={{ width: size, height: size, backgroundColor: color, WebkitMaskImage: `url("${src}")`, maskImage: `url("${src}")`, WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat", WebkitMaskPosition: "center", maskPosition: "center" }}
+    />
+  );
+}
+
 export function ProgramV2Section({ section, content }: SectionProps & { section: InvitationSection }) {
   const { kicker, title, marker } = section;
   // Par défaut, le programme de l'invitation (rempli depuis la demande du client)
-  const items = programV2Items(section, content, (t) => formatTime(t, content.language), (d) => formatDayLabel(d, content.language));
-  const stemUrl = `url(/decor/tiges/${section.stem ?? "feuilles"}.svg)`;
-  // Colonnes en % de la largeur de l'invitation : heure | tige | texte
-  const cols = "grid-cols-[93.6px_46.8px_minmax(0,1fr)]";
+  const items: TItem[] = programV2Items(section, content, (t) => formatTime(t, content.language), (d) => formatDayLabel(d, content.language));
+  const layout = section.timeline ?? "classic";
+  const stem = section.stem ?? "feuilles";
+  const stemColor = section.stemColor || "var(--inv-accent)";
+  const iconColor = section.iconColor || section.stemColor || "var(--inv-accent)";
+  const pearls = stem === "perles";
+  const showIcons = layout !== "classic";
+  const timeCls = "text-[1.05rem] uppercase lining-nums tracking-wide";
+  const titleCls = "text-[1.02rem] uppercase tracking-[0.06em]";
+  const detailCls = "mt-1 whitespace-pre-line text-[0.66rem] uppercase leading-relaxed tracking-[0.06em]";
+  const ink = { ...css.display, color: "var(--inv-ink)" };
+  const muted = { color: "var(--inv-muted)" };
+  const Texts = ({ it, k, align = "left" }: { it: TItem; k: string; align?: "left" | "center" | "right" }) => (
+    <div className="min-w-0" style={{ textAlign: align }}>
+      <El id={`${k}.title`}>
+        <p className={titleCls} style={ink}>{it.title}</p>
+      </El>
+      {it.detail ? (
+        <El id={`${k}.detail`}>
+          <p className={detailCls} style={muted}>{it.detail}</p>
+        </El>
+      ) : null}
+    </div>
+  );
+  const Icon = ({ it, k, size }: { it: TItem; k: string; size: number }) =>
+    showIcons && it.icon ? (
+      <El id={`${k}.icon`}>
+        <MomentIcon src={it.icon} color={iconColor} size={size} />
+      </El>
+    ) : null;
+
+  let body: ReactNode = null;
+  if (items.length && layout === "centered") {
+    // Médaillons : icône dans un cercle, heure, intitulé ; un trait relie les moments
+    body = (
+      <El id="list">
+        <ol className="relative mt-8 flex flex-col items-center">
+          {items.map((it, i) => {
+            const k = `list.${elKey(it.id)}`;
+            return (
+              <El id={k} as="li" key={it.id} className="flex w-full flex-col items-center text-center">
+                {i > 0 ? (
+                  <El id="stem" className="pointer-events-none my-2 h-9 w-[46.8px]">
+                    <StemLine stem={stem} color={stemColor} />
+                  </El>
+                ) : null}
+                {showIcons && it.icon ? (
+                  <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full" style={{ border: `1px solid ${stemColor}` }}>
+                    <Icon it={it} k={k} size={32} />
+                  </span>
+                ) : (
+                  <Pearl color={stemColor} />
+                )}
+                <El id={`${k}.time`}>
+                  <p className={`mt-3 ${timeCls}`} style={ink}>{it.time}</p>
+                </El>
+                <div className="mt-1 max-w-[280px]">
+                  <Texts it={it} k={k} align="center" />
+                </div>
+              </El>
+            );
+          })}
+        </ol>
+      </El>
+    );
+  } else if (items.length && layout === "alternate") {
+    // Zigzag : une ligne au centre, les moments de part et d'autre, l'icône en face
+    body = (
+      <div className="relative mt-10">
+        <El id="stem" className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2" style={{ width: "46.8px" }}>
+          <StemLine stem={stem} color={stemColor} />
+        </El>
+        <El id="list">
+          <ol className="relative">
+            {items.map((it, i) => {
+              const k = `list.${elKey(it.id)}`;
+              const left = i % 2 === 0;
+              const text = (
+                <div className={left ? "text-right" : "text-left"}>
+                  <El id={`${k}.time`}>
+                    <p className={timeCls} style={ink}>{it.time}</p>
+                  </El>
+                  <div className="mt-1">
+                    <Texts it={it} k={k} align={left ? "right" : "left"} />
+                  </div>
+                </div>
+              );
+              const icon = <div className={`flex ${left ? "justify-start" : "justify-end"} pt-1`}><Icon it={it} k={k} size={40} /></div>;
+              return (
+                <El id={k} as="li" key={it.id} className="grid grid-cols-[minmax(0,1fr)_46.8px_minmax(0,1fr)] items-start py-[14px]">
+                  {left ? text : icon}
+                  <span className="flex justify-center pt-[7px]">{pearls || stem === "aucune" ? <Pearl color={stemColor} /> : <span className="block h-[7px] w-[7px] rotate-45" style={{ background: stemColor }} />}</span>
+                  {left ? icon : text}
+                </El>
+              );
+            })}
+          </ol>
+        </El>
+      </div>
+    );
+  } else if (items.length) {
+    // Classique (heure | tige | texte) ou avec icônes à droite
+    const cols = layout === "icons" ? "grid-cols-[72px_30px_minmax(0,1fr)_46px]" : "grid-cols-[93.6px_46.8px_minmax(0,1fr)]";
+    const stemLeft = layout === "icons" ? "72px" : "93.6px";
+    const stemWidth = layout === "icons" ? "30px" : "46.8px";
+    body = (
+      <div className="relative mt-10">
+        <El id="stem" className="pointer-events-none absolute inset-y-0" style={{ left: stemLeft, width: stemWidth }}>
+          <StemLine stem={stem} color={stemColor} />
+        </El>
+        {marker && layout === "classic" ? (
+          <El id="marker" className="pointer-events-none absolute z-[2]" style={{ left: "93.6px", width: "46.8px", top: "calc(var(--p, 0) * (100% - 46.8px))", transition: "top 140ms linear" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={marker} alt="" className="block h-auto w-full drop-shadow-sm" />
+          </El>
+        ) : null}
+        <El id="list">
+          <ol className="relative">
+            {items.map((it) => {
+              const k = `list.${elKey(it.id)}`;
+              return (
+                <El id={k} as="li" key={it.id} className={`grid ${cols} items-start py-[13.26px]`}>
+                  <El id={`${k}.time`}>
+                    <p className={`pt-0.5 ${timeCls}`} style={ink}>{it.time}</p>
+                  </El>
+                  <span aria-hidden="true" className="pt-[8px]">{pearls ? <Pearl color={stemColor} /> : null}</span>
+                  <Texts it={it} k={k} />
+                  {layout === "icons" ? <div className="flex justify-end"><Icon it={it} k={k} size={38} /></div> : null}
+                </El>
+              );
+            })}
+          </ol>
+        </El>
+      </div>
+    );
+  }
+
   return (
     <section className="relative px-[23.4px] pb-16 pt-14">
       <Reveal>
@@ -848,57 +1247,91 @@ export function ProgramV2Section({ section, content }: SectionProps & { section:
           </El>
         ) : null}
       </Reveal>
-      {items.length ? (
-        <div className="relative mt-10">
-          <El id="stem" className="pointer-events-none absolute inset-y-0" style={{ left: "93.6px", width: "46.8px" }}>
-            <div
-              aria-hidden="true"
-              className="h-full w-full"
-              style={{
-                backgroundColor: "var(--inv-accent)",
-                WebkitMaskImage: stemUrl,
-                maskImage: stemUrl,
-                WebkitMaskRepeat: "repeat-y",
-                maskRepeat: "repeat-y",
-                WebkitMaskSize: "100% auto",
-                maskSize: "100% auto",
-                WebkitMaskPosition: "center top",
-                maskPosition: "center top",
-              }}
-            />
+      {body}
+    </section>
+  );
+}
+
+/* ── Album photo : carrousel (carte centrale, cartes voisines, flèches) ── */
+export function GallerySection({ section, labels }: SectionProps & { section: InvitationSection }) {
+  const photos = (section.photos ?? []).filter((p) => p.src);
+  const [i, setI] = useState(0);
+  const n = photos.length;
+  const touch = useRef<number | null>(null);
+  const go = (d: number) => n && setI((x) => (x + d + n) % n);
+  const pad = (v: number) => String(v).padStart(2, "0");
+  return (
+    <section className="relative overflow-hidden pb-14 pt-14" aria-roledescription="carrousel" aria-label={section.title || "Album"}>
+      <Reveal>
+        {section.kicker ? (
+          <El id="kicker">
+            <p className="text-center text-[1.05rem] italic" style={{ ...css.display, color: "var(--inv-muted)" }}>{section.kicker}</p>
           </El>
-          {marker ? (
-            <El id="marker" className="pointer-events-none absolute z-[2]" style={{ left: "93.6px", width: "46.8px", top: "calc(var(--p, 0) * (100% - 46.8px))", transition: "top 140ms linear" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={marker} alt="" className="block h-auto w-full drop-shadow-sm" />
-            </El>
+        ) : null}
+        {section.title ? (
+          <El id="title">
+            <h2 className="mx-auto mt-1 max-w-[320px] text-center text-[2.6rem] leading-none" style={{ ...css.script, color: "var(--inv-accent)" }}>{section.title}</h2>
+          </El>
+        ) : null}
+      </Reveal>
+      {n ? (
+        <El id="album">
+          <div
+            className="relative mt-8 h-[300px] select-none"
+            onTouchStart={(e) => (touch.current = e.touches[0].clientX)}
+            onTouchEnd={(e) => {
+              if (touch.current === null) return;
+              const dx = e.changedTouches[0].clientX - touch.current;
+              touch.current = null;
+              if (Math.abs(dx) > 35) go(dx < 0 ? 1 : -1);
+            }}
+          >
+            {photos.map((p, j) => {
+              let off = j - i;
+              if (off > n / 2) off -= n;
+              if (off < -n / 2) off += n;
+              const far = Math.abs(off) > 1;
+              return (
+                <figure
+                  key={p.id}
+                  aria-hidden={off !== 0}
+                  className="absolute left-1/2 top-0 m-0 w-[210px] overflow-hidden rounded-[3px] bg-white p-[7px] shadow-[0_10px_28px_rgba(0,0,0,0.14)] transition-all duration-500 ease-out"
+                  style={{
+                    transform: `translateX(calc(-50% + ${off * 190}px)) scale(${off === 0 ? 1 : 0.82}) rotate(${off * 2.5}deg)`,
+                    opacity: far ? 0 : off === 0 ? 1 : 0.55,
+                    zIndex: 10 - Math.abs(off),
+                    pointerEvents: far ? "none" : undefined,
+                  }}
+                  onClick={() => off !== 0 && go(off)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={cdnImage(p.src, 420)} onError={cdnFallback(p.src)} alt={p.caption || ""} loading={j === i ? "eager" : "lazy"} className="block h-[262px] w-full object-cover" draggable={false} />
+                  {p.caption ? <figcaption className="pt-1.5 text-center text-[0.7rem]" style={{ ...css.display, color: "var(--inv-muted)" }}>{p.caption}</figcaption> : null}
+                </figure>
+              );
+            })}
+          </div>
+          {n > 1 ? (
+            <div className="mt-5 flex items-center justify-center gap-5" style={{ color: "var(--inv-accent)" }}>
+              <button type="button" onClick={() => go(-1)} aria-label={labels.previous} className="flex h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: "currentColor" }}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+              </button>
+              <p className="min-w-[64px] text-center text-[0.8rem] tracking-[0.2em] lining-nums" style={{ ...css.display, color: "var(--inv-ink)" }} aria-live="polite">
+                {pad(i + 1)} / {pad(n)}
+              </p>
+              <button type="button" onClick={() => go(1)} aria-label={labels.next} className="flex h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: "currentColor" }}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </div>
           ) : null}
-          <El id="list">
-            <ol className="relative">
-              {items.map((it) => {
-                const k = `list.${elKey(it.id)}`;
-                return (
-                  <El id={k} as="li" key={it.id} className={`grid ${cols} items-start py-[13.26px]`}>
-                    <El id={`${k}.time`}>
-                      <p className="pt-0.5 text-[1.05rem] uppercase lining-nums tracking-wide" style={{ ...css.display, color: "var(--inv-ink)" }}>{it.time}</p>
-                    </El>
-                    <span aria-hidden="true" />
-                    <div className="min-w-0">
-                      <El id={`${k}.title`}>
-                        <p className="text-[1.02rem] uppercase tracking-[0.06em]" style={{ ...css.display, color: "var(--inv-ink)" }}>{it.title}</p>
-                      </El>
-                      {it.detail ? (
-                        <El id={`${k}.detail`}>
-                          <p className="mt-1 whitespace-pre-line text-[0.66rem] uppercase leading-relaxed tracking-[0.06em]" style={{ color: "var(--inv-muted)" }}>{it.detail}</p>
-                        </El>
-                      ) : null}
-                    </div>
-                  </El>
-                );
-              })}
-            </ol>
-          </El>
-        </div>
+          {n > 1 ? (
+            <div className="mt-4 flex justify-center gap-2.5" aria-hidden="true">
+              {photos.map((p, j) => (
+                <span key={p.id} className="block h-[7px] w-[7px] rotate-45 transition-colors" style={{ border: "1px solid var(--inv-accent)", background: j === i ? "var(--inv-accent)" : "transparent" }} />
+              ))}
+            </div>
+          ) : null}
+        </El>
       ) : null}
     </section>
   );

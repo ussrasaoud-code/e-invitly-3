@@ -172,13 +172,22 @@ function definitions(type: SectionType, c: InvitationContent, section?: Invitati
     case "program":
       return [...title(), { id: "list", label: "Liste des moments", kind: "block", children: programItems(c) }];
     case "countdown":
-      return [...title(), { id: "timer", label: "Compteur", kind: "block", hideable: false }];
+      return section?.look === "savedate"
+        ? [
+            ...title(),
+            { id: "date", label: "Grande date", kind: "block" },
+            { id: "time", label: "Heure", kind: "text" },
+            { id: "kicker", label: "Phrase au-dessus du compteur", kind: "text", edit: "section-kicker" },
+            { id: "timer", label: "Compteur", kind: "block", hideable: false },
+            { id: "calendar", label: "Bouton « Ajouter au calendrier »", kind: "block" },
+          ]
+        : [...title(), { id: "timer", label: "Compteur", kind: "block", hideable: false }];
     case "dresscode":
       return [...title(), { id: "text", label: "Texte du dress code", kind: "text", edit: "dresscode-text" }, { id: "palette", label: "Palette de couleurs", kind: "block" }];
     case "venues":
-      return [...title(), { id: "list", label: "Lieux et infos pratiques", kind: "block", children: venueItems(c) }];
+      return [...(section?.look === "map" ? [{ id: "kicker", label: "Surtitre", kind: "text" as const, edit: "section-kicker" as const }] : []), ...title(), { id: "list", label: "Lieux et infos pratiques", kind: "block", children: venueItems(c) }];
     case "rsvp":
-      return [...title(), { id: "intro", label: "Texte d'introduction", kind: "text", edit: "rsvp-intro" }, { id: "form", label: "Formulaire de réponse", kind: "block", hideable: false }];
+      return [...(section?.look === "ticket" ? [{ id: "kicker", label: "Surtitre", kind: "text" as const, edit: "section-kicker" as const }, { id: "mark", label: "Mot « RSVP »", kind: "text" as const }] : []), ...title(), { id: "intro", label: "Texte d'introduction", kind: "text", edit: "rsvp-intro" }, { id: "form", label: "Formulaire de réponse", kind: "block", hideable: false }];
     case "contacts":
       return [...title(), { id: "list", label: "Liste des contacts", kind: "block", children: contactItems(c) }];
     case "closing":
@@ -224,11 +233,18 @@ function definitions(type: SectionType, c: InvitationContent, section?: Invitati
                     ...(it.detail
                       ? [{ id: `${k}.detail`, label: "Détail", kind: "text" as const, edit: ev ? { event: it.id, field: "venueName" as const } : { item: i, field: "detail" as const } }]
                       : []),
+                    ...(it.icon && section.timeline !== "classic" ? [{ id: `${k}.icon`, label: "Icône", kind: "ornament" as const }] : []),
                   ],
                 };
               })
             : [],
         },
+      ];
+    case "gallery":
+      return [
+        { id: "kicker", label: "Surtitre", kind: "text", edit: "section-kicker" },
+        { id: "title", label: "Titre", kind: "text", edit: "section-title" },
+        { id: "album", label: "Carrousel de photos", kind: "block" },
       ];
   }
 }

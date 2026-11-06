@@ -1139,7 +1139,7 @@ with sync_playwright() as p:
 
     # Programme v2 prêt à l'emploi + mouvement au défilement
     left.get_by_label("Ajouter une section").select_option("program2")
-    expect(props.get_by_role("heading", name="Programme v2 (frise fleurie)")).to_be_visible()
+    expect(props.get_by_role("heading", name="Programme v2 (frise / timeline)")).to_be_visible()
     d = wait_draft(lambda d: len(sec(d, "program2")) == 1 and len(sec(d, "program2")[0]["items"]) == 6, "programme v2 ajouté")
     assert sec(d, "program2")[0]["items"][0]["title"] == "Cérémonie civile" and sec(d, "program2")[0]["marker"] == "/decor/rose.svg"
     # Par défaut : le programme de l'invitation (rempli depuis la demande du client)
@@ -1196,6 +1196,25 @@ with sync_playwright() as p:
     expect(canvas.get_by_role("button", name="Ouvrir l'invitation")).to_have_count(0)
     ok("éditeur visuel : écran d'ouverture affiché, cachet modifié, ouverture jouée, retour aux sections")
 
+    # Frise prête à l'emploi (icônes et perles) et album photo
+    left.get_by_label("Ajouter une section").select_option("program2")
+    props.get_by_role("button", name="Icônes et perles").click()
+    d = wait_draft(lambda d: any(s["type"] == "program2" and s.get("timeline") == "icons" and s.get("stem") == "perles" for s in d["sections"]), "frise icônes et perles")
+    expect(canvas.locator('[data-section="program2"] [data-el$=".icon"]').first).to_be_visible()
+    props.get_by_label("Mise en page de la frise").select_option("centered")
+    d = wait_draft(lambda d: any(s["type"] == "program2" and s.get("timeline") == "centered" for s in d["sections"]), "frise médaillons")
+    ok("éditeur visuel : frise prête à l'emploi (icônes et perles), puis mise en page « médaillons »")
+    left.get_by_label("Ajouter une section").select_option("gallery")
+    d = wait_draft(lambda d: any(s["type"] == "gallery" and len(s.get("photos", [])) == 4 for s in d["sections"]), "album photo ajouté")
+    gal = canvas.locator('[data-section="gallery"]').last
+    expect(gal.get_by_text("01 / 04")).to_be_visible()
+    gal.get_by_role("button", name="Photo suivante").click()
+    expect(gal.get_by_text("02 / 04")).to_be_visible()
+    left.get_by_role("button", name=re.compile(r"^Our Memories")).first.click()
+    props.get_by_role("button", name="Retirer la photo 4").click()
+    d = wait_draft(lambda d: any(s["type"] == "gallery" and len(s.get("photos", [])) == 3 for s in d["sections"]), "photo retirée de l'album")
+    ok("éditeur visuel : album photo (carrousel 01 / 04, flèches, photo retirée)")
+
     # Historique : point de sauvegarde puis restauration
     a.get_by_role("button", name="Historique").click()
     hist = a.get_by_role("dialog", name="Historique du brouillon")
@@ -1238,7 +1257,8 @@ with sync_playwright() as p:
     expect(vis.locator('[data-section="hero"] [data-el="corner-right"]')).to_have_count(1)
     expect(vis.get_by_text("Avec leurs familles réunies")).to_be_visible()
     expect(vis.locator('[data-section="hero"] [data-el="names.and"]')).to_have_text("et")
-    expect(vis.locator('[data-section="program2"] li')).to_have_count(6)
+    expect(vis.locator('[data-section="program2"]').filter(has_text="14h45").locator("li")).to_have_count(6)
+    expect(vis.locator('[data-section="gallery"]').get_by_text("01 / 03")).to_be_attached()
     assert vis.locator('[data-section="program"]').evaluate("e => getComputedStyle(e).backgroundColor") == "rgb(51, 102, 153)"
     vis.locator('[data-section="program"]').scroll_into_view_if_needed()
     vis.wait_for_timeout(2500)

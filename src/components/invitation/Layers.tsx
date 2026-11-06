@@ -101,7 +101,7 @@ export function SectionFrame({ section, children }: { section: InvitationSection
   return (
     <div
       ref={ref}
-      className={`inv-frame relative isolate ${editor ? "inv-frame-edit" : ""} ${isSelectedSection ? "inv-frame-selected" : ""}`}
+      className={`inv-frame relative isolate ${layers.some((l) => l.overlap) ? "inv-frame-over" : ""} ${editor ? "inv-frame-edit" : ""} ${isSelectedSection ? "inv-frame-selected" : ""}`}
       data-section={section.type}
       data-section-id={section.id}
       style={{ backgroundColor: section.background.color || undefined }}

@@ -57,15 +57,26 @@ describe("montant à payer", () => {
   });
 });
 
-import { programV2Section, programV2Items } from "./schema";
+import { guessMomentIcon, programV2Section, programV2Items } from "./schema";
 describe("programme v2", () => {
   it("reprend le programme de l'invitation, sauf choix contraire", () => {
     const c = invitationContentSchema.parse(PRESETS["the-garden"]);
     c.events = [{ id: "e1", type: "civil", title: "Cérémonie civile", venueName: "Mairie de Champigny", address: "14 rue Louis Talamoni", mapsUrl: "", arrivalTime: "12:00", startTime: "12:30", description: "", date: "", groups: [] }];
     const s = programV2Section();
     expect(programV2Items(s, c, (t) => t.replace(":", "h"))).toEqual([
-      { id: "e1", time: "12h30", title: "Cérémonie civile", detail: "Mairie de Champigny\n14 rue Louis Talamoni", fromEvent: true },
+      { id: "e1", time: "12h30", title: "Cérémonie civile", detail: "Mairie de Champigny\n14 rue Louis Talamoni", fromEvent: true, icon: "/decor/icones/mairie.svg" },
     ]);
-    expect(programV2Items({ ...s, itemsFrom: "custom" }, c)).toBe(s.items);
+    expect(programV2Items({ ...s, itemsFrom: "custom" }, c).map((x) => x.title)).toEqual(s.items.map((x) => x.title));
+    // Icône choisie à la main, ou retirée
+    expect(programV2Items({ ...s, itemIcons: { e1: "/decor/icones/coeur.svg" } }, c)[0].icon).toBe("/decor/icones/coeur.svg");
+    expect(programV2Items({ ...s, itemIcons: { e1: "" } }, c)[0].icon).toBe("");
+  });
+  it("devine l'icône d'un moment d'après son intitulé", () => {
+    expect(guessMomentIcon("Vin d'honneur")).toBe("/decor/icones/coupes-champagne.svg");
+    expect(guessMomentIcon("Pièce montée")).toBe("/decor/icones/piece-montee.svg");
+    expect(guessMomentIcon("Ouverture du bal")).toBe("/decor/icones/couple-danse.svg");
+    expect(guessMomentIcon("Dîner")).toBe("/decor/icones/diner.svg");
+    expect(guessMomentIcon("Moment spécial", "cocktail")).toBe("/decor/icones/coupes-champagne.svg");
+    expect(guessMomentIcon("Moment spécial")).toBe("/decor/icones/coeur.svg");
   });
 });

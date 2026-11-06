@@ -123,6 +123,11 @@ export const fr = {
     ctaScript: "Et si on commençait ?",
     ctaText: "Choisissez un modèle et commandez en ligne : votre aperçu arrive sous 24 h après l'envoi de vos informations.",
     ctaButton: "Découvrir les invitations",
+    helpTitle: "Besoin d'aide ? Écrivez-nous",
+    helpMessage: "Bonjour, j'ai une question sur les invitations E-Invitly.",
+    customTitle: "Un site ou un design sur mesure",
+    customText: "Tout ce que vous imaginez, créé rien que pour vous — parlons-en directement",
+    customMessage: "Bonjour, je souhaite un site ou un design sur mesure.",
   },
   cards: {
     featured: "Coup de cœur",

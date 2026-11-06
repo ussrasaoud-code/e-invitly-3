@@ -120,6 +120,11 @@ export const it: SiteDict = {
     ctaScript: "Cominciamo?",
     ctaText: "Scegli un modello e ordinalo online: l'anteprima arriva entro 24 ore dall'invio delle tue informazioni.",
     ctaButton: "Scopri gli inviti",
+    helpTitle: "Serve aiuto? Scrivici",
+    helpMessage: "Ciao, ho una domanda sugli inviti E-Invitly.",
+    customTitle: "Un sito o un design su misura",
+    customText: "Tutto ciò che immagini, creato solo per te — parliamone direttamente",
+    customMessage: "Ciao, vorrei un sito o un design su misura.",
   },
   cards: {
     featured: "Il preferito",
