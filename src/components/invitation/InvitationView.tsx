@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type CSSProperties, useLayoutEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, useLayoutEffect } from "react";
+import { LazyImagesContext } from "./editor-context";
 import { FieldsContext } from "./fields-context";
 import { fieldValues } from "@/lib/invitation/fields";
 import type { FontKey, InvitationContent, RendererKey, SectionType } from "@/lib/invitation/schema";
@@ -86,18 +87,32 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
     return () => ro.disconnect();
   }, [framed]);
 
+  const hasMusic = content.music.enabled && !!content.music.url;
+  /** Le visiteur a coupé la musique : on ne la relance plus de soi-même */
+  const mutedByUser = useRef(false);
   const startMusic = useCallback(() => {
     const a = audioRef.current;
-    if (!a) return;
+    if (!a || !a.paused) return;
     a.volume = 0.35;
     a.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
   }, []);
 
+  // La musique démarre au premier geste du visiteur (toucher de la vidéo, du cachet, de l'écran) :
+  // les navigateurs n'autorisent le son qu'après une action de sa part.
+  useEffect(() => {
+    if (!hasMusic) return;
+    const onGesture = () => {
+      if (!mutedByUser.current) startMusic();
+    };
+    const events = ["pointerdown", "pointerup", "touchend", "click", "keydown"] as const;
+    events.forEach((e) => window.addEventListener(e, onGesture, { capture: true, passive: true }));
+    return () => events.forEach((e) => window.removeEventListener(e, onGesture, { capture: true }));
+  }, [hasMusic, startMusic]);
+
   const onOpened = useCallback(() => {
     setOpened(true);
-    // Le toucher du cachet est un geste utilisateur : la musique peut démarrer.
-    if (content.music.enabled && content.music.url) startMusic();
-  }, [content.music.enabled, content.music.url, startMusic]);
+    if (hasMusic && !mutedByUser.current) startMusic();
+  }, [hasMusic, startMusic]);
 
   const vars = {
     "--inv-bg": colors.background,
@@ -131,6 +146,7 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
           scope={framed ? "absolute" : "fixed"}
           onOpened={onOpened}
           manualStart={mode === "demo"}
+          onTap={hasMusic ? () => !mutedByUser.current && startMusic() : undefined}
         />
       ) : null}
 
@@ -147,7 +163,7 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
         <AnimationContext.Provider value={animations && content.theme.animation !== "none"}>
         {content.sections
           .filter((s) => s.visible)
-          .map((s) => {
+          .map((s, index) => {
             const props: SectionProps = { content, renderer, labels, title: s.title, slug, rsvp };
             let inner: React.ReactNode;
             if (s.type === "rsvp") inner = <RsvpSection {...props} mode={mode} />;
@@ -161,9 +177,9 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
               inner = <Component {...props} />;
             }
             return (
-              <SectionFrame key={s.id} section={s}>
-                {inner}
-              </SectionFrame>
+              <LazyImagesContext.Provider key={s.id} value={index >= 2}>
+                <SectionFrame section={s}>{inner}</SectionFrame>
+              </LazyImagesContext.Provider>
             );
           })}
         </AnimationContext.Provider>
@@ -172,29 +188,44 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
 
       {content.music.enabled && content.music.url ? (
         <>
-          <audio ref={audioRef} src={content.music.url} loop preload="none" />
-          <button
-            type="button"
-            onClick={() => {
-              const a = audioRef.current;
-              if (!a) return;
-              if (playing) {
-                a.pause();
-                setPlaying(false);
-              } else startMusic();
-            }}
-            aria-pressed={playing}
-            aria-label={playing ? labels.musicOff : labels.musicOn}
-            className={`${framed ? "absolute" : "fixed"} bottom-4 z-30 flex h-11 w-11 items-center justify-center rounded-full border shadow-sm`}
-            style={{ insetInlineEnd: "1rem", background: colors.background, borderColor: colors.accentSoft, color: colors.accent }}
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-              <path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              <circle cx="6.5" cy="18" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              <circle cx="16.5" cy="16" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              {!playing ? <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.5" /> : null}
-            </svg>
-          </button>
+          <audio ref={audioRef} src={content.music.url} loop preload="auto" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
+          {/* Bouton du son : dans la colonne de l'invitation (visible aussi sur ordinateur), au-dessus de la vidéo d'ouverture */}
+          <div className={`${framed ? "absolute" : "fixed"} inset-x-0 bottom-4 z-50 flex justify-center pointer-events-none`}>
+            <div className="flex w-full max-w-[480px] justify-end px-4">
+              <button
+                type="button"
+                onClick={() => {
+                  const a = audioRef.current;
+                  if (!a) return;
+                  if (playing) {
+                    mutedByUser.current = true;
+                    a.pause();
+                    setPlaying(false);
+                  } else {
+                    mutedByUser.current = false;
+                    startMusic();
+                  }
+                }}
+                aria-pressed={!playing}
+                aria-label={playing ? labels.musicOff : labels.musicOn}
+                title={playing ? labels.musicOff : labels.musicOn}
+                className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full border-2 shadow-lg transition hover:scale-105"
+                style={{ background: colors.background, borderColor: colors.accent, color: colors.accent }}
+              >
+                <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor" fillOpacity="0.15" />
+                  {playing ? (
+                    <>
+                      <path d="M15.5 9a4 4 0 0 1 0 6" />
+                      <path d="M18 6.5a7.5 7.5 0 0 1 0 11" />
+                    </>
+                  ) : (
+                    <path d="M16 9.5l5 5M21 9.5l-5 5" />
+                  )}
+                </svg>
+              </button>
+            </div>
+          </div>
         </>
       ) : null}
     </div>

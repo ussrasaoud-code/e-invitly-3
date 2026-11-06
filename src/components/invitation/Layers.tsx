@@ -1,10 +1,12 @@
 "use client";
 
+import { cdnFallback, cdnImage } from "@/lib/image-cdn";
+
 /* eslint-disable @next/next/no-img-element */
 import { useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { FONTS } from "@/lib/fonts";
 import type { InvitationLayer, InvitationSection } from "@/lib/invitation/schema";
-import { LayerEditorContext, SectionContext, type LayerEditor } from "./editor-context";
+import { LayerEditorContext, LazyImagesContext, SectionContext, type LayerEditor } from "./editor-context";
 import { guideSettings, showSnap, snapMove, unionBox } from "./snap";
 import { cq } from "./units";
 import { FieldsContext } from "./fields-context";
@@ -115,7 +117,7 @@ export function SectionFrame({ section, children }: { section: InvitationSection
           className="inv-bg-image pointer-events-none absolute inset-0"
           style={{
             zIndex: -2,
-            backgroundImage: `url("${section.background.image}")`,
+            backgroundImage: `url("${cdnImage(section.background.image, section.background.fit === "repeat" ? 200 : 390)}")`,
             backgroundSize: section.background.fit === "repeat" ? "auto" : section.background.fit,
             backgroundRepeat: section.background.fit === "repeat" ? "repeat" : "no-repeat",
             backgroundPosition: "center",
@@ -188,6 +190,7 @@ function LayerView({ layer: l, section, frame, play, animate }: {
   animate: boolean;
 }) {
   const fields = useContext(FieldsContext);
+  const lazyImg = useContext(LazyImagesContext);
   const editor = useContext(LayerEditorContext);
   const sectionId = section.id;
   const sel = editor?.selected;
@@ -236,18 +239,19 @@ function LayerView({ layer: l, section, frame, play, animate }: {
   } else if (!l.src) {
     body = editor ? <div className="flex aspect-square items-center justify-center border-2 border-dashed border-current text-[10px] opacity-60">image</div> : null;
   } else if (l.color) {
+    const src = cdnImage(l.src, imgWidth(l));
     // Silhouette teintée : la forme de l'image sert de masque
     body = (
       <span className="relative block">
-        <img src={l.src} alt="" draggable={false} className="block h-auto w-full" style={{ visibility: "hidden" }} />
+        <img src={src} onError={cdnFallback(l.src)} alt="" draggable={false} loading={lazyImg ? "lazy" : undefined} decoding="async" className="block h-auto w-full" style={{ visibility: "hidden" }} />
         <span
           className="absolute inset-0"
-          style={{ backgroundColor: l.color, WebkitMaskImage: `url("${l.src}")`, maskImage: `url("${l.src}")`, WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}
+          style={{ backgroundColor: l.color, WebkitMaskImage: `url("${src}")`, maskImage: `url("${src}")`, WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}
         />
       </span>
     );
   } else {
-    body = <img src={l.src} alt="" draggable={false} className="block h-auto w-full" />;
+    body = <img src={cdnImage(l.src, imgWidth(l))} onError={cdnFallback(l.src)} alt="" draggable={false} loading={lazyImg ? "lazy" : undefined} decoding="async" className="block h-auto w-full" />;
   }
   if (!body) return null;
 
@@ -426,4 +430,10 @@ function scrollStyle(sc: InvitationLayer["scroll"] | undefined): CSSProperties {
       return { scale: `calc(${from} + (1 - ${from}) * min(1, ${p} * 1.8))` };
     }
   }
+}
+
+/** Largeur affichée d'un calque image (en px de l'invitation de 390 px), pour choisir la taille téléchargée. */
+function imgWidth(l: { width?: number; scale?: number }): number {
+  const pct = typeof l.width === "number" ? l.width : 100;
+  return Math.max(40, (pct / 100) * 390 * (typeof l.scale === "number" && l.scale > 0 ? l.scale : 1));
 }

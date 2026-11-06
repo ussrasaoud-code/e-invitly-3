@@ -31,3 +31,6 @@ export const SectionContext = createContext<Pick<InvitationSection, "id" | "elem
 
 /** false quand le thème (ou l'éditeur) désactive les animations */
 export const AnimationContext = createContext(true);
+
+/** Images des sections éloignées du premier écran : chargées au fil du défilement */
+export const LazyImagesContext = createContext(false);

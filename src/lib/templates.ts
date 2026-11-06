@@ -112,6 +112,25 @@ export async function getPublishedTemplate(
   return { template: normalize(data as unknown as CatalogTemplate), definition: parsed?.success ? parsed.data : null };
 }
 
+/**
+ * Lien de test d'un modèle (e-invitly.com/test-<modèle>) : brouillon ou publié,
+ * pour le tester sur téléphone comme un vrai lien client. Lecture serveur (clé secrète).
+ */
+export async function getTemplateForTest(slug: string): Promise<{ name: string; definition: TemplateDefinition } | null> {
+  const { createAdminClient } = await import("./supabase/admin");
+  const db = createAdminClient();
+  if (!db) return null;
+  const { data } = await db
+    .from("templates")
+    .select("name, status, current_version:template_versions!templates_current_version_fk(definition)")
+    .eq("slug", slug)
+    .neq("status", "archived")
+    .maybeSingle();
+  const raw = (data as unknown as { current_version: { definition: unknown } | null } | null)?.current_version?.definition;
+  const parsed = raw ? templateDefinitionSchema.safeParse(raw) : null;
+  return data && parsed?.success ? { name: (data as { name: string }).name, definition: parsed.data } : null;
+}
+
 export type Showcase = { slug: string; name: string; renderer: TemplateDefinition["renderer"]; sample: TemplateDefinition["sample"] };
 
 /** Modèles mis en avant + leur contenu de démonstration (page d'accueil). */

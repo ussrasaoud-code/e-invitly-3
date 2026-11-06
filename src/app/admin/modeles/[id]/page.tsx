@@ -49,11 +49,16 @@ export default async function TemplatePage({ params, searchParams }: Props) {
       <PageHeader
         eyebrow={<Link href="/admin/modeles" className="hover:text-forest">← Modèles</Link>}
         title={t.name}
-        description={`Version courante : ${current?.version ?? "aucune"} · mise en page « ${current?.renderer ?? "—"} »`}
+        description={`Version courante : ${current?.version ?? "aucune"} · mise en page « ${current?.renderer ?? "—"} » · lien de test : e-invitly.com/test-${t.slug}`}
         actions={
           <>
             <StatusBadge {...st} />
             {t.status === "published" ? <Link href={`/demo/${t.slug}`} target="_blank" className="btn btn-ghost btn-sm">Voir la démo ↗</Link> : null}
+            {t.status !== "archived" ? (
+              <a href={`/test-${t.slug}`} target="_blank" rel="noopener" className="btn btn-ghost btn-sm" title="Comme un lien client publié : à ouvrir sur votre téléphone">
+                Lien de test ↗
+              </a>
+            ) : null}
             {t.status !== "archived" ? (
               <>
                 <form action={setTemplateStatus}>

@@ -7,3 +7,9 @@
 [build.environment]
   NODE_VERSION = "22"
   NEXT_TELEMETRY_DISABLED = "1"
+  # Images des invitations redimensionnées et converties en WebP par Netlify (src/lib/image-cdn.ts)
+  NEXT_PUBLIC_IMAGE_CDN = "netlify"
+
+# Service d'images de Netlify : seules les images publiques de notre stockage Supabase sont acceptées
+[images]
+  remote_images = ["https://[a-z0-9-]+\\.supabase\\.co/storage/v1/object/public/.*"]

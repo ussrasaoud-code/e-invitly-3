@@ -77,7 +77,9 @@ export function MediaUploader({ collections }: { collections: string[] }) {
         const res = await registerUpload({ path: ticket.path, name: file.name, collection: target, licenseNote: license, ...dims });
         if (res.ok) {
           ok++;
-          update(key, { status: "done" });
+          // Fichier lourd : il ralentira l'ouverture de l'invitation sur téléphone
+          const heavy = mime.startsWith("video/") ? file.size > 4 * 1024 * 1024 : mime.startsWith("audio/") ? file.size > 5 * 1024 * 1024 : false;
+          update(key, { status: "done", message: heavy ? `Ajouté ✓ — fichier lourd (${formatBytes(file.size)}) : compressez-le pour un chargement rapide (vidéo idéale : moins de 3 Mo)` : undefined });
         } else update(key, { status: "error", message: res.message });
       } catch {
         update(key, { status: "error", message: "Connexion perdue pendant l'envoi. Réessayez." });
@@ -154,8 +156,8 @@ export function MediaUploader({ collections }: { collections: string[] }) {
           {rows.slice(0, 60).map((r) => (
             <li key={r.key} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span className="min-w-0 truncate">{r.name} {r.size ? <span className="text-xs text-stone">· {formatBytes(r.size)}</span> : null}</span>
-              <span className={`text-xs ${r.status === "error" ? "text-danger" : r.status === "done" ? "text-success" : "text-stone"}`}>
-                {r.status === "waiting" ? "En attente" : r.status === "uploading" ? "Envoi…" : r.status === "done" ? "Ajouté ✓" : r.message}
+              <span className={`text-xs ${r.status === "error" ? "text-danger" : r.status === "done" ? (r.message ? "text-warning" : "text-success") : "text-stone"}`}>
+                {r.status === "waiting" ? "En attente" : r.status === "uploading" ? "Envoi…" : r.status === "done" ? r.message ?? "Ajouté ✓" : r.message}
               </span>
             </li>
           ))}

@@ -9,6 +9,9 @@ import { contentInLang, invitationLangs, pickLang } from "@/lib/invitation/bilin
 import { groupForToken, loadPublicInvitation } from "@/lib/publication";
 import { getPublicRsvpConfig } from "@/lib/rsvp-server";
 import { CodeForm } from "./CodeForm";
+import { TEST_PREFIX } from "@/lib/slug";
+import { getTemplateForTest } from "@/lib/templates";
+import { contentFor, templateLangs } from "@/lib/invitation/variants";
 
 /**
  * Invitation publiée : e-invitly.com/<adresse>.
@@ -22,6 +25,7 @@ const load = loadPublicInvitation;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
+  if (slug.startsWith(TEST_PREFIX)) return { title: "Lien de test", robots: { index: false, follow: false } };
   const inv = await load(decodeURIComponent(slug).toLowerCase());
   if (!inv || inv.kind !== "ok") return { title: "Invitation", robots: { index: false, follow: false } };
   const { couple, mainVenue } = inv.content;
@@ -37,6 +41,20 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 export default async function PublicInvitationPage({ params, searchParams }: { params: Params; searchParams: Search }) {
   const { slug: raw } = await params;
   const slug = decodeURIComponent(raw).toLowerCase();
+  // Lien de test d'un modèle : e-invitly.com/test-<modèle>, rendu comme un lien client
+  if (slug.startsWith(TEST_PREFIX)) {
+    const found = await getTemplateForTest(slug.slice(TEST_PREFIX.length));
+    if (!found) notFound();
+    const { langue } = await searchParams;
+    const langs = templateLangs(found.definition);
+    const lang = pickLang(langs, langue, (await headers()).get("accept-language"));
+    return (
+      <>
+        <LangSwitch langs={langs} current={lang} hrefFor={(l) => `/${slug}?langue=${l}`} />
+        <InvitationView key={lang} content={contentFor(found.definition, lang)} renderer={found.definition.renderer} mode="preview" />
+      </>
+    );
+  }
   const inv = await load(slug);
   if (!inv) notFound();
   if (inv.kind === "redirect") permanentRedirect(`/${inv.to}`);

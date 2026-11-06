@@ -550,6 +550,17 @@ async function handleStorage(req, res, url, buf) {
       return send(res, 200, { Key: key, Id: randomUUID() });
     }
   }
+  // Envoi direct d'un fichier avec la clé secrète (scripts de test)
+  if ((m = route.match(/^\/object\/(?!upload\/|sign\/|public\/|info\/)([^/]+)\/(.+)$/)) && (req.method === "POST" || req.method === "PUT")) {
+    const claims = storageClaims(req);
+    if (claims?.role !== "service_role") throw Object.assign(new Error("service_role requis"), { status: 403 });
+    const { key, file } = storagePath(m[1], m[2]);
+    if (existsSync(file) && req.headers["x-upsert"] !== "true") throw Object.assign(new Error("The resource already exists"), { status: 409 });
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, buf);
+    storageMeta.set(key, String(req.headers["content-type"] ?? "application/octet-stream"));
+    return send(res, 200, { Key: key, Id: randomUUID() });
+  }
   // Lien de lecture signé (fichiers privés) : création par la clé secrète, puis lecture avec le jeton
   if ((m = route.match(/^\/object\/sign\/([^/]+)\/(.+)$/)) && req.method === "POST") {
     const claims = storageClaims(req);

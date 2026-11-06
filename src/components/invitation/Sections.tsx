@@ -1,5 +1,7 @@
 "use client";
 
+import { cdnFallback, cdnImage } from "@/lib/image-cdn";
+
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Arch, CornerSpray, Divider, Sprig } from "@/components/ornaments";
 import { EVENT_TYPE_LABELS, programV2Items, type InvitationContent, type InvitationEvent, type InvitationSection, type RendererKey } from "@/lib/invitation/schema";
@@ -150,7 +152,7 @@ export function HeroSection({ content, renderer }: SectionProps) {
               {couple.photoUrl ? (
                 <El id="photo">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={couple.photoUrl} alt="" className="mx-auto mt-5 h-24 w-24 rounded-full object-cover" />
+                  <img src={cdnImage(couple.photoUrl, 120)} onError={cdnFallback(couple.photoUrl)} alt="" className="mx-auto mt-5 h-24 w-24 rounded-full object-cover" />
                 </El>
               ) : null}
               <El id="names">
@@ -214,7 +216,7 @@ export function HeroSection({ content, renderer }: SectionProps) {
         {couple.photoUrl ? (
           <El id="photo">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={couple.photoUrl} alt="" className="mx-auto mt-8 aspect-[3/4] w-40 object-cover" />
+            <img src={cdnImage(couple.photoUrl, 200)} onError={cdnFallback(couple.photoUrl)} alt="" className="mx-auto mt-8 aspect-[3/4] w-40 object-cover" />
           </El>
         ) : null}
         <El id="names">

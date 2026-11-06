@@ -528,6 +528,38 @@ with sync_playwright() as p:
     a.get_by_role("button", name="Retirer le code").click()
     a.wait_for_timeout(1500)
 
+    # Musique : démarre dès le toucher (avant la fin de l'ouverture) et se coupe avec le bouton
+    import io, wave
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(8000); w.writeframes(b"\x00\x00" * 8000 * 3)
+    up = urllib.request.Request(f"{STACK}/storage/v1/object/media/e2e/musique.wav", method="POST", data=buf.getvalue(),
+        headers={"apikey": SERVICE, "Authorization": f"Bearer {SERVICE}", "Content-Type": "audio/wav", "x-upsert": "true"})
+    urllib.request.urlopen(up).read()
+    music_url = f"{STACK}/storage/v1/object/public/media/e2e/musique.wav"
+    pv = api("GET", f"/rest/v1/invitations?id=eq.{inv_id}&select=published_version_id")[0]["published_version_id"]
+    vrow = api("GET", f"/rest/v1/invitation_versions?id=eq.{pv}&select=content")[0]["content"]
+    saved_music, saved_env = vrow.get("music"), vrow.get("envelope")
+    vrow["music"] = {"enabled": True, "url": music_url}
+    vrow["envelope"] = {**vrow["envelope"], "mode": "animation", "autoStart": False}
+    api("PATCH", f"/rest/v1/invitation_versions?id=eq.{pv}", {"content": vrow}, prefer="return=minimal")
+    mus = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True).new_page()
+    mus.goto(f"{BASE}/mark-alice-2027")
+    mute = mus.get_by_role("button", name=re.compile("musique", re.I))
+    expect(mute).to_be_visible()  # visible dès l'enveloppe, au-dessus d'elle
+    mus.get_by_role("button", name="Ouvrir l'invitation").first.click()
+    mus.wait_for_timeout(500)  # l'ouverture dure ~2 s : la musique doit déjà jouer
+    assert mus.evaluate("!document.querySelector('audio').paused"), "la musique démarre dès le toucher"
+    mute.click()
+    mus.wait_for_timeout(300)
+    assert mus.evaluate("document.querySelector('audio').paused"), "le bouton coupe la musique"
+    mus.mouse.click(200, 400); mus.wait_for_timeout(300)
+    assert mus.evaluate("document.querySelector('audio').paused"), "la musique coupée ne repart pas toute seule"
+    mus.context.close()
+    vrow["music"], vrow["envelope"] = saved_music, saved_env
+    api("PATCH", f"/rest/v1/invitation_versions?id=eq.{pv}", {"content": vrow}, prefer="return=minimal")
+    ok("musique : démarre au premier toucher, bouton pour couper visible dès l'ouverture, reste coupée")
+
     # Scénario 8 : dépublication
     a.get_by_role("button", name="Dépublier").click()
     a.wait_for_timeout(1500)
@@ -710,9 +742,8 @@ with sync_playwright() as p:
     expect(fab).to_be_visible()
     assert fab.get_attribute("href").startswith("https://wa.me/33612345678?text="), fab.get_attribute("href")
     expect(page.locator("footer").get_by_text("+33 6 12 34 56 78")).to_be_visible()
-    ig = page.locator("footer").get_by_role("link", name="Instagram · @e.invitly")
-    expect(ig).to_be_visible()
-    assert ig.get_attribute("href") == "https://www.instagram.com/e.invitly/", ig.get_attribute("href")
+    assert page.locator("footer").get_by_role("link", name=re.compile("Instagram")).count() == 0, "plus de bouton Instagram dans le pied de page"
+    assert api("GET", "/rest/v1/settings?key=eq.brand&select=value")[0]["value"]["instagram"] == "https://www.instagram.com/e.invitly/"
     ok("paramètres : modifiables et visibles immédiatement sur le site")
 
     # ── Bibliothèque de médias ───────────────────────────────────────
@@ -1551,6 +1582,46 @@ with sync_playwright() as p:
     nx = c.context.request.get(f"{BASE}/api/exports/{naomi_id}?format=csv")
     assert nx.status == 404, nx.status
     ok("scénarios 4/5/7 : le couple voit et exporte ses réponses, jamais celles d'un autre couple")
+
+    # Lien de test d'un modèle : e-invitly.com/test-<modèle>, comme un lien client
+    t = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+    t.goto(f"{BASE}/test-the-garden")
+    expect(t.locator("div[data-renderer]").first).to_be_visible()
+    assert t.locator("meta[name=robots][content*=noindex]").count() == 1
+    assert t.request.get(f"{BASE}/test-modele-inexistant").status == 404
+    a.goto(f"{BASE}/admin/modeles")
+    a.get_by_role("link", name=re.compile("The Garden")).first.click()
+    expect(a.get_by_role("link", name="Lien de test ↗")).to_have_attribute("href", "/test-the-garden")
+    ok("lien de test des modèles : e-invitly.com/test-<modèle>, non indexé, lien dans l'admin")
+
+    # Démo avec vidéo d'ouverture + musique : la musique part au toucher, pas à la fin de la vidéo
+    import subprocess, shutil as _sh
+    if _sh.which("ffmpeg"):
+        vid = Path(tempfile.mkdtemp()) / "v.mp4"
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=pink:s=390x844:d=5", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", str(vid)], check=True)
+        urllib.request.urlopen(urllib.request.Request(f"{STACK}/storage/v1/object/media/e2e/ouverture.mp4", method="POST", data=vid.read_bytes(),
+            headers={"apikey": SERVICE, "Authorization": f"Bearer {SERVICE}", "Content-Type": "video/mp4", "x-upsert": "true"})).read()
+        gv = api("GET", "/rest/v1/templates?slug=eq.the-garden&select=current_version_id")[0]["current_version_id"]
+        gdef0 = api("GET", f"/rest/v1/template_versions?id=eq.{gv}&select=definition")[0]["definition"]
+        gdef = json.loads(json.dumps(gdef0))
+        gdef["sample"]["envelope"] = {**gdef["sample"]["envelope"], "mode": "video", "videoUrl": f"{STACK}/storage/v1/object/public/media/e2e/ouverture.mp4"}
+        gdef["sample"]["music"] = {"enabled": True, "url": music_url}
+        api("PATCH", f"/rest/v1/template_versions?id=eq.{gv}", {"definition": gdef}, prefer="return=minimal")
+        d = browser.new_context(viewport={"width": 1280, "height": 800}).new_page()
+        d.goto(f"{BASE}/demo/the-garden")
+        snd = d.get_by_role("button", name=re.compile("musique", re.I))
+        expect(snd).to_be_visible()
+        box = snd.bounding_box()
+        assert box["x"] + box["width"] <= 640 + 240 + 2, f"bouton du son dans la colonne de l'invitation : {box}"
+        d.get_by_role("button", name="Ouvrir l'invitation").click()
+        d.wait_for_timeout(600)
+        assert d.evaluate("!document.querySelector('audio').paused"), "musique lancée au toucher, pendant la vidéo"
+        assert d.evaluate("!document.querySelector('video').ended"), "la vidéo est encore en cours"
+        snd.click(); d.wait_for_timeout(300)
+        assert d.evaluate("document.querySelector('audio').paused"), "le bouton coupe la musique"
+        d.context.close()
+        api("PATCH", f"/rest/v1/template_versions?id=eq.{gv}", {"definition": gdef0}, prefer="return=minimal")
+        ok("démo vidéo + musique : la musique démarre au toucher, bouton du son visible dans l'invitation")
 
     # Instagram : connexion par jeton dans l'admin, bande des derniers posts (images servies par le site)
     a.goto(f"{BASE}/admin/parametres")

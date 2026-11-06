@@ -4,15 +4,12 @@ import { localePath, type SiteLang } from "@/lib/i18n/config";
 import type { SiteDict } from "@/lib/i18n/dict";
 import type { SettingsMap } from "@/lib/settings-defaults";
 import { whatsappLink } from "@/lib/whatsapp";
-import { instagramHandle } from "@/lib/instagram";
-import { InstagramIcon } from "@/components/contact/InstagramIcon";
 import { CookieSettingsLink } from "./CookieConsent";
 
 export function SiteFooter({ settings, t, lang, whatsappLabel = "WhatsApp", cookiesLabel }: { settings: SettingsMap; t: SiteDict["footer"]; lang: SiteLang; tagline?: string; whatsappLabel?: string; cookiesLabel?: string }) {
   const href = (p: string) => localePath(lang, p);
   const { brand, policies } = settings;
   const wa = whatsappLink(brand.whatsapp);
-  const igHandle = brand.instagram ? instagramHandle(brand.instagram) : null;
   const socials = [
     { href: brand.facebook, label: "Facebook" },
     { href: brand.pinterest, label: "Pinterest" },
@@ -22,21 +19,7 @@ export function SiteFooter({ settings, t, lang, whatsappLabel = "WhatsApp", cook
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-4">
         <div className="md:col-span-2">
           <Logo variant="full" className="h-14 md:h-16" href={href("/")} />
-          {brand.instagram ? (
-            <div>
-            <a
-              href={brand.instagram}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#C2185B]/30 bg-white px-4 py-2 text-sm text-charcoal transition hover:border-[#C2185B] hover:bg-[#fdf1f5]"
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#C2185B] text-white">
-                <InstagramIcon className="h-4 w-4" />
-              </span>
-              <span>Instagram{igHandle ? <> · <bdi dir="ltr">{igHandle}</bdi></> : null}</span>
-            </a>
-            </div>
-          ) : null}
+          {/* Instagram : bande des derniers posts au-dessus du pied de page */}
           {socials.length ? (
             <ul className="mt-5 flex gap-4">
               {socials.map((s) => (

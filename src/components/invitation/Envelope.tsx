@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WaxSeal } from "@/components/ornaments";
+import { cdnImage } from "@/lib/image-cdn";
 import type { InvitationContent } from "@/lib/invitation/schema";
 import type { Labels } from "./i18n";
 
@@ -13,6 +14,8 @@ type Props = {
   onOpened: () => void;
   /** Démos : rien ne démarre avant que le visiteur touche l'écran */
   manualStart?: boolean;
+  /** Appelé au toucher du visiteur (dans son geste) : lance la musique dès le début de l'ouverture */
+  onTap?: () => void;
 };
 
 /**
@@ -23,7 +26,7 @@ type Props = {
  *   « Ouvrir l'invitation » apparaît.
  * - Respecte prefers-reduced-motion (ouverture instantanée).
  */
-export function Envelope({ envelope, colors, labels, scope, onOpened, manualStart = false }: Props) {
+export function Envelope({ envelope, colors, labels, scope, onOpened, manualStart = false, onTap }: Props) {
   const [phase, setPhase] = useState<"closed" | "opening" | "gone">("closed");
   const [started, setStarted] = useState(!manualStart);
   const [videoFailed, setVideoFailed] = useState(false);
@@ -39,10 +42,11 @@ export function Envelope({ envelope, colors, labels, scope, onOpened, manualStar
 
   const open = useCallback(() => {
     if (phase !== "closed") return;
+    onTap?.();
     if (reduced) return finish();
     setPhase("opening");
     window.setTimeout(finish, 1900);
-  }, [phase, reduced, finish]);
+  }, [phase, reduced, finish, onTap]);
 
   // Démarrage automatique (option)
   useEffect(() => {
@@ -71,20 +75,27 @@ export function Envelope({ envelope, colors, labels, scope, onOpened, manualStar
         <video
           ref={videoRef}
           className="h-full w-full object-cover"
-          // En attente du toucher : première image affichée (#t=…) si aucune affiche n'est définie
-          src={!started && !envelope.posterUrl ? `${envelope.videoUrl}#t=0.05` : envelope.videoUrl}
-          poster={envelope.posterUrl || undefined}
+          // Sans affiche : la première image est montrée grâce à #t=… . L'adresse ne change pas
+          // au toucher (sinon la vidéo se rechargerait) et la vidéo se télécharge pendant l'attente.
+          src={envelope.posterUrl ? envelope.videoUrl : `${envelope.videoUrl}#t=0.05`}
+          poster={envelope.posterUrl ? cdnImage(envelope.posterUrl, 390) : undefined}
           muted
           playsInline
           autoPlay={started}
-          preload={started ? "auto" : "metadata"}
+          preload="auto"
           onEnded={finish}
+          // La vidéo démarre : si le navigateur a mis la musique en pause, on la relance
+          onPlaying={() => onTap?.()}
           onError={() => setVideoFailed(true)}
         />
         {!started ? (
           <button
             type="button"
-            onClick={() => setStarted(true)}
+            onClick={() => {
+              // La musique part dans le même geste que la vidéo (Safari / iPhone l'exigent)
+              onTap?.();
+              setStarted(true);
+            }}
             className="absolute inset-0 flex flex-col items-center justify-end gap-3 bg-gradient-to-t from-black/45 via-transparent to-transparent pb-16"
           >
             <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-charcoal shadow-lg">

@@ -86,13 +86,16 @@ export function slugFromNames(...names: Array<string | null | undefined>): strin
   return slugify(names.filter((n): n is string => !!n && n.trim() !== "").join(" "));
 }
 
+/** Adresses e-invitly.com/test-<modèle> : réservées aux liens de test des modèles */
+export const TEST_PREFIX = "test-";
+
 export type SlugProblem = "empty" | "format" | "too-long" | "reserved";
 
 export function validateSlug(slug: string): SlugProblem | null {
   if (!slug) return "empty";
   if (slug.length > SLUG_MAX_LENGTH) return "too-long";
   if (!SLUG_PATTERN.test(slug)) return "format";
-  if (RESERVED_SLUGS.has(slug)) return "reserved";
+  if (RESERVED_SLUGS.has(slug) || slug.startsWith(TEST_PREFIX)) return "reserved";
   return null;
 }
 
@@ -114,6 +117,7 @@ export async function findAvailableSlug(
 ): Promise<string> {
   let root = slugify(base);
   if (!root || RESERVED_SLUGS.has(root)) root = root ? `${root}-invitation` : `invitation-${fallbackSeed()}`;
+  if (root.startsWith(TEST_PREFIX)) root = `invitation-${root}`;
   root = root.slice(0, SLUG_MAX_LENGTH - 4).replace(/-+$/g, "");
 
   if (!(await isTaken(root))) return root;
