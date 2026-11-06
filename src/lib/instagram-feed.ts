@@ -15,7 +15,7 @@ export type InstagramConnection = {
   username: string;
   /** « instagram » : jeton IGAA… (connexion Instagram, renouvelé tous les 60 jours) ;
    *  « facebook » : jeton EAA… (utilisateur système Meta Business, sans expiration) */
-  kind?: "instagram" | "facebook";
+  kind?: "instagram" | "facebook" | "behold";
   /** Identifiant du compte Instagram professionnel (jetons « facebook ») */
   igUserId?: string;
   savedAt: string;
@@ -36,7 +36,24 @@ const KEY = "instagram";
 const TAG = "instagram-feed";
 export const igBase = () => process.env.INSTAGRAM_API_BASE || "https://graph.instagram.com";
 export const fbBase = () => process.env.FACEBOOK_GRAPH_BASE || "https://graph.facebook.com/v21.0";
-export const tokenKind = (token: string): "instagram" | "facebook" => (/^EAA/.test(token) ? "facebook" : "instagram");
+export const tokenKind = (token: string): "instagram" | "facebook" | "behold" =>
+  /^https:\/\/feeds\.behold\.so\//.test(token) || (!!process.env.BEHOLD_FEED_BASE && token.startsWith(process.env.BEHOLD_FEED_BASE)) ? "behold" : /^EAA/.test(token) ? "facebook" : "instagram";
+
+type BeholdPost = { id: string; permalink: string; mediaType: string; mediaUrl?: string; thumbnailUrl?: string; caption?: string; sizes?: Record<string, { mediaUrl?: string }> };
+
+/** Flux Behold (behold.so) : le service gère la connexion à Instagram, on lit son flux JSON. */
+async function readBehold(url: string): Promise<{ ok: true; username: string; posts: InstagramPost[] } | { ok: false; message: string }> {
+  const { ok, status, j } = await getJson(url);
+  if (!ok || !Array.isArray(j.posts)) return { ok: false, message: j.error?.message ?? (typeof j.message === "string" ? j.message : `Flux Behold illisible (erreur ${status})`) };
+  const posts = (j.posts as BeholdPost[]).map((m) => ({
+    id: m.id,
+    caption: (m.caption ?? "").slice(0, 300),
+    permalink: m.permalink,
+    isVideo: m.mediaType === "VIDEO",
+    imageUrl: m.sizes?.medium?.mediaUrl ?? m.sizes?.large?.mediaUrl ?? (m.mediaType === "VIDEO" ? m.thumbnailUrl : m.mediaUrl) ?? "",
+  }));
+  return { ok: true, username: typeof j.username === "string" ? j.username : "", posts };
+}
 
 export async function loadConnection(): Promise<InstagramConnection | null> {
   const db = createAdminClient();
@@ -51,7 +68,7 @@ export async function saveConnection(value: InstagramConnection | null, actorId?
   if (!db) throw new Error("Base non configurée");
   const { error } = await db.from("settings").upsert({ key: KEY, value: value ?? {}, is_public: false, updated_by: actorId ?? null }, { onConflict: "key" });
   if (error) throw new Error(error.message);
-  if (refresh) revalidateTag(TAG, "max");
+  if (refresh) revalidateTag(TAG, { expire: 0 });
 }
 
 type CheckResult = { ok: true; username: string; igUserId?: string } | { ok: false; message: string };
@@ -70,6 +87,12 @@ async function getJson(url: string) {
 export async function checkToken(token: string, igUserId = ""): Promise<CheckResult> {
   const t = encodeURIComponent(token);
   try {
+    if (tokenKind(token) === "behold") {
+      const r = await readBehold(token);
+      if (!r.ok) return { ok: false, message: r.message };
+      if (!r.posts.length) return { ok: false, message: "le flux Behold ne contient aucun post (vérifiez la source Instagram dans Behold)" };
+      return { ok: true, username: r.username || "compte Instagram" };
+    }
     if (tokenKind(token) === "instagram") {
       const { ok, status, j } = await getJson(`${igBase()}/me?fields=user_id,username&access_token=${t}`);
       if (!ok || typeof j.username !== "string") return { ok: false, message: j.error?.message ?? `Erreur ${status}` };
@@ -99,8 +122,8 @@ const DAY = 86_400_000;
 
 /** Renouvelle le jeton (valable 60 jours) une fois par semaine. */
 async function maybeRefresh(c: InstagramConnection): Promise<InstagramConnection> {
-  // Jeton d'utilisateur système (EAA…) : n'expire pas, rien à renouveler
-  if (c.kind === "facebook") return c;
+  // Jeton d'utilisateur système (EAA…) ou flux Behold : rien à renouveler
+  if (c.kind === "facebook" || c.kind === "behold") return c;
   const age = Date.now() - new Date(c.refreshedAt || c.savedAt).getTime();
   if (age < 7 * DAY) return c;
   try {
@@ -123,6 +146,19 @@ async function fetchFeed(): Promise<InstagramPost[]> {
   const conn = await loadConnection();
   if (!conn) return [];
   const c = await maybeRefresh(conn);
+  if (c.kind === "behold") {
+    try {
+      const r = await readBehold(c.token);
+      if (!r.ok) {
+        if (!c.lastError) await saveConnection({ ...c, lastError: r.message }, undefined, false).catch(() => {});
+        return [];
+      }
+      if (c.lastError) await saveConnection({ ...c, lastError: undefined }, undefined, false).catch(() => {});
+      return r.posts.filter((p) => p.imageUrl && /^https:\/\//.test(p.permalink)).slice(0, 8);
+    } catch {
+      return [];
+    }
+  }
   try {
     const fields = "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp";
     const url =
@@ -151,6 +187,18 @@ async function fetchFeed(): Promise<InstagramPost[]> {
     console.error("[instagram]", e);
     return [];
   }
+}
+
+/** Lecture directe (sans cache) pour le diagnostic de l'admin : nombre de posts trouvés et erreur éventuelle. */
+export async function diagnoseFeed(): Promise<{ count: number; error: string | null }> {
+  const posts = await fetchFeed();
+  const c = await loadConnection();
+  return { count: posts.length, error: c?.lastError ?? null };
+}
+
+/** Vide le cache du flux : les posts sont relus à la prochaine visite. */
+export function refreshFeedCache() {
+  revalidateTag(TAG, { expire: 0 });
 }
 
 /** Posts mis en cache une heure (et renouvellement du jeton au passage). */

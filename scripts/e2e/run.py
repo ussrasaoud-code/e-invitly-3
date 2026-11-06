@@ -1595,6 +1595,7 @@ with sync_playwright() as p:
     igc.get_by_label(re.compile("Identifiant du compte Instagram")).fill("17841400000000001")
     igc.get_by_role("button", name="Connecter Instagram").click()
     expect(igc.get_by_text("Jeton d'utilisateur système (sans expiration)")).to_be_visible(timeout=15000)
+    expect(igc.get_by_text("6 posts trouvés")).to_be_visible()
     v = api("GET", "/rest/v1/settings?key=eq.instagram&select=value")[0]["value"]
     assert v["kind"] == "facebook" and v["igUserId"] == "17841400000000001" and v["username"] == "e.invitly", v
     g = browser.new_context(viewport={"width": 1280, "height": 900}).new_page()
@@ -1611,6 +1612,27 @@ with sync_playwright() as p:
     igc.get_by_role("button", name="Déconnecter Instagram").click()
     expect(igc.get_by_role("button", name="Connecter Instagram")).to_be_visible(timeout=15000)
     ok("Instagram : jeton Meta Business (EAA, sans expiration) accepté avec l'identifiant du compte")
+    # Flux Behold (behold.so) : la solution sans configuration Meta
+    igc = a.locator("section.card").filter(has_text="Instagram — derniers posts")
+    igc.get_by_label("Jeton d'accès Instagram").fill("http://127.0.0.1:54321/behold-mock/feedTEST123")
+    igc.get_by_role("button", name="Connecter Instagram").click()
+    expect(igc.get_by_text("Flux Behold (mis à jour par Behold).")).to_be_visible(timeout=15000)
+    g = browser.new_context(viewport={"width": 1280, "height": 900}).new_page()
+    strip = g.get_by_role("region", name="Suivez-nous sur Instagram")
+    for _ in range(8):
+        g.goto(f"{BASE}/invitations")
+        if strip.count() and strip.locator("a[href*='/p/BH']").count() == 6:
+            break
+        g.wait_for_timeout(1500)
+    expect(strip.locator("a[href^='https://www.instagram.com/p/BH']")).to_have_count(6)
+    strip.scroll_into_view_if_needed(); g.wait_for_timeout(1500)
+    assert all(x for x in strip.locator("img").evaluate_all("els => els.map(e => e.complete && e.naturalWidth > 0)")), "images Behold servies par le site"
+    g.context.close()
+    a.goto(f"{BASE}/admin/parametres")
+    igc = a.locator("section.card").filter(has_text="Instagram — derniers posts")
+    igc.get_by_role("button", name="Déconnecter Instagram").click()
+    expect(igc.get_by_role("button", name="Connecter Instagram")).to_be_visible(timeout=15000)
+    ok("Instagram : flux Behold accepté (6 posts), images servies par le site")
 
     # Cookies : aucun bandeau sans outil configuré ; avec Google Analytics, rien n'est chargé avant l'accord
     k = browser.new_context(viewport={"width": 390, "height": 844}).new_page()

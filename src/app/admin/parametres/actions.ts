@@ -8,7 +8,7 @@ import { logActivity } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
 import { SITE_LANGS } from "@/lib/i18n/config";
 import { createClient } from "@/lib/supabase/server";
-import { checkToken, saveConnection, tokenKind } from "@/lib/instagram-feed";
+import { checkToken, refreshFeedCache, saveConnection, tokenKind } from "@/lib/instagram-feed";
 
 const str = (max: number) => z.string().trim().max(max);
 const url = z.string().trim().max(300).refine((v) => v === "" || /^https:\/\//.test(v), "Lien https:// attendu");
@@ -117,7 +117,7 @@ export async function connectInstagram(form: FormData) {
   };
   const token = String(form.get("igToken") ?? "").trim();
   const igId = String(form.get("igUserId") ?? "").trim();
-  if (token.length < 20 || token.length > 600) fail("Collez le jeton d'accès en entier (il est très long).");
+  if (token.length < 20 || token.length > 600) fail("Collez le jeton d'accès (ou le lien du flux Behold) en entier.");
   if (!/^\d{0,30}$/.test(igId)) fail("L'identifiant du compte Instagram ne contient que des chiffres.");
   const check = await checkToken(token, igId);
   if (!check.ok) fail(`Instagram a refusé le jeton : ${check.message}`);
@@ -131,6 +131,12 @@ export async function connectInstagram(form: FormData) {
   await logActivity({ actorId: user.id, action: "settings.updated", resourceType: "settings", resourceId: "instagram", summary: `Instagram connecté (@${ok.username})` });
   revalidatePath("/", "layout");
   redirect("/admin/parametres?instagram=ok#instagram");
+}
+
+export async function refreshInstagram() {
+  await requireAdmin();
+  refreshFeedCache();
+  redirect("/admin/parametres?instagram=actualise#instagram");
 }
 
 export async function disconnectInstagram() {

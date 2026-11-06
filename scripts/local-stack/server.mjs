@@ -682,6 +682,15 @@ const server = http.createServer(async (req, res) => {
   const raw = buf.toString("utf8");
   if (url.pathname.startsWith("/paypal-mock/") || url.pathname.startsWith("/stripe-mock/")) return handlePaymentMocks(req, res, url, raw);
   // DeepL factice : préfixe la langue cible, pour vérifier le circuit de traduction
+  // Faux flux Behold (behold.so) : JSON des derniers posts
+  if (url.pathname.startsWith("/behold-mock/")) {
+    if (url.pathname !== "/behold-mock/feedTEST123") return send(res, 404, { message: "Feed not found" });
+    const base = `${url.protocol}//${url.host}/instagram-mock/img`;
+    return send(res, 200, {
+      username: "e.invitly",
+      posts: Array.from({ length: 6 }, (_, i) => ({ id: `1810000000000000${i}`, permalink: `https://www.instagram.com/p/BH${i}/`, mediaType: "IMAGE", mediaUrl: `${base}/${i}.png`, caption: `Post Behold ${i + 1}`, sizes: { medium: { mediaUrl: `${base}/m${i}.png` } } })),
+    });
+  }
   // Faux Graph API Facebook (jeton EAA… d'utilisateur système) : compte Instagram et posts
   if (url.pathname.startsWith("/fb-mock/")) {
     const fp = url.pathname.slice("/fb-mock".length);

@@ -4,12 +4,12 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { requireStaff } from "@/lib/auth";
 import { isEmailConfigured } from "@/lib/email";
 import { getSettings } from "@/lib/settings";
-import { loadConnection } from "@/lib/instagram-feed";
+import { diagnoseFeed, loadConnection } from "@/lib/instagram-feed";
 import { formatDateTime } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { LANG_META, SITE_LANGS, localePath } from "@/lib/i18n/config";
 import { LANGUAGE_LABELS } from "@/lib/invitation/schema";
-import { connectInstagram, disconnectInstagram, saveAnalytics, saveBrand, saveHome, saveLanguages, saveNotifications, savePolicies, saveProtection, setMemberRole } from "./actions";
+import { connectInstagram, disconnectInstagram, refreshInstagram, saveAnalytics, saveBrand, saveHome, saveLanguages, saveNotifications, savePolicies, saveProtection, setMemberRole } from "./actions";
 
 export const metadata = { title: "Paramètres" };
 
@@ -44,6 +44,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const faq = [...home.faq, { question: "", answer: "" }, { question: "", answer: "" }];
   const disabled = !isAdmin;
   const ig = await loadConnection();
+  // Lecture directe pour savoir tout de suite si les posts sont accessibles
+  const igCheck = ig ? await diagnoseFeed().catch(() => ({ count: 0, error: "lecture impossible" })) : null;
 
   return (
     <>
@@ -198,7 +200,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           title="Instagram — derniers posts sur le site"
           description="Affiche une bande « Suivez-nous sur Instagram » en bas du site vitrine avec vos derniers posts (mise à jour toutes les heures). Nécessite un compte Instagram professionnel (Créateur ou Entreprise). Les images passent par votre site : aucun cookie Instagram n'est déposé chez vos visiteurs."
         >
-          {igMsg === "ok" ? (
+          {igMsg === "actualise" ? (
+            <p role="status" className="mb-4 border border-sage bg-sage-soft px-3 py-2 text-sm text-forest-deep">Bande Instagram actualisée : rechargez votre site pour voir les derniers posts.</p>
+          ) : igMsg === "ok" ? (
             <p role="status" className="mb-4 border border-sage bg-sage-soft px-3 py-2 text-sm text-forest-deep">Instagram connecté. La bande apparaît sur le site après une ou deux actualisations (au moins 3 posts nécessaires).</p>
           ) : igMsg ? (
             <p role="alert" className="mb-4 border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{igMsg}</p>
@@ -206,13 +210,25 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           {ig ? (
             <div className="space-y-3 text-sm">
               <p>
-                <span className="text-forest">●</span> Connecté au compte <strong className="font-medium">@{ig.username}</strong> depuis le {formatDateTime(ig.savedAt)}. {ig.kind === "facebook" ? "Jeton d'utilisateur système (sans expiration)." : <>Le jeton est renouvelé automatiquement (dernier renouvellement : {formatDateTime(ig.refreshedAt)}).</>}
+                <span className="text-forest">●</span> Connecté au compte <strong className="font-medium">@{ig.username}</strong> depuis le {formatDateTime(ig.savedAt)}. {ig.kind === "behold" ? "Flux Behold (mis à jour par Behold)." : ig.kind === "facebook" ? "Jeton d'utilisateur système (sans expiration)." : <>Le jeton est renouvelé automatiquement (dernier renouvellement : {formatDateTime(ig.refreshedAt)}).</>}
               </p>
+              {igCheck ? (
+                <p className={igCheck.count >= 3 ? "text-forest" : "text-danger"}>
+                  Lecture des posts : <strong className="font-medium">{igCheck.count} post{igCheck.count > 1 ? "s" : ""} trouvé{igCheck.count > 1 ? "s" : ""}</strong>
+                  {igCheck.count >= 3 ? " — la bande s'affiche sur le site." : " — il en faut au moins 3 pour afficher la bande."}
+                  {igCheck.error ? <> Erreur : {igCheck.error}</> : null}
+                </p>
+              ) : null}
               {ig.lastError ? (
                 <p role="alert" className="border border-warning/40 bg-[#fbf3e2] px-3 py-2">
                   Problème avec Instagram : {ig.lastError}. Si les posts n&apos;apparaissent plus, générez un nouveau jeton et collez-le ci-dessous.
                 </p>
               ) : null}
+              <form action={refreshInstagram}>
+                <fieldset disabled={disabled}>
+                  <SubmitButton className="btn btn-secondary btn-sm">Actualiser la bande maintenant</SubmitButton>
+                </fieldset>
+              </form>
               <form action={disconnectInstagram}>
                 <fieldset disabled={disabled}>
                   <SubmitButton className="btn btn-ghost btn-sm text-danger" confirm="Retirer la bande Instagram du site ?">Déconnecter Instagram</SubmitButton>
@@ -223,13 +239,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <form action={connectInstagram} className="mt-4 space-y-3">
             <fieldset disabled={disabled} className="space-y-3">
               <F label={ig ? "Remplacer le jeton d'accès" : "Jeton d'accès Instagram"}>
-                <input name="igToken" type="password" autoComplete="off" placeholder="IGAA… ou EAA…" className="field" />
+                <input name="igToken" type="password" autoComplete="off" placeholder="IGAA…, EAA… ou https://feeds.behold.so/…" className="field" />
               </F>
               <F label="Identifiant du compte Instagram (seulement pour un jeton EAA…, si demandé)">
                 <input name="igUserId" inputMode="numeric" autoComplete="off" placeholder="17841400000000000" maxLength={30} className="field" />
               </F>
               <p className="text-xs text-stone">
-                À générer dans developers.facebook.com → votre application → Instagram → « Générer des jetons d&apos;accès ». C&apos;est une donnée secrète : ne la partagez avec personne.
+                Le plus simple : créez un flux JSON gratuit sur behold.so (connexion avec votre compte Instagram), puis collez ici son lien https://feeds.behold.so/… (gratuit : 6 posts, mis à jour chaque jour). Ou bien un jeton Meta (IGAA… ou EAA…) généré sur developers.facebook.com. Ne partagez ces données avec personne.
               </p>
               <SubmitButton className="btn btn-secondary btn-sm" pendingLabel="Vérification…">{ig ? "Remplacer" : "Connecter Instagram"}</SubmitButton>
             </fieldset>
