@@ -2,9 +2,9 @@
 
 import { cdnFallback, cdnImage } from "@/lib/image-cdn";
 
-import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Arch, CornerSpray, Divider, Sprig } from "@/components/ornaments";
-import { EVENT_TYPE_LABELS, isSimpleStem, programV2Items, type InvitationContent, type InvitationEvent, type InvitationSection, type RendererKey } from "@/lib/invitation/schema";
+import { EVENT_TYPE_LABELS, isSimpleStem, momentIcon, programV2Items, type InvitationContent, type InvitationEvent, type InvitationSection, type RendererKey } from "@/lib/invitation/schema";
 import { calendarHref } from "@/lib/ics";
 import { ScratchCard } from "./ScratchCard";
 import { LayerEditorContext } from "./editor-context";
@@ -1047,7 +1047,7 @@ export function DecorSection({ height }: { height: number }) {
 type TItem = { id: string; time: string; title: string; detail: string };
 
 /** Tige verticale qui remplit son conteneur : SVG fleuri, ou trait simple dessiné en CSS */
-function StemLine({ stem, color }: { stem: string; color: string }) {
+function StemLine({ stem, color, width = 1.2 }: { stem: string; color: string; width?: number }) {
   if (stem === "aucune") return null;
   if (isSimpleStem(stem)) {
     const dashed = stem === "tirets";
@@ -1056,8 +1056,8 @@ function StemLine({ stem, color }: { stem: string; color: string }) {
         aria-hidden="true"
         className="mx-auto h-full"
         style={{
-          width: "1.2px",
-          background: dashed ? `repeating-linear-gradient(to bottom, ${color} 0 6px, transparent 6px 12px)` : color,
+          width: `${width}px`,
+          background: dashed ? `repeating-linear-gradient(to bottom, ${color} 0 ${Math.max(6, width * 4)}px, transparent ${Math.max(6, width * 4)}px ${Math.max(12, width * 8)}px)` : color,
           opacity: 0.85,
         }}
       />
@@ -1085,6 +1085,7 @@ function Pearl({ color, size = 11 }: { color: string; size?: number }) {
 }
 
 export function ProgramV2Section({ section, content }: SectionProps & { section: InvitationSection }) {
+  if (section.look === "medallion") return <MedallionTimeline section={section} content={content} />;
   const { kicker, title, marker } = section;
   // Par défaut, le programme de l'invitation (rempli depuis la demande du client)
   const items: TItem[] = programV2Items(section, content, (t) => formatTime(t, content.language), (d) => formatDayLabel(d, content.language));
@@ -1117,7 +1118,7 @@ export function ProgramV2Section({ section, content }: SectionProps & { section:
     body = (
       <div className="relative mt-10">
         <El id="stem" className="pointer-events-none absolute inset-y-0" style={{ left: stemLeft, width: stemWidth }}>
-          <StemLine stem={stem} color={stemColor} />
+          <StemLine stem={stem} color={stemColor} width={section.stemWidth ?? 1.2} />
         </El>
         {marker ? (
           <El id="marker" className="pointer-events-none absolute z-[2]" style={{ left: "93.6px", width: "46.8px", top: "calc(var(--p, 0) * (100% - 46.8px))", transition: "top 140ms linear" }}>
@@ -1134,7 +1135,7 @@ export function ProgramV2Section({ section, content }: SectionProps & { section:
                   <El id={`${k}.time`}>
                     <p className={`pt-0.5 ${timeCls}`} style={ink}>{it.time}</p>
                   </El>
-                  <span aria-hidden="true" className="pt-[8px]">{pearls ? <Pearl color={stemColor} /> : null}</span>
+                  <span aria-hidden="true" className="pt-[8px]">{pearls ? <Pearl color={stemColor} size={Math.max(11, (section.stemWidth ?? 1.2) * 4)} /> : null}</span>
                   <Texts it={it} k={k} />
                 </El>
               );
@@ -1160,6 +1161,99 @@ export function ProgramV2Section({ section, content }: SectionProps & { section:
         ) : null}
       </Reveal>
       {body}
+    </section>
+  );
+}
+
+/* ── Programme en médaillons : heure · cercle avec icône · intitulé, reliés par un trait ── */
+const MD_FONTS = {
+  script: '"Pinyon Script", cursive',
+  serif: '"Cormorant Garamond", Georgia, serif',
+  sans: '"Montserrat", system-ui, sans-serif',
+};
+function MedallionTimeline({ section, content }: { section: InvitationSection; content: InvitationContent }) {
+  const items = programV2Items(section, content, (t) => formatTime(t, content.language), (d) => formatDayLabel(d, content.language));
+  const size = section.circleSize ?? 46;
+  const gap = Math.round(size * 0.58);
+  const vars = {
+    "--md-gold": section.circleBorder || "#d6c59f",
+    "--md-fill": section.circleFill || "color-mix(in srgb, var(--inv-bg) 55%, white)",
+    "--md-icon": section.iconColor || "var(--inv-ink)",
+    "--md-line": section.stemColor || "color-mix(in srgb, var(--md-gold) 85%, var(--inv-ink))",
+  } as CSSProperties;
+  const font = (f: keyof typeof MD_FONTS) => `var(--el-font, ${MD_FONTS[f]})`;
+  return (
+    <section className="relative px-[23.4px] pb-16 pt-14" style={vars}>
+      <Reveal>
+        {section.kicker ? (
+          <El id="kicker">
+            <p className="text-center text-[0.74rem] uppercase tracking-[0.42em]" style={{ fontFamily: font("sans"), color: "var(--el-text, color-mix(in srgb, var(--md-gold) 78%, var(--inv-ink)))" }}>{section.kicker}</p>
+          </El>
+        ) : null}
+        {section.title ? (
+          <El id="title">
+            <h2 className="mx-auto mt-2 max-w-[340px] text-center text-[2.75rem] leading-[1.15]" style={{ fontFamily: font("script"), color: "var(--inv-ink)" }}>{section.title}</h2>
+          </El>
+        ) : null}
+      </Reveal>
+      {items.length ? (
+        <div className="relative mx-auto mt-10 max-w-[340px]">
+          {items.length > 1 ? (
+            <El
+              id="stem"
+              className="pointer-events-none absolute left-1/2 -translate-x-1/2"
+              style={{ top: size / 2, bottom: size / 2, width: Math.max(1, section.stemWidth ?? 1.2), background: "var(--el-detail, var(--md-line))" }}
+            >
+              <span className="block h-full w-full" />
+            </El>
+          ) : null}
+          <El id="list">
+            <ol className="relative flex flex-col" style={{ gap }}>
+              {items.map((it) => {
+                const k = `list.${elKey(it.id)}`;
+                const icon = momentIcon(section, it.id, it.title);
+                return (
+                  <El id={k} as="li" key={it.id} className="grid items-center gap-x-[18px]" style={{ gridTemplateColumns: `minmax(0,1fr) ${size}px minmax(0,1fr)` }}>
+                    <El id={`${k}.time`}>
+                      <p className="text-right text-[1.72rem] leading-none lining-nums" style={{ fontFamily: font("serif"), color: "var(--inv-ink)" }}>{it.time}</p>
+                    </El>
+                    <El id={`${k}.icon`}>
+                      <span
+                        className="flex items-center justify-center rounded-full"
+                        style={{
+                          width: size,
+                          height: size,
+                          border: "1.5px solid var(--el-detail, var(--md-gold))",
+                          background: "var(--inv-fill, var(--md-fill))",
+                          boxShadow: "0 6px 14px -4px rgb(0 0 0 / 0.14)",
+                        }}
+                      >
+                        {icon ? (
+                          <span
+                            aria-hidden="true"
+                            className="block"
+                            style={{ width: size * 0.52, height: size * 0.52, backgroundColor: "var(--el-text, var(--md-icon))", WebkitMaskImage: `url("${icon}")`, maskImage: `url("${icon}")`, WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat", WebkitMaskPosition: "center", maskPosition: "center" }}
+                          />
+                        ) : null}
+                      </span>
+                    </El>
+                    <div className="min-w-0">
+                      <El id={`${k}.title`}>
+                        <p className="text-[0.74rem] uppercase leading-snug tracking-[0.26em]" style={{ fontFamily: font("sans"), color: "var(--inv-muted)" }}>{it.title}</p>
+                      </El>
+                      {it.detail ? (
+                        <El id={`${k}.detail`}>
+                          <p className="mt-1 whitespace-pre-line text-[0.62rem] leading-relaxed tracking-[0.08em]" style={{ fontFamily: font("sans"), color: "var(--inv-muted)", opacity: 0.8 }}>{it.detail}</p>
+                        </El>
+                      ) : null}
+                    </div>
+                  </El>
+                );
+              })}
+            </ol>
+          </El>
+        </div>
+      ) : null}
     </section>
   );
 }

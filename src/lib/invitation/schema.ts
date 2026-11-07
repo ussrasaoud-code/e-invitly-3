@@ -206,19 +206,20 @@ export const STEM_LABELS: Record<StemStyle, string> = {
 };
 
 /** Styles des sections compte à rebours, lieux et réponse */
-export const SECTION_LOOKS = ["default", "savedate", "map", "ticket"] as const;
+export const SECTION_LOOKS = ["default", "savedate", "map", "ticket", "medallion"] as const;
 export type SectionLook = (typeof SECTION_LOOKS)[number];
 export const LOOKS_BY_TYPE: Partial<Record<SectionType, Array<{ look: SectionLook; label: string }>>> = {
   countdown: [{ look: "default", label: "Classique" }, { look: "savedate", label: "Save the date (grande date + cases)" }],
   venues: [{ look: "default", label: "Classique" }, { look: "map", label: "Avec carte intégrée" }],
   rsvp: [{ look: "default", label: "Classique" }, { look: "ticket", label: "Carte festonnée sur fond coloré" }],
+  program2: [{ look: "default", label: "Frise : heure · tige · texte" }, { look: "medallion", label: "Médaillons : heure · cercle avec icône · texte" }],
 };
 
 /** Ancien champ de mise en page de la frise (conservé pour relire les brouillons ; seule « classic » est affichée) */
 export const TIMELINE_LAYOUTS = ["classic", "icons", "centered", "alternate"] as const;
 export type TimelineLayout = (typeof TIMELINE_LAYOUTS)[number];
 
-export const SHAPE_TYPES = ["rect", "rounded", "circle", "arch", "double", "line", "diamond", "heart", "leafdivider", "diamonddivider"] as const;
+export const SHAPE_TYPES = ["rect", "rounded", "circle", "arch", "double", "line", "diamond", "heart", "leafdivider", "diamonddivider", "cartouche", "etiquette", "plaque", "festonne"] as const;
 export type ShapeType = (typeof SHAPE_TYPES)[number];
 export const SHAPE_LABELS: Record<ShapeType, string> = {
   rect: "Rectangle / cadre",
@@ -231,6 +232,10 @@ export const SHAPE_LABELS: Record<ShapeType, string> = {
   heart: "Cœur",
   leafdivider: "Séparateur feuillage",
   diamonddivider: "Séparateur losange",
+  cartouche: "Cartouche ancien (angles creusés et bosses)",
+  etiquette: "Étiquette (angles creusés, double filet)",
+  plaque: "Plaque (angles en escalier, double filet)",
+  festonne: "Cadre festonné",
 };
 export const LOOP_ANIMATIONS = ["none", "sway", "float", "breathe"] as const;
 export type LoopAnimation = (typeof LOOP_ANIMATIONS)[number];
@@ -379,6 +384,12 @@ export const sectionSchema = z.object({
   look: z.enum(SECTION_LOOKS).default("default"),
   /** Programme v2 : couleur de la tige (vide = couleur d'accent du thème) ; timeline, iconColor et itemIcons ne sont plus utilisés */
   timeline: z.enum(TIMELINE_LAYOUTS).default("classic"),
+  /** Épaisseur des tiges simples (trait, perles, tirets), en pixels */
+  stemWidth: z.number().min(0.5).max(8).default(1.2),
+  /** Médaillons (programme v2) : taille, fond et contour des cercles (vide = couleurs par défaut) */
+  circleSize: z.number().min(30).max(80).default(46),
+  circleFill: hexColor.or(z.literal("")).default(""),
+  circleBorder: hexColor.or(z.literal("")).default(""),
   stemColor: hexColor.or(z.literal("")).default(""),
   iconColor: hexColor.or(z.literal("")).default(""),
   /** Icône de chaque moment (clé = identifiant du moment ; absent = icône devinée, "" = aucune) */
@@ -412,13 +423,13 @@ export type InvitationSection = z.infer<typeof sectionSchema>;
 const shortId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
 function newSectionBase(type: SectionType): InvitationSection {
-  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], itemsFrom: "events", marker: "", stem: "feuilles", look: "default", timeline: "classic", stemColor: "", iconColor: "", itemIcons: {}, photos: [], venueOptions: { ...DEFAULT_VENUE_OPTIONS }, coverColor: "" };
+  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], itemsFrom: "events", marker: "", stem: "feuilles", look: "default", timeline: "classic", stemWidth: 1.2, circleSize: 46, circleFill: "", circleBorder: "", stemColor: "", iconColor: "", itemIcons: {}, photos: [], venueOptions: { ...DEFAULT_VENUE_OPTIONS }, coverColor: "" };
 }
 
 export function newSection(type: SectionType): InvitationSection {
   if (type === "program2") return programV2Section();
   if (type === "gallery") return gallerySection();
-  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], itemsFrom: "events", marker: "", stem: "feuilles", look: "default", timeline: "classic", stemColor: "", iconColor: "", itemIcons: {}, photos: [], venueOptions: { ...DEFAULT_VENUE_OPTIONS }, coverColor: "" };
+  return { id: shortId(`s-${type}`), type, visible: true, title: "", body: "", height: 60, animation: "inherit", layers: [], elements: {}, background: { ...DEFAULT_SECTION_BACKGROUND }, spaceTop: 0, spaceBottom: 0, kicker: "", items: [], itemsFrom: "events", marker: "", stem: "feuilles", look: "default", timeline: "classic", stemWidth: 1.2, circleSize: 46, circleFill: "", circleBorder: "", stemColor: "", iconColor: "", itemIcons: {}, photos: [], venueOptions: { ...DEFAULT_VENUE_OPTIONS }, coverColor: "" };
 }
 
 export function newLayer(kind: InvitationLayer["kind"], patch: Partial<InvitationLayer> = {}): InvitationLayer {
@@ -617,6 +628,7 @@ export function programV2Section(): InvitationSection {
     stem: "feuilles",
     look: "default",
     timeline: "classic",
+    stemWidth: 1.2, circleSize: 46, circleFill: "", circleBorder: "",
     stemColor: "",
     iconColor: "",
     itemIcons: {},
@@ -636,6 +648,40 @@ export function gallerySection(): InvitationSection {
     photos: [1, 2, 3, 4].map((n) => ({ id: `p${n}`, src: `/decor/album/exemple-${n}.jpg`, caption: "" })),
   };
 }
+
+const normTitle = (t: string) => ` ${t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")} `;
+const ICON_RULES: Array<[RegExp, string]> = [
+  [/mairie|civil|town hall/, "mairie"],
+  [/eglise|church|messe/, "eglise"],
+  [/mosquee|mosque/, "mosquee"],
+  [/gateau|piece montee|cake|dessert/, "piece-montee"],
+  [/anniversaire|birthday/, "gateau-anniversaire"],
+  [/cocktail|vin d.honneur|aperitif|apero|champagne|drinks/, "coupes-champagne"],
+  [/diner|dinner|repas|banquet|dejeuner|lunch/, "diner"],
+  [/brunch|gouter|tea/, "cloche-service"],
+  [/danse|dance|soiree|party|fete|bal /, "musique"],
+  [/photo/, "appareil-photo"],
+  [/navette|bus|shuttle|transport/, "navette"],
+  [/feu d.artifice|fireworks/, "feu-artifice"],
+  [/ fin |depart|end of|goodbye/, "voiture-maries"],
+  [/henne|henna|fatiha|fiancailles|engagement/, "bague-solitaire"],
+  [/ceremonie|ceremony|laique|voeux|vows|union/, "alliances"],
+  [/accueil|arrivee|welcome|reception/, "bouquet"],
+];
+/** Version au trait épais (lisible en petit, dans les médaillons) */
+const SIMPLE_ICON: Record<string, string> = {
+  alliances: "s-alliances", "bague-solitaire": "s-alliances", "coupes-champagne": "s-verre", diner: "s-couverts", musique: "s-note",
+  "piece-montee": "s-gateau", coeur: "s-coeur", bouquet: "s-coeur", "appareil-photo": "s-photo", "voiture-maries": "s-voiture",
+  mairie: "s-mairie", eglise: "s-eglise", "gateau-anniversaire": "s-gateau-anniv", "cloche-service": "s-cloche", navette: "s-bus",
+};
+/** Icône proposée d'après l'intitulé du moment (modifiable dans l'éditeur) */
+export function guessMomentIcon(title: string, simple = true): string {
+  const t = normTitle(title);
+  const k = ICON_RULES.find(([re]) => re.test(t))?.[1] ?? "coeur";
+  return `/decor/icones/${simple ? (SIMPLE_ICON[k] ?? k) : k}.svg`;
+}
+/** Icône d'un moment : choisie dans l'éditeur, ou devinée ("" = aucune) */
+export const momentIcon = (section: InvitationSection, id: string, title: string) => (id in (section.itemIcons ?? {}) ? section.itemIcons[id] : guessMomentIcon(title));
 
 /** Moments affichés par la section « Programme v2 » : le programme de l'invitation, ou des moments propres à la section. */
 export function programV2Items(section: InvitationSection, content: InvitationContent, formatTime: (t: string) => string = (t) => t, formatDay?: (d: string) => string) {

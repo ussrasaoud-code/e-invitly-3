@@ -23,6 +23,8 @@ import {
   STEM_LABELS,
   STEM_STYLES,
   LOOKS_BY_TYPE,
+  guessMomentIcon,
+  programV2Items,
   isSimpleStem,
   cloneSection,
   layerSchema,
@@ -41,6 +43,8 @@ import { elementsFor, flattenElements, type ElementDef } from "@/lib/invitation/
 import { FONTS, FONT_GROUPS } from "@/lib/fonts";
 import { ShapeSvg } from "@/components/invitation/Shape";
 import { shapePresets } from "@/lib/invitation/shape-presets";
+import { loadSectionPresets, resetSectionPreset, saveSectionPreset } from "@/app/admin/section-presets-actions";
+import { BUILTIN_MEDIA } from "@/lib/builtin-media";
 import { ColorInput, UsedColorsContext, collectColors, useRecentColors } from "./ColorInput";
 import { CopySectionDialog } from "./CopySectionDialog";
 import { FIELD_TOKENS, hasFields, linkNames } from "@/lib/invitation/fields";
@@ -235,6 +239,11 @@ export function VisualEditor({
   };
   const { content: c, update } = ed;
   const [sel, setSel] = useState<Selection>(null);
+  /** Sections prêtes à l'emploi enregistrées par l'équipe (une par type) */
+  const [presets, setPresets] = useState<Partial<Record<InvitationSection["type"], InvitationSection>>>({});
+  useEffect(() => {
+    loadSectionPresets().then(setPresets).catch(() => {});
+  }, []);
   /** Écran d'ouverture (enveloppe ou vidéo) affiché dans le téléphone */
   const [envView, setEnvView] = useState(false);
   const [envReplay, setEnvReplay] = useState(0);
@@ -549,7 +558,8 @@ export function VisualEditor({
     setSel(null);
   };
   const addSection = (type: InvitationSection["type"]) => {
-    const s = newSection(type);
+    const saved = presets[type];
+    const s = saved ? cloneSection(saved) : newSection(type);
     const at = section ? c.sections.findIndex((x) => x.id === section.id) + 1 : c.sections.length;
     setSections((ss) => [...ss.slice(0, at), s, ...ss.slice(at)]);
     setSel({ sectionId: s.id, layerId: null });
@@ -932,7 +942,7 @@ export function VisualEditor({
               }}
             >
               <option value="">Choisir…</option>
-              {addable.map((t) => <option key={t} value={t}>{SECTION_LABELS[t]}</option>)}
+              {addable.map((t) => <option key={t} value={t}>{SECTION_LABELS[t]}{presets[t] ? " ★ votre version" : ""}</option>)}
             </select>
           </label>
           <button type="button" className="mx-1 mt-2 text-start text-xs text-forest underline underline-offset-4 hover:text-charcoal" onClick={() => setShowCopy(true)}>
@@ -1062,6 +1072,36 @@ export function VisualEditor({
               canDelete={c.sections.length > 1}
               onChange={(patch) => patchSection(section.id, patch)}
               onDuplicate={() => duplicateSection(section)}
+              hasPreset={!!presets[section.type]}
+              onSavePreset={async () => {
+                const label = SECTION_LABELS[section.type];
+                if (presets[section.type] && !window.confirm(`Remplacer votre version enregistrée de « ${label} » par cette section ?`)) return;
+                const r = await saveSectionPreset(section);
+                if (r.ok) {
+                  setPresets((p) => ({ ...p, [section.type]: structuredClone(section) }));
+                  flash(`« ${label} » enregistrée : elle sera insérée telle quelle la prochaine fois.`);
+                } else flash(r.message ?? "Enregistrement impossible.");
+              }}
+              onApplyPreset={() => {
+                const saved = presets[section.type];
+                if (!saved) return;
+                if (!window.confirm("Remplacer cette section par votre version enregistrée ? (Annuler reste possible.)")) return;
+                const copy = cloneSection(saved);
+                setSections((ss) => ss.map((x) => (x.id === section.id ? { ...copy, id: section.id } : x)));
+                flash("Votre version enregistrée a été appliquée.");
+              }}
+              onResetPreset={async () => {
+                if (!window.confirm(`Supprimer votre version enregistrée de « ${SECTION_LABELS[section.type]} » ? Les prochaines sections ajoutées reprendront la version d'origine.`)) return;
+                const r = await resetSectionPreset(section.type);
+                if (r.ok) {
+                  setPresets((p) => {
+                    const n = { ...p };
+                    delete n[section.type];
+                    return n;
+                  });
+                  flash("Version d'origine rétablie pour les prochaines sections.");
+                }
+              }}
               onDelete={() => deleteSection(section)}
               onAddImage={() => setPicker("add")}
               onAddText={() => addLayer(newLayer("text", { y: 30 }))}
@@ -1360,8 +1400,12 @@ function LayerPanel({ layer: l, names, onChange, onReplace, onDelete, onDuplicat
 /* ── Panneau d'une section ────────────────────────────────────────── */
 const NOT_DUPLICABLE: InvitationSection["type"][] = ["hero", "rsvp", "countdown"];
 
-function SectionPanel({ section: s, content, themeColors, themeSwatches = [], onApplyBackgroundToAll, formHref, canDelete, onChange, onDuplicate, onDelete, onAddImage, onAddText, onAddShape, palette, onPalette }: {
+function SectionPanel({ section: s, content, themeColors, themeSwatches = [], onApplyBackgroundToAll, formHref, canDelete, onChange, onDuplicate, onDelete, onAddImage, onAddText, onAddShape, palette, onPalette, hasPreset, onSavePreset, onApplyPreset, onResetPreset }: {
   onAddShape: () => void;
+  hasPreset: boolean;
+  onSavePreset: () => void;
+  onApplyPreset: () => void;
+  onResetPreset: () => void;
   content: InvitationContent;
   palette: string[];
   onPalette: (palette: string[]) => void;
@@ -1384,6 +1428,17 @@ function SectionPanel({ section: s, content, themeColors, themeSwatches = [], on
         <p className="text-[0.7rem] uppercase tracking-wider text-stone">Section</p>
         <h2 className="font-serif text-2xl">{SECTION_LABELS[s.type]}</h2>
       </div>
+      <div className="rounded-sm border border-line bg-white p-3">
+        <p className="text-[0.7rem] uppercase tracking-wider text-stone">Section prête à l&apos;emploi</p>
+        <p className="mt-1 text-xs text-stone">
+          {hasPreset ? "Vous avez enregistré votre version : elle est insérée à chaque nouvelle section de ce type (★ dans « Ajouter une section »)." : "Enregistrez cette section telle qu'elle est (textes, couleurs, calques, style) : elle sera insérée ainsi la prochaine fois."}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <button type="button" className="btn btn-primary btn-sm max-w-full !px-3 !tracking-wide" onClick={onSavePreset}>{hasPreset ? "Mettre à jour ma version" : "Enregistrer ma version"}</button>
+          {hasPreset ? <button type="button" className="btn btn-secondary btn-sm max-w-full !px-3 !tracking-wide" onClick={onApplyPreset}>Appliquer ma version ici</button> : null}
+          {hasPreset ? <button type="button" className="btn btn-ghost btn-sm text-stone" onClick={onResetPreset}>Revenir à l&apos;origine</button> : null}
+        </div>
+      </div>
       {LOOKS_BY_TYPE[s.type] ? (
         <fieldset className="min-w-0">
           <legend className="mb-1 block text-[0.7rem] uppercase tracking-wider text-stone">Style de la section</legend>
@@ -1403,7 +1458,7 @@ function SectionPanel({ section: s, content, themeColors, themeSwatches = [], on
           </div>
         </fieldset>
       ) : null}
-      {s.look !== "default" && LOOKS_BY_TYPE[s.type] ? (
+      {s.look !== "default" && LOOKS_BY_TYPE[s.type] && s.type !== "program2" ? (
         <Field label={s.type === "countdown" ? "Phrase au-dessus du compteur" : "Surtitre"} hint="Laissez vide pour le texte par défaut (traduit selon la langue).">
           <input aria-label="Surtitre de la section" className={inputCls} maxLength={120} value={s.kicker} onChange={(e) => onChange({ kicker: e.target.value })} />
         </Field>
@@ -2141,6 +2196,36 @@ function StemPreview({ k, color = "#586c60" }: { k: string; color?: string }) {
   );
 }
 
+const ICON_CHOICES = BUILTIN_MEDIA.filter((m) => m.url.startsWith("/decor/icones/"));
+
+function IconChoice({ value, auto, onChange, label }: { value: string | undefined; auto: string; onChange: (v: string | undefined) => void; label: string }) {
+  const [open, setOpen] = useState(false);
+  const shown = value === undefined ? auto : value;
+  const mask = (url: string, color: string) => ({ backgroundColor: color, WebkitMaskImage: `url("${url}")`, maskImage: `url("${url}")`, WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat", WebkitMaskPosition: "center", maskPosition: "center" });
+  return (
+    <div className="relative">
+      <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white hover:border-forest" aria-label={`${label} : changer l'icône`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {shown ? <span aria-hidden="true" className="block h-5 w-5" style={mask(shown, "#3f4a3c")} /> : <span className="text-xs text-stone">∅</span>}
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-10 z-30 w-[252px] rounded-sm border border-line bg-white p-2 shadow-xl" role="dialog" aria-label={`Icône — ${label}`}>
+          <div className="mb-1.5 flex gap-1.5">
+            <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => { onChange(undefined); setOpen(false); }}>Automatique</button>
+            <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => { onChange(""); setOpen(false); }}>Aucune</button>
+          </div>
+          <div className="grid max-h-60 grid-cols-6 gap-1 overflow-y-auto">
+            {ICON_CHOICES.map((m) => (
+              <button key={m.id} type="button" title={m.name} aria-label={m.name} onClick={() => { onChange(m.url); setOpen(false); }} className={`flex h-9 items-center justify-center rounded-sm border hover:border-forest ${shown === m.url ? "border-forest bg-sage-soft" : "border-transparent"}`}>
+                <span aria-hidden="true" className="block h-6 w-6" style={mask(m.url, "#3f4a3c")} />
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ColorRow({ label, value, fallback, onChange }: { label: string; value: string; fallback: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-3">
@@ -2167,35 +2252,86 @@ function ProgramV2Editor({ section: s, content, onChange }: { section: Invitatio
     onChange({ items });
   };
   const accent = content.theme.colors.accent;
+  const medallion = s.look === "medallion";
+  const shownItems = programV2Items(s, content);
+  const setIcon = (id: string, v: string | undefined) => {
+    const next = { ...s.itemIcons };
+    if (v === undefined) delete next[id];
+    else next[id] = v;
+    onChange({ itemIcons: next });
+  };
   return (
     <div className="space-y-3">
       <Field label="Surtitre">
         <input aria-label="Surtitre" className={inputCls} maxLength={120} value={s.kicker} onChange={(e) => onChange({ kicker: e.target.value })} />
       </Field>
-      <fieldset className="min-w-0">
-        <legend className="mb-1 block text-[0.7rem] uppercase tracking-wider text-stone">Style de la tige</legend>
-        <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Style de la tige">
-          {STEM_STYLES.map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="radio"
-              aria-checked={s.stem === k}
-              aria-label={`Tige ${STEM_LABELS[k]}`}
-              title={STEM_LABELS[k]}
-              onClick={() => onChange({ stem: k })}
-              className={`flex flex-col items-center gap-1 rounded-sm border bg-white px-1 pb-1 pt-2 ${s.stem === k ? "border-forest ring-2 ring-forest/30" : "border-line hover:border-forest"}`}
-            >
-              <StemPreview k={k} color={s.stemColor || "#586c60"} />
-              <span className="text-[0.6rem] leading-tight">{STEM_LABELS[k]}</span>
-            </button>
-          ))}
-        </div>
-      </fieldset>
-      <ColorRow label="Couleur de la tige" value={s.stemColor} fallback={accent} onChange={(v) => onChange({ stemColor: v })} />
-      <Field label="Fleur qui descend le long de la tige (facultatif)" hint="Elle suit le défilement de l'écran. Videz le champ pour ne pas en mettre.">
-        <MediaUrlField kinds={["image", "svg"]} className={inputCls} label="Fleur qui suit le défilement" value={s.marker} onChange={(v) => onChange({ marker: v })} />
-      </Field>
+      {medallion ? (
+        <>
+          <fieldset className="min-w-0 space-y-3 rounded-sm border border-line bg-white p-3">
+            <legend className="px-1 text-[0.7rem] uppercase tracking-wider text-stone">Cercles</legend>
+            <Field label={`Taille des cercles : ${s.circleSize} px`}>
+              <input type="range" min={30} max={80} step={1} value={s.circleSize} onChange={(e) => onChange({ circleSize: Number(e.target.value) })} className="w-full accent-forest" aria-label="Taille des cercles" />
+            </Field>
+            <ColorRow label="Fond des cercles" value={s.circleFill} fallback="#faf8f3" onChange={(v) => onChange({ circleFill: v })} />
+            <ColorRow label="Contour des cercles" value={s.circleBorder} fallback="#d6c59f" onChange={(v) => onChange({ circleBorder: v })} />
+            <ColorRow label="Couleur des icônes" value={s.iconColor} fallback={content.theme.colors.ink} onChange={(v) => onChange({ iconColor: v })} />
+          </fieldset>
+          <fieldset className="min-w-0 space-y-3 rounded-sm border border-line bg-white p-3">
+            <legend className="px-1 text-[0.7rem] uppercase tracking-wider text-stone">Trait vertical</legend>
+            <ColorRow label="Couleur du trait" value={s.stemColor} fallback="#c9b98f" onChange={(v) => onChange({ stemColor: v })} />
+            <Field label={`Épaisseur du trait : ${s.stemWidth.toLocaleString("fr-FR")} px`}>
+              <input type="range" min={0.5} max={8} step={0.1} value={s.stemWidth} onChange={(e) => onChange({ stemWidth: Number(e.target.value) })} className="w-full accent-forest" aria-label="Épaisseur du trait" />
+            </Field>
+          </fieldset>
+          {shownItems.length ? (
+            <fieldset className="min-w-0 space-y-1.5 rounded-sm border border-line bg-white p-3">
+              <legend className="px-1 text-[0.7rem] uppercase tracking-wider text-stone">Icône de chaque moment</legend>
+              {shownItems.map((it) => (
+                <div key={it.id} className="flex items-center gap-2">
+                  <IconChoice label={it.title || "Moment"} value={s.itemIcons[it.id]} auto={guessMomentIcon(it.title)} onChange={(v) => setIcon(it.id, v)} />
+                  <span className="min-w-0 flex-1 truncate text-sm">{it.time ? `${it.time} · ` : ""}{it.title || "Moment"}</span>
+                </div>
+              ))}
+              <p className="text-[0.7rem] text-stone">Cliquez sur une icône pour la changer. Les polices, tailles et couleurs de chaque texte se règlent en cliquant dessus dans le téléphone.</p>
+            </fieldset>
+          ) : null}
+        </>
+      ) : (
+        <>
+        <fieldset className="min-w-0">
+          <legend className="mb-1 block text-[0.7rem] uppercase tracking-wider text-stone">Style de la tige</legend>
+          <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Style de la tige">
+            {STEM_STYLES.map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={s.stem === k}
+                aria-label={`Tige ${STEM_LABELS[k]}`}
+                title={STEM_LABELS[k]}
+                onClick={() => onChange({ stem: k })}
+                className={`flex flex-col items-center gap-1 rounded-sm border bg-white px-1 pb-1 pt-2 ${s.stem === k ? "border-forest ring-2 ring-forest/30" : "border-line hover:border-forest"}`}
+              >
+                <StemPreview k={k} color={s.stemColor || "#586c60"} />
+                <span className="text-[0.6rem] leading-tight">{STEM_LABELS[k]}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        {isSimpleStem(s.stem) && s.stem !== "aucune" ? (
+          <Field label={`Épaisseur du trait : ${s.stemWidth.toLocaleString("fr-FR")} px`}>
+            <div className="flex items-center gap-2">
+              <input type="range" min={0.5} max={8} step={0.1} value={s.stemWidth} onChange={(e) => onChange({ stemWidth: Number(e.target.value) })} className="w-full accent-forest" aria-label="Épaisseur du trait" />
+              <input type="number" min={0.5} max={8} step={0.1} value={s.stemWidth} onChange={(e) => { const v = Number(e.target.value); if (Number.isFinite(v)) onChange({ stemWidth: Math.min(8, Math.max(0.5, v)) }); }} className="w-16 rounded-sm border border-line px-2 py-1 text-sm" aria-label="Épaisseur du trait en pixels" />
+            </div>
+          </Field>
+        ) : null}
+        <ColorRow label="Couleur de la tige" value={s.stemColor} fallback={accent} onChange={(v) => onChange({ stemColor: v })} />
+        <Field label="Fleur qui descend le long de la tige (facultatif)" hint="Elle suit le défilement de l'écran. Videz le champ pour ne pas en mettre.">
+          <MediaUrlField kinds={["image", "svg"]} className={inputCls} label="Fleur qui suit le défilement" value={s.marker} onChange={(v) => onChange({ marker: v })} />
+        </Field>
+        </>
+      )}
       <fieldset className="min-w-0 space-y-2 border-t border-line pt-3">
         <legend className="mb-1 font-serif text-lg">Moments</legend>
         <label className="flex items-start gap-2 text-sm">

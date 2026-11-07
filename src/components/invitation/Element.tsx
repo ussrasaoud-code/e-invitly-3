@@ -74,10 +74,10 @@ export function El({ id, children, className = "", style, as: Tag = "div" }: { i
     if (st.scale !== 1) css.scale = String(st.scale);
     if (st.zoom && st.zoom !== 1) css.zoom = st.zoom;
     if (st.opacity !== 1) css.opacity = st.opacity;
-    if (st.color) Object.assign(css, { "--inv-ink": st.color, "--inv-accent": st.color, "--inv-muted": st.color, "--inv-soft": st.color });
+    if (st.color) Object.assign(css, { "--inv-ink": st.color, "--inv-accent": st.color, "--inv-muted": st.color, "--inv-soft": st.color, "--el-text": st.color, "--el-detail": st.color });
     // Textes et cadres réglables séparément
-    if (st.textColor) Object.assign(css, { "--inv-ink": st.textColor, "--inv-muted": st.textColor });
-    if (st.detailColor) Object.assign(css, { "--inv-accent": st.detailColor, "--inv-soft": st.detailColor });
+    if (st.textColor) Object.assign(css, { "--inv-ink": st.textColor, "--inv-muted": st.textColor, "--el-text": st.textColor });
+    if (st.detailColor) Object.assign(css, { "--inv-accent": st.detailColor, "--inv-soft": st.detailColor, "--el-detail": st.detailColor });
     if (st.fillColor) Object.assign(css, { "--inv-fill": st.fillColor });
     if (st.font) {
       const stack = FONTS[st.font].stack;

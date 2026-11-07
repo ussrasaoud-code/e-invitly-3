@@ -212,7 +212,7 @@ function definitions(type: SectionType, c: InvitationContent, section?: Invitati
       return [
         { id: "kicker", label: "Surtitre", kind: "text", edit: "section-kicker" },
         { id: "title", label: "Titre", kind: "text", edit: "section-title" },
-        { id: "stem", label: "Tige fleurie", kind: "ornament" },
+        { id: "stem", label: section?.look === "medallion" ? "Trait vertical" : "Tige fleurie", kind: "ornament" },
         { id: "marker", label: "Fleur qui suit le défilement", kind: "ornament" },
         {
           id: "list",
@@ -233,6 +233,7 @@ function definitions(type: SectionType, c: InvitationContent, section?: Invitati
                     ...(it.detail
                       ? [{ id: `${k}.detail`, label: "Détail", kind: "text" as const, edit: ev ? { event: it.id, field: "venueName" as const } : { item: i, field: "detail" as const } }]
                       : []),
+                    ...(section.look === "medallion" ? [{ id: `${k}.icon`, label: "Cercle et icône", kind: "ornament" as const }] : []),
                   ],
                 };
               })

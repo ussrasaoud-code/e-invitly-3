@@ -23,6 +23,13 @@ export function shapePresets(c: Colors): ShapePreset[] {
     { id: "pointilles", label: "Ligne pointillée", patch: { shape: "line", width: 44, ratio: 0.04, strokeWidth: 2, dash: "dotted" } },
     { id: "losange", label: "Losange", patch: { shape: "diamond", width: 10, ratio: 1, strokeWidth: 0, fill: c.accent } },
     { id: "coeur", label: "Cœur", patch: { shape: "heart", width: 16, ratio: 0.92, strokeWidth: 0, fill: c.accent, fillOpacity: 0.85 } },
+    { id: "cartouche-compteur", label: "Cartouche (compteur)", patch: { shape: "cartouche", width: 92, ratio: 0.36, strokeWidth: 1, fill: c.surface, stroke: c.accent } },
+    { id: "cartouche-carre", label: "Cartouche haut", patch: { shape: "cartouche", width: 80, ratio: 1.1, strokeWidth: 1, fill: c.surface, stroke: c.accent } },
+    { id: "etiquette-ancienne", label: "Étiquette ancienne", patch: { shape: "etiquette", width: 86, ratio: 0.42, strokeWidth: 1, fill: c.surface, stroke: c.accent } },
+    { id: "etiquette-haute", label: "Étiquette haute", patch: { shape: "etiquette", width: 78, ratio: 1.25, strokeWidth: 1, fill: c.surface, stroke: c.accent } },
+    { id: "plaque", label: "Plaque à angles en escalier", patch: { shape: "plaque", width: 86, ratio: 0.42, strokeWidth: 1, fill: c.surface, stroke: c.accent } },
+    { id: "plaque-haute", label: "Plaque haute", patch: { shape: "plaque", width: 78, ratio: 1.25, strokeWidth: 1, fill: c.surface, stroke: c.accent } },
+    { id: "festonne", label: "Cadre festonné", patch: { shape: "festonne", width: 86, ratio: 0.42, strokeWidth: 1, fill: c.surface, stroke: c.accent } },
     { id: "fond-section", label: "Fond de couleur", patch: { shape: "rect", width: 100, ratio: 1.6, strokeWidth: 0, fill: c.surface, x: 50, y: 50 } },
   ];
 }
