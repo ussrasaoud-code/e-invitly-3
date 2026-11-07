@@ -78,6 +78,7 @@ export function El({ id, children, className = "", style, as: Tag = "div" }: { i
     // Textes et cadres réglables séparément
     if (st.textColor) Object.assign(css, { "--inv-ink": st.textColor, "--inv-muted": st.textColor });
     if (st.detailColor) Object.assign(css, { "--inv-accent": st.detailColor, "--inv-soft": st.detailColor });
+    if (st.fillColor) Object.assign(css, { "--inv-fill": st.fillColor });
     if (st.font) {
       const stack = FONTS[st.font].stack;
       Object.assign(css, { "--inv-display": stack, "--inv-script": stack, "--inv-body": stack, "--el-font": stack, fontFamily: stack });

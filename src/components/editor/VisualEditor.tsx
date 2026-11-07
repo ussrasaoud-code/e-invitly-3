@@ -8,7 +8,6 @@ import { InvitationView } from "@/components/invitation/InvitationView";
 import { LayerEditorContext, type LayerEditor } from "@/components/invitation/Layers";
 import { MediaPicker } from "@/components/media/MediaPicker";
 import { MediaUrlField } from "@/components/media/MediaUrlField";
-import { BUILTIN_MEDIA } from "@/lib/builtin-media";
 import {
   ENTER_ANIMATIONS,
   ENTER_ANIMATION_LABELS,
@@ -24,11 +23,7 @@ import {
   STEM_LABELS,
   STEM_STYLES,
   LOOKS_BY_TYPE,
-  TIMELINE_LABELS,
-  TIMELINE_LAYOUTS,
-  TIMELINE_PRESETS,
   isSimpleStem,
-  programV2Items,
   cloneSection,
   layerSchema,
   newLayer,
@@ -55,7 +50,7 @@ import { useEditorState } from "./useEditorState";
 
 const CLIPBOARD_KEY = "ei-layer-clipboard";
 const DEFAULT_ELEMENT_STYLE: ElementStyle = {
-  hidden: false, dx: 0, dy: 0, scale: 1, rotation: 0, opacity: 1, color: "", textColor: "", detailColor: "", font: "", text: "", ungrouped: false,
+  hidden: false, dx: 0, dy: 0, scale: 1, rotation: 0, opacity: 1, color: "", textColor: "", detailColor: "", fillColor: "", font: "", text: "", ungrouped: false,
   zoom: 1, weight: "", style: "", align: "", enter: { type: "none", delay: 0, duration: 1200 }, loop: "none",
 };
 
@@ -1745,6 +1740,29 @@ function GroupAnimation({ layers, onPatch, onPatchEach, onReplay }: {
 /* ── Panneau d'un élément intégré au modèle ───────────────────────── */
 export type ElementComputed = { font: FontKey | null; bold: boolean; italic: boolean; align: "left" | "center" | "right" };
 
+/** Couleurs de l'élément sélectionné, en haut du panneau : un clic sur la pastille pour changer, ↺ pour revenir au thème */
+function QuickColors({ rows }: { rows: Array<{ label: string; value: string; fallback: string; set: (v: string) => void }> }) {
+  return (
+    <fieldset className="min-w-0 rounded-sm border border-line bg-white p-3">
+      <legend className="px-1 text-[0.7rem] uppercase tracking-wider text-stone">Couleurs</legend>
+      <ul className="space-y-1.5">
+        {rows.map((r) => (
+          <li key={r.label} className="flex items-center gap-2.5">
+            <ColorInput value={r.value || r.fallback} onChange={(e) => r.set(e.target.value)} className="h-8 w-10 shrink-0 cursor-pointer rounded-sm border border-line" aria-label={r.label} />
+            <span className="min-w-0 flex-1 text-sm leading-tight">
+              {r.label}
+              <span className="block text-[0.68rem] text-stone">{r.value ? r.value.toUpperCase() : "Couleur du thème"}</span>
+            </span>
+            {r.value ? (
+              <button type="button" onClick={() => r.set("")} className="shrink-0 rounded-sm px-1.5 py-1 text-sm text-stone hover:bg-paper hover:text-ink" aria-label={`${r.label} : revenir à la couleur du thème`} title="Revenir à la couleur du thème">↺</button>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </fieldset>
+  );
+}
+
 function ElementPanel({ def, section, content: c, formHref, style, onStyle, onReset, onContent, computed, onDuplicate, onReplay }: {
   computed: ElementComputed | null;
   onDuplicate: (convert: boolean) => void;
@@ -1876,6 +1894,15 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
         </p>
         <h2 className="font-serif text-2xl">{def.label}</h2>
       </div>
+      <QuickColors
+        rows={[
+          { label: "Couleur du texte", value: st.textColor, fallback: c.theme.colors.ink, set: (v) => onStyle({ textColor: v }) },
+          { label: "Fond des cases, champs et cartes", value: st.fillColor, fallback: c.theme.colors.surface, set: (v) => onStyle({ fillColor: v }) },
+          { label: "Boutons, cadres et lignes", value: st.detailColor, fallback: c.theme.colors.accent, set: (v) => onStyle({ detailColor: v }) },
+          { label: "Fond de toute la section", value: section.background.color, fallback: c.theme.colors.background, set: (v) => patchSection({ background: { ...section.background, color: v } }) },
+          { label: "Tout l'élément d'une seule couleur", value: st.color, fallback: c.theme.colors.accent, set: (v) => onStyle({ color: v }) },
+        ]}
+      />
       {st.hidden ? <p className="rounded-sm bg-paper px-3 py-2 text-sm">Cet élément est retiré : il n&apos;apparaît pas sur l&apos;invitation.</p> : null}
       {section.type === "dresscode" && def.id === "palette" ? (
         <PaletteEditor palette={c.dressCode.palette} onChange={(palette) => onContent((x) => ({ ...x, dressCode: { ...x.dressCode, palette } }))} />
@@ -1927,25 +1954,6 @@ function ElementPanel({ def, section, content: c, formHref, style, onStyle, onRe
         <NumberSlider label={isText ? "Échelle (sans décaler le reste)" : "Taille"} value={Math.round(st.scale * 100)} min={30} max={300} unit="%" onChange={(v) => onStyle({ scale: v / 100 })} />
         <NumberSlider label="Rotation" value={st.rotation} min={-180} max={180} unit="°" onChange={(v) => onStyle({ rotation: v })} />
         <NumberSlider label="Opacité" value={Math.round(st.opacity * 100)} min={0} max={100} unit="%" onChange={(v) => onStyle({ opacity: v / 100 })} />
-        <fieldset className="space-y-2">
-          <legend className="mb-1 text-[0.7rem] uppercase tracking-wider text-stone">Couleurs</legend>
-          {([
-            ["textColor", "Textes", c.theme.colors.ink],
-            ["detailColor", "Cadres, boutons, lignes et petits titres", c.theme.colors.accent],
-            ["color", "Tout l'élément (une seule couleur)", c.theme.colors.accent],
-          ] as const).map(([key, label, fallback]) => (
-            <span key={key} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={!!st[key]} onChange={(e) => onStyle({ [key]: e.target.checked ? fallback : "" })} className="h-4 w-4 accent-forest" aria-label={`Imposer : ${label}`} />
-              {st[key] ? (
-                <ColorInput value={st[key]} onChange={(e) => onStyle({ [key]: e.target.value })} className="h-8 w-10 cursor-pointer rounded-sm border border-line" aria-label={label} />
-              ) : (
-                <span className="inline-block h-8 w-10 rounded-sm border border-dashed border-line" aria-hidden="true" />
-              )}
-              <span className={st[key] ? "" : "text-stone"}>{label}</span>
-            </span>
-          ))}
-          <p className="text-[0.7rem] text-stone">Non coché : couleur du thème. « Textes » et « Cadres » l&apos;emportent sur « Tout l&apos;élément ».</p>
-        </fieldset>
       </fieldset>
       <fieldset className="min-w-0 space-y-3 border-t border-line pt-3">
         <legend className="mb-1 font-serif text-lg">Animation</legend>
@@ -2114,7 +2122,6 @@ function ShapeControls({ layer: l, onChange }: { layer: InvitationLayer; onChang
 }
 
 /* ── Programme v2 : variantes, tige, couleurs, icônes, moments ──── */
-const ICON_CHOICES = BUILTIN_MEDIA.filter((m) => m.url.startsWith("/decor/icones/"));
 
 function StemPreview({ k, color = "#586c60" }: { k: string; color?: string }) {
   if (k === "aucune") return <span aria-hidden="true" className="block h-16 w-6 text-center text-[0.6rem] leading-[4rem] text-stone">∅</span>;
@@ -2131,75 +2138,6 @@ function StemPreview({ k, color = "#586c60" }: { k: string; color?: string }) {
       className="block h-16 w-6"
       style={{ backgroundColor: color, WebkitMaskImage: `url(/decor/tiges/${k}.svg)`, maskImage: `url(/decor/tiges/${k}.svg)`, WebkitMaskRepeat: "repeat-y", maskRepeat: "repeat-y", WebkitMaskSize: "100% auto", maskSize: "100% auto" }}
     />
-  );
-}
-
-/** Mini-aperçu d'une variante de frise */
-function TimelineThumb({ layout, stem, color }: { layout: string; stem: string; color: string }) {
-  const dot = <span className="block h-1.5 w-1.5 rounded-full" style={{ background: color }} />;
-  const bar = (w: string) => <span className="block h-[3px] rounded-full bg-stone/40" style={{ width: w }} />;
-  if (layout === "centered")
-    return (
-      <span className="flex flex-col items-center gap-1">
-        {[0, 1].map((i) => (
-          <span key={i} className="flex flex-col items-center gap-0.5">
-            {i ? <span className="block h-2 w-px" style={{ background: color }} /> : null}
-            <span className="block h-3.5 w-3.5 rounded-full border" style={{ borderColor: color }} />
-            {bar("26px")}
-          </span>
-        ))}
-      </span>
-    );
-  if (layout === "alternate")
-    return (
-      <span className="relative flex w-14 flex-col gap-2 py-1">
-        <span className="absolute inset-y-0 left-1/2 w-px" style={{ background: color }} />
-        <span className="flex items-center gap-1"><span className="flex flex-1 justify-end">{bar("16px")}</span>{dot}<span className="flex-1" /></span>
-        <span className="flex items-center gap-1"><span className="flex-1" />{dot}<span className="flex-1">{bar("16px")}</span></span>
-        <span className="flex items-center gap-1"><span className="flex flex-1 justify-end">{bar("16px")}</span>{dot}<span className="flex-1" /></span>
-      </span>
-    );
-  return (
-    <span className="flex items-stretch gap-1.5">
-      <span className="flex flex-col justify-around gap-2">{bar("9px")}{bar("9px")}{bar("9px")}</span>
-      {stem === "aucune" ? <span className="w-1.5" /> : isSimpleStem(stem) ? (
-        <span className="relative flex w-1.5 flex-col items-center justify-around">
-          <span className="absolute inset-y-0 w-px" style={{ background: color }} />
-          {stem === "perles" ? <>{dot}{dot}{dot}</> : null}
-        </span>
-      ) : <StemPreview k={stem} color={color} />}
-      <span className="flex flex-col justify-around gap-2">{bar("20px")}{bar("16px")}{bar("20px")}</span>
-      {layout === "icons" ? <span className="flex flex-col justify-around gap-2">{[0, 1, 2].map((i) => <span key={i} className="block h-2 w-2 rounded-sm border" style={{ borderColor: color }} />)}</span> : null}
-    </span>
-  );
-}
-
-function IconChoice({ value, auto, onChange, label }: { value: string | undefined; auto: string; onChange: (v: string | undefined) => void; label: string }) {
-  const [open, setOpen] = useState(false);
-  const shown = value === undefined ? auto : value;
-  return (
-    <div className="relative">
-      <button type="button" className="flex h-9 w-9 items-center justify-center rounded-sm border border-line bg-white hover:border-forest" aria-label={`${label} : changer l'icône`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        {shown ? (
-          <span aria-hidden="true" className="block h-6 w-6" style={{ backgroundColor: "#586c60", WebkitMaskImage: `url("${shown}")`, maskImage: `url("${shown}")`, WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }} />
-        ) : <span className="text-xs text-stone">∅</span>}
-      </button>
-      {open ? (
-        <div className="absolute right-0 top-10 z-30 w-[244px] rounded-sm border border-line bg-white p-2 shadow-xl" role="dialog" aria-label={`Icône — ${label}`}>
-          <div className="mb-1.5 flex gap-1.5">
-            <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => { onChange(undefined); setOpen(false); }}>Automatique</button>
-            <button type="button" className="btn btn-secondary btn-sm !px-2 !text-[0.65rem]" onClick={() => { onChange(""); setOpen(false); }}>Aucune</button>
-          </div>
-          <div className="grid max-h-56 grid-cols-6 gap-1 overflow-y-auto">
-            {ICON_CHOICES.map((m) => (
-              <button key={m.id} type="button" title={m.name} aria-label={m.name} onClick={() => { onChange(m.url); setOpen(false); }} className={`flex h-9 items-center justify-center rounded-sm border hover:border-forest ${shown === m.url ? "border-forest bg-sage-soft" : "border-transparent"}`}>
-                <span aria-hidden="true" className="block h-6 w-6" style={{ backgroundColor: "#3f4a3c", WebkitMaskImage: `url("${m.url}")`, maskImage: `url("${m.url}")`, WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }} />
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -2228,43 +2166,9 @@ function ProgramV2Editor({ section: s, content, onChange }: { section: Invitatio
     [items[i], items[j]] = [items[j], items[i]];
     onChange({ items });
   };
-  const setIcon = (id: string, v: string | undefined) => {
-    const next = { ...s.itemIcons };
-    if (v === undefined) delete next[id];
-    else next[id] = v;
-    onChange({ itemIcons: next });
-  };
   const accent = content.theme.colors.accent;
-  const withIcons = s.timeline !== "classic";
-  const shownItems = programV2Items(s, content);
   return (
     <div className="space-y-3">
-      <fieldset className="min-w-0">
-        <legend className="mb-1 block text-[0.7rem] uppercase tracking-wider text-stone">Frises prêtes à l&apos;emploi</legend>
-        <div className="grid grid-cols-3 gap-1.5">
-          {TIMELINE_PRESETS.map((p) => {
-            const active = s.timeline === p.patch.timeline && s.stem === p.patch.stem;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                aria-pressed={active}
-                onClick={() => onChange(p.patch)}
-                className={`flex flex-col items-center gap-1.5 rounded-sm border bg-white px-1 pb-1.5 pt-2.5 ${active ? "border-forest ring-2 ring-forest/30" : "border-line hover:border-forest"}`}
-              >
-                <span className="flex h-14 items-center"><TimelineThumb layout={p.patch.timeline ?? "classic"} stem={p.patch.stem ?? "feuilles"} color={p.patch.stemColor || accent} /></span>
-                <span className="text-center text-[0.6rem] leading-tight">{p.label}</span>
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-1 text-[0.7rem] text-stone">Un clic applique la variante ; tout reste modifiable ci-dessous.</p>
-      </fieldset>
-      <Field label="Mise en page">
-        <select aria-label="Mise en page de la frise" className={inputCls} value={s.timeline} onChange={(e) => onChange({ timeline: e.target.value as InvitationSection["timeline"] })}>
-          {TIMELINE_LAYOUTS.map((k) => <option key={k} value={k}>{TIMELINE_LABELS[k]}</option>)}
-        </select>
-      </Field>
       <Field label="Surtitre">
         <input aria-label="Surtitre" className={inputCls} maxLength={120} value={s.kicker} onChange={(e) => onChange({ kicker: e.target.value })} />
       </Field>
@@ -2289,24 +2193,9 @@ function ProgramV2Editor({ section: s, content, onChange }: { section: Invitatio
         </div>
       </fieldset>
       <ColorRow label="Couleur de la tige" value={s.stemColor} fallback={accent} onChange={(v) => onChange({ stemColor: v })} />
-      {withIcons ? <ColorRow label="Couleur des icônes" value={s.iconColor} fallback={s.stemColor || accent} onChange={(v) => onChange({ iconColor: v })} /> : null}
-      {withIcons && shownItems.length ? (
-        <fieldset className="min-w-0 space-y-1.5 border-t border-line pt-3">
-          <legend className="mb-1 block text-[0.7rem] uppercase tracking-wider text-stone">Icône de chaque moment</legend>
-          <p className="text-[0.7rem] text-stone">Devinée d&apos;après l&apos;intitulé ; cliquez pour en choisir une autre (ou aucune).</p>
-          {shownItems.map((it) => (
-            <div key={it.id} className="flex items-center gap-2">
-              <IconChoice label={it.title || "Moment"} value={s.itemIcons[it.id]} auto={it.id in s.itemIcons ? "" : (it.icon ?? "")} onChange={(v) => setIcon(it.id, v)} />
-              <span className="min-w-0 flex-1 truncate text-sm">{it.time ? `${it.time} · ` : ""}{it.title || "Moment"}</span>
-            </div>
-          ))}
-        </fieldset>
-      ) : null}
-      {s.timeline === "classic" ? (
-        <Field label="Fleur qui descend le long de la tige (facultatif)" hint="Elle suit le défilement de l'écran. Videz le champ pour ne pas en mettre.">
-          <MediaUrlField kinds={["image", "svg"]} className={inputCls} label="Fleur qui suit le défilement" value={s.marker} onChange={(v) => onChange({ marker: v })} />
-        </Field>
-      ) : null}
+      <Field label="Fleur qui descend le long de la tige (facultatif)" hint="Elle suit le défilement de l'écran. Videz le champ pour ne pas en mettre.">
+        <MediaUrlField kinds={["image", "svg"]} className={inputCls} label="Fleur qui suit le défilement" value={s.marker} onChange={(v) => onChange({ marker: v })} />
+      </Field>
       <fieldset className="min-w-0 space-y-2 border-t border-line pt-3">
         <legend className="mb-1 font-serif text-lg">Moments</legend>
         <label className="flex items-start gap-2 text-sm">

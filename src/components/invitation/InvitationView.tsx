@@ -100,20 +100,26 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
 
   // La musique démarre au premier geste du visiteur (toucher de la vidéo, du cachet, de l'écran) :
   // les navigateurs n'autorisent le son qu'après une action de sa part.
+  // Démo intégrée au site (framed) : seuls les gestes DANS la démo comptent, jamais un clic ailleurs sur la page.
+  const touchedDemo = useRef(false);
   useEffect(() => {
     if (!hasMusic) return;
+    const target: HTMLElement | Window | null = framed ? rootRef.current : window;
+    if (!target) return;
     const onGesture = () => {
+      touchedDemo.current = true;
       if (!mutedByUser.current) startMusic();
     };
     const events = ["pointerdown", "pointerup", "touchend", "click", "keydown"] as const;
-    events.forEach((e) => window.addEventListener(e, onGesture, { capture: true, passive: true }));
-    return () => events.forEach((e) => window.removeEventListener(e, onGesture, { capture: true }));
-  }, [hasMusic, startMusic]);
+    events.forEach((e) => target.addEventListener(e, onGesture, { capture: true, passive: true }));
+    return () => events.forEach((e) => target.removeEventListener(e, onGesture, { capture: true }));
+  }, [hasMusic, startMusic, framed]);
 
   const onOpened = useCallback(() => {
     setOpened(true);
-    if (hasMusic && !mutedByUser.current) startMusic();
-  }, [hasMusic, startMusic]);
+    // Démo : la musique ne part que si le visiteur a touché la démo elle-même
+    if (hasMusic && !mutedByUser.current && (!framed || touchedDemo.current)) startMusic();
+  }, [hasMusic, startMusic, framed]);
 
   const vars = {
     "--inv-bg": colors.background,
@@ -147,7 +153,7 @@ export function InvitationView({ content, renderer, mode, framed = false, skipEn
           scope={framed ? "absolute" : "fixed"}
           onOpened={onOpened}
           manualStart={mode === "demo"}
-          onTap={hasMusic ? () => !mutedByUser.current && startMusic() : undefined}
+          onTap={hasMusic ? () => !mutedByUser.current && (!framed || touchedDemo.current) && startMusic() : undefined}
         />
       ) : null}
 

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Sprig } from "@/components/ornaments";
 import { InvitationView } from "@/components/invitation/InvitationView";
@@ -22,6 +22,28 @@ type Params = Promise<{ slug: string }>;
 type Search = Promise<{ g?: string; langue?: string }>;
 
 const load = loadPublicInvitation;
+
+/**
+ * Plein écran sur téléphone : le contenu (vidéo d'ouverture comprise) passe sous la barre
+ * d'état et l'encoche, et la barre du navigateur prend la couleur de fond de l'invitation.
+ */
+export async function generateViewport({ params }: { params: Params }): Promise<Viewport> {
+  const base: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
+  const { slug } = await params;
+  const s = decodeURIComponent(slug).toLowerCase();
+  try {
+    if (s.startsWith(TEST_PREFIX)) {
+      const found = await getTemplateForTest(s.slice(TEST_PREFIX.length));
+      const bg = found?.definition.sample.theme.colors.background;
+      return bg ? { ...base, themeColor: bg } : base;
+    }
+    const inv = await load(s);
+    if (inv?.kind !== "ok") return base;
+    return { ...base, themeColor: inv.content.theme.colors.background };
+  } catch {
+    return base;
+  }
+}
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;

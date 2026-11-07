@@ -1015,9 +1015,11 @@ with sync_playwright() as p:
     a.mouse.move(nb["x"] + nb["width"] / 2 + 25, nb["y"] + 30, steps=6)
     a.mouse.up()
     expect(props.get_by_role("heading", name="Prénoms")).to_be_visible()
-    props.get_by_label("Imposer : Tout l'élément (une seule couleur)").check()
-    props.get_by_label("Imposer : Textes").check()
-    d = wait_draft(lambda d: (sec(d, "hero")[0]["elements"].get("names", {}).get("dx", 0) > 2) and sec(d, "hero")[0]["elements"]["names"]["color"] != "" and sec(d, "hero")[0]["elements"]["names"].get("textColor", "") != "", "prénoms déplacés et recolorés (tout + textes)")
+    for lbl, col in [("Tout l'élément d'une seule couleur", "#aa3355"), ("Couleur du texte", "#223344"), ("Fond des cases, champs et cartes", "#f0e6d8")]:
+        props.get_by_role("button", name=lbl, exact=True).click()
+        props.get_by_label("Code couleur").fill(col)
+        a.keyboard.press("Escape")
+    d = wait_draft(lambda d: (sec(d, "hero")[0]["elements"].get("names", {}).get("dx", 0) > 2) and sec(d, "hero")[0]["elements"]["names"]["color"] != "" and sec(d, "hero")[0]["elements"]["names"].get("textColor", "") != "" and sec(d, "hero")[0]["elements"]["names"].get("fillColor", "") == "#f0e6d8", "prénoms déplacés et recolorés (tout + textes + fond)")
     a.locator('[data-section="hero"] [data-el="divider"]').click()
     expect(props.get_by_role("heading", name="Ornement central")).to_be_visible()
     a.keyboard.press("Delete")
@@ -1196,14 +1198,7 @@ with sync_playwright() as p:
     expect(canvas.get_by_role("button", name="Ouvrir l'invitation")).to_have_count(0)
     ok("éditeur visuel : écran d'ouverture affiché, cachet modifié, ouverture jouée, retour aux sections")
 
-    # Frise prête à l'emploi (icônes et perles) et album photo
-    left.get_by_label("Ajouter une section").select_option("program2")
-    props.get_by_role("button", name="Icônes et perles").click()
-    d = wait_draft(lambda d: any(s["type"] == "program2" and s.get("timeline") == "icons" and s.get("stem") == "perles" for s in d["sections"]), "frise icônes et perles")
-    expect(canvas.locator('[data-section="program2"] [data-el$=".icon"]').first).to_be_visible()
-    props.get_by_label("Mise en page de la frise").select_option("centered")
-    d = wait_draft(lambda d: any(s["type"] == "program2" and s.get("timeline") == "centered" for s in d["sections"]), "frise médaillons")
-    ok("éditeur visuel : frise prête à l'emploi (icônes et perles), puis mise en page « médaillons »")
+    # Album photo
     left.get_by_label("Ajouter une section").select_option("gallery")
     d = wait_draft(lambda d: any(s["type"] == "gallery" and len(s.get("photos", [])) == 4 for s in d["sections"]), "album photo ajouté")
     gal = canvas.locator('[data-section="gallery"]').last

@@ -68,7 +68,7 @@ export function LiveRsvpForm({
     );
   }
 
-  const inputStyle = { color: "var(--inv-ink)", backgroundColor: "var(--inv-bg)" };
+  const inputStyle = { color: "var(--inv-ink)", backgroundColor: "var(--inv-fill, var(--inv-bg))" };
   const fieldCls = (name: string) =>
     `${errorFields.has(name) ? "border-[#a1453a]" : "inv-border-soft"} mt-1 block w-full min-h-11 border px-3 py-2 text-base outline-none focus:ring-2`;
   const labelCls = "block text-xs";

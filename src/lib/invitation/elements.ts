@@ -187,7 +187,7 @@ function definitions(type: SectionType, c: InvitationContent, section?: Invitati
     case "venues":
       return [...(section?.look === "map" ? [{ id: "kicker", label: "Surtitre", kind: "text" as const, edit: "section-kicker" as const }] : []), ...title(), { id: "list", label: "Lieux et infos pratiques", kind: "block", children: venueItems(c) }];
     case "rsvp":
-      return [...(section?.look === "ticket" ? [{ id: "kicker", label: "Surtitre", kind: "text" as const, edit: "section-kicker" as const }, { id: "mark", label: "Mot « RSVP »", kind: "text" as const }] : []), ...title(), { id: "intro", label: "Texte d'introduction", kind: "text", edit: "rsvp-intro" }, { id: "form", label: "Formulaire de réponse", kind: "block", hideable: false }];
+      return [...(section?.look === "ticket" ? [{ id: "kicker", label: "Surtitre", kind: "text" as const, edit: "section-kicker" as const }, { id: "mark", label: "Mot « RSVP »", kind: "text" as const }, { id: "card", label: "Carte festonnée", kind: "block" as const }] : []), ...title(), { id: "intro", label: "Texte d'introduction", kind: "text", edit: "rsvp-intro" }, { id: "form", label: "Formulaire de réponse", kind: "block", hideable: false }];
     case "contacts":
       return [...title(), { id: "list", label: "Liste des contacts", kind: "block", children: contactItems(c) }];
     case "closing":
@@ -233,7 +233,6 @@ function definitions(type: SectionType, c: InvitationContent, section?: Invitati
                     ...(it.detail
                       ? [{ id: `${k}.detail`, label: "Détail", kind: "text" as const, edit: ev ? { event: it.id, field: "venueName" as const } : { item: i, field: "detail" as const } }]
                       : []),
-                    ...(it.icon && section.timeline !== "classic" ? [{ id: `${k}.icon`, label: "Icône", kind: "ornament" as const }] : []),
                   ],
                 };
               })

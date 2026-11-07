@@ -398,7 +398,7 @@
   margin-top: 0 !important;
   min-height: 1.9rem !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--inv-ink) 28%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--inv-accent) 45%, transparent) !important;
   border-radius: 0;
   background: transparent !important;
   padding: 0.1rem 2px 0.25rem !important;
@@ -431,7 +431,7 @@
   justify-content: center;
   min-height: 2.6rem;
   padding: 0.35rem 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--inv-ink) 22%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--inv-accent) 40%, transparent) !important;
   border-radius: 12px;
   font-family: var(--inv-display);
   font-size: 0.82rem;
@@ -439,7 +439,7 @@
   letter-spacing: 0.02em;
   text-transform: none;
   text-align: center;
-  background: transparent !important;
+  background: var(--inv-fill, transparent) !important;
   transition: border-color 0.2s, background-color 0.2s;
 }
 .inv-ticket form label:has(> input[type="radio"]:checked) {

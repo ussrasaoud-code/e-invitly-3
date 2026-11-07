@@ -418,7 +418,7 @@ function SaveTheDate({ content, labels, title, section }: { content: InvitationC
         {parts ? (
           <div className="mx-auto mt-5 grid max-w-[335px] grid-cols-4 gap-2.5" role="timer" aria-live="off">
             {parts.map((p) => (
-              <div key={p.l} className="rounded-xl border px-1 py-3.5" style={{ borderColor: "color-mix(in srgb, var(--inv-ink) 30%, transparent)", background: "color-mix(in srgb, var(--inv-bg) 70%, white)", boxShadow: "inset 0 1px 4px rgb(0 0 0 / 0.06)" }}>
+              <div key={p.l} className="rounded-xl border px-1 py-3.5" style={{ borderColor: "color-mix(in srgb, var(--inv-accent) 45%, transparent)", background: "var(--inv-fill, color-mix(in srgb, var(--inv-bg) 70%, white))", boxShadow: "inset 0 1px 4px rgb(0 0 0 / 0.06)" }}>
                 <span className="block text-[1.9rem] leading-none lining-nums tabular-nums" style={ink}>{String(p.v).padStart(2, "0")}</span>
                 <span className="mt-1.5 block truncate text-[0.82rem] capitalize" style={{ ...css.display, color: "var(--inv-muted)" }}>{p.l}</span>
               </div>
@@ -432,7 +432,7 @@ function SaveTheDate({ content, labels, title, section }: { content: InvitationC
       </El>
       {cal && parts ? (
         <El id="calendar" className="mt-8">
-          <a href={cal} className="inline-flex min-h-12 items-center gap-3 whitespace-nowrap rounded-full border px-7 text-[1.1rem] transition hover:brightness-95" style={{ ...ink, borderColor: "color-mix(in srgb, var(--inv-ink) 45%, transparent)", background: "color-mix(in srgb, var(--inv-bg) 75%, white)" }}>
+          <a href={cal} className="inline-flex min-h-12 items-center gap-3 whitespace-nowrap rounded-full border px-7 text-[1.1rem] transition hover:brightness-95" style={{ ...ink, borderColor: "color-mix(in srgb, var(--inv-accent) 60%, transparent)", background: "var(--inv-fill, color-mix(in srgb, var(--inv-bg) 75%, white))" }}>
             <CalendarIcon /> {labels.addCalendar}
           </a>
         </El>
@@ -516,7 +516,7 @@ export function ScratchSection({ content, renderer, labels, title, section }: Se
         <div className="mx-auto grid max-w-[330px] grid-cols-3 gap-3">
           {parts.map((p, i) => (
             <div key={p.l} className="text-center">
-              <div className="aspect-[4/4.6] overflow-hidden rounded-xl shadow-[0_6px_18px_-8px_rgb(0_0_0/0.25)]" style={{ backgroundColor: "var(--inv-surface, #fff)" }}>
+              <div className="aspect-[4/4.6] overflow-hidden rounded-xl shadow-[0_6px_18px_-8px_rgb(0_0_0/0.25)]" style={{ backgroundColor: "var(--inv-fill, var(--inv-surface, #fff))" }}>
                 <ScratchCover
                   cover={cover}
                   label={p.l}
@@ -829,7 +829,7 @@ export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp
     : content.rsvp.deadline
       ? formatLongDate(`${content.rsvp.deadline}T12:00`, content.language)
       : "";
-  const inputStyle = { color: "var(--inv-ink)", backgroundColor: "var(--inv-bg)" };
+  const inputStyle = { color: "var(--inv-ink)", backgroundColor: "var(--inv-fill, var(--inv-bg))" };
   const fieldCls = "inv-border-soft mt-1 block w-full min-h-11 border px-3 py-2 text-base outline-none focus:ring-2";
   const ticket = section?.look === "ticket";
   const intro = content.rsvp.intro || (deadline ? `${labels.rsvpBefore} ${deadline}.` : "");
@@ -873,7 +873,7 @@ export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp
                 <label
                   key={v}
                   className={`${attending === v ? "inv-border-accent" : "inv-border-soft"} flex min-h-11 cursor-pointer items-center gap-3 border px-3 text-sm`}
-                  style={{ color: "var(--inv-ink)", backgroundColor: "var(--inv-bg)" }}
+                  style={{ color: "var(--inv-ink)", backgroundColor: "var(--inv-fill, var(--inv-bg))" }}
                 >
                   <input type="radio" name="attending" value={v} required checked={attending === v} onChange={() => setAttending(v)} style={{ accentColor: "var(--inv-accent)" }} />
                   {v === "yes" ? labels.yes : labels.no}
@@ -936,7 +936,8 @@ export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp
             <h2 className="mt-1 text-center text-[3rem] leading-tight" style={{ ...css.script, color: "var(--inv-bg)" }}>{title || labels.willYouJoin}</h2>
           </El>
         </Reveal>
-        <div className="inv-ticket mt-5 px-6 pb-12 pt-12" style={{ backgroundColor: "var(--inv-bg)" }}>
+        <El id="card">
+        <div className="inv-ticket mt-5 px-6 pb-12 pt-12" style={{ backgroundColor: "var(--inv-fill, var(--inv-bg))" }}>
           <El id="mark">
             <p className="text-center text-[3.2rem] leading-none" style={{ ...css.script, color: "var(--inv-ink)" }}>{labels.rsvpMark}</p>
           </El>
@@ -947,6 +948,7 @@ export function RsvpSection({ content, renderer, labels, title, mode, slug, rsvp
           ) : null}
           <div className="mt-6">{formBlock}</div>
         </div>
+        </El>
       </section>
     );
   return (
@@ -1041,8 +1043,8 @@ export function DecorSection({ height }: { height: number }) {
   return <div aria-hidden="true" style={{ paddingTop: `${height}%` }} />;
 }
 
-/* ── Programme v2 : frise (tige fleurie, trait, perles…) et mises en page ── */
-type TItem = { id: string; time: string; title: string; detail: string; icon?: string };
+/* ── Programme v2 : frise (tige fleurie, trait, perles…) ── */
+type TItem = { id: string; time: string; title: string; detail: string };
 
 /** Tige verticale qui remplit son conteneur : SVG fleuri, ou trait simple dessiné en CSS */
 function StemLine({ stem, color }: { stem: string; color: string }) {
@@ -1082,27 +1084,13 @@ function Pearl({ color, size = 11 }: { color: string; size?: number }) {
   );
 }
 
-/** Icône de la bibliothèque, recolorée */
-function MomentIcon({ src, color, size }: { src: string; color: string; size: number }) {
-  return (
-    <span
-      aria-hidden="true"
-      className="block shrink-0"
-      style={{ width: size, height: size, backgroundColor: color, WebkitMaskImage: `url("${src}")`, maskImage: `url("${src}")`, WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat", WebkitMaskPosition: "center", maskPosition: "center" }}
-    />
-  );
-}
-
 export function ProgramV2Section({ section, content }: SectionProps & { section: InvitationSection }) {
   const { kicker, title, marker } = section;
   // Par défaut, le programme de l'invitation (rempli depuis la demande du client)
   const items: TItem[] = programV2Items(section, content, (t) => formatTime(t, content.language), (d) => formatDayLabel(d, content.language));
-  const layout = section.timeline ?? "classic";
   const stem = section.stem ?? "feuilles";
   const stemColor = section.stemColor || "var(--inv-accent)";
-  const iconColor = section.iconColor || section.stemColor || "var(--inv-accent)";
   const pearls = stem === "perles";
-  const showIcons = layout !== "classic";
   const timeCls = "text-[1.05rem] uppercase lining-nums tracking-wide";
   const titleCls = "text-[1.02rem] uppercase tracking-[0.06em]";
   const detailCls = "mt-1 whitespace-pre-line text-[0.66rem] uppercase leading-relaxed tracking-[0.06em]";
@@ -1120,93 +1108,18 @@ export function ProgramV2Section({ section, content }: SectionProps & { section:
       ) : null}
     </div>
   );
-  const Icon = ({ it, k, size }: { it: TItem; k: string; size: number }) =>
-    showIcons && it.icon ? (
-      <El id={`${k}.icon`}>
-        <MomentIcon src={it.icon} color={iconColor} size={size} />
-      </El>
-    ) : null;
-
   let body: ReactNode = null;
-  if (items.length && layout === "centered") {
-    // Médaillons : icône dans un cercle, heure, intitulé ; un trait relie les moments
-    body = (
-      <El id="list">
-        <ol className="relative mt-8 flex flex-col items-center">
-          {items.map((it, i) => {
-            const k = `list.${elKey(it.id)}`;
-            return (
-              <El id={k} as="li" key={it.id} className="flex w-full flex-col items-center text-center">
-                {i > 0 ? (
-                  <El id="stem" className="pointer-events-none my-2 h-9 w-[46.8px]">
-                    <StemLine stem={stem} color={stemColor} />
-                  </El>
-                ) : null}
-                {showIcons && it.icon ? (
-                  <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full" style={{ border: `1px solid ${stemColor}` }}>
-                    <Icon it={it} k={k} size={32} />
-                  </span>
-                ) : (
-                  <Pearl color={stemColor} />
-                )}
-                <El id={`${k}.time`}>
-                  <p className={`mt-3 ${timeCls}`} style={ink}>{it.time}</p>
-                </El>
-                <div className="mt-1 max-w-[280px]">
-                  <Texts it={it} k={k} align="center" />
-                </div>
-              </El>
-            );
-          })}
-        </ol>
-      </El>
-    );
-  } else if (items.length && layout === "alternate") {
-    // Zigzag : une ligne au centre, les moments de part et d'autre, l'icône en face
-    body = (
-      <div className="relative mt-10">
-        <El id="stem" className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2" style={{ width: "46.8px" }}>
-          <StemLine stem={stem} color={stemColor} />
-        </El>
-        <El id="list">
-          <ol className="relative">
-            {items.map((it, i) => {
-              const k = `list.${elKey(it.id)}`;
-              const left = i % 2 === 0;
-              const text = (
-                <div className={left ? "text-right" : "text-left"}>
-                  <El id={`${k}.time`}>
-                    <p className={timeCls} style={ink}>{it.time}</p>
-                  </El>
-                  <div className="mt-1">
-                    <Texts it={it} k={k} align={left ? "right" : "left"} />
-                  </div>
-                </div>
-              );
-              const icon = <div className={`flex ${left ? "justify-start" : "justify-end"} pt-1`}><Icon it={it} k={k} size={40} /></div>;
-              return (
-                <El id={k} as="li" key={it.id} className="grid grid-cols-[minmax(0,1fr)_46.8px_minmax(0,1fr)] items-start py-[14px]">
-                  {left ? text : icon}
-                  <span className="flex justify-center pt-[7px]">{pearls || stem === "aucune" ? <Pearl color={stemColor} /> : <span className="block h-[7px] w-[7px] rotate-45" style={{ background: stemColor }} />}</span>
-                  {left ? icon : text}
-                </El>
-              );
-            })}
-          </ol>
-        </El>
-      </div>
-    );
-  } else if (items.length) {
+  if (items.length) {
     // Classique (heure | tige | texte) ou avec icônes à droite
-    const cols = layout === "icons" ? "grid-cols-[72px_30px_minmax(0,1fr)_46px]" : "grid-cols-[93.6px_46.8px_minmax(0,1fr)]";
-    const stemLeft = layout === "icons" ? "72px" : "93.6px";
-    const stemWidth = layout === "icons" ? "30px" : "46.8px";
+    const cols = "grid-cols-[93.6px_46.8px_minmax(0,1fr)]";
+    const stemLeft = "93.6px";
+    const stemWidth = "46.8px";
     body = (
       <div className="relative mt-10">
         <El id="stem" className="pointer-events-none absolute inset-y-0" style={{ left: stemLeft, width: stemWidth }}>
           <StemLine stem={stem} color={stemColor} />
         </El>
-        {marker && layout === "classic" ? (
+        {marker ? (
           <El id="marker" className="pointer-events-none absolute z-[2]" style={{ left: "93.6px", width: "46.8px", top: "calc(var(--p, 0) * (100% - 46.8px))", transition: "top 140ms linear" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={marker} alt="" className="block h-auto w-full drop-shadow-sm" />
@@ -1223,7 +1136,6 @@ export function ProgramV2Section({ section, content }: SectionProps & { section:
                   </El>
                   <span aria-hidden="true" className="pt-[8px]">{pearls ? <Pearl color={stemColor} /> : null}</span>
                   <Texts it={it} k={k} />
-                  {layout === "icons" ? <div className="flex justify-end"><Icon it={it} k={k} size={38} /></div> : null}
                 </El>
               );
             })}
@@ -1295,7 +1207,7 @@ export function GallerySection({ section, labels }: SectionProps & { section: In
                 <figure
                   key={p.id}
                   aria-hidden={off !== 0}
-                  className="absolute left-1/2 top-0 m-0 w-[210px] overflow-hidden rounded-[3px] bg-white p-[7px] shadow-[0_10px_28px_rgba(0,0,0,0.14)] transition-all duration-500 ease-out"
+                  className="absolute left-1/2 top-0 m-0 w-[210px] overflow-hidden rounded-[3px] bg-[var(--inv-fill,#fff)] p-[7px] shadow-[0_10px_28px_rgba(0,0,0,0.14)] transition-all duration-500 ease-out"
                   style={{
                     transform: `translateX(calc(-50% + ${off * 190}px)) scale(${off === 0 ? 1 : 0.82}) rotate(${off * 2.5}deg)`,
                     opacity: far ? 0 : off === 0 ? 1 : 0.55,
